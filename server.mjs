@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
     try {
       payload = JSON.parse((await readBody(req)).toString('utf8'));
     } catch {
-      // Never surface a parser error to a person. ISDA shipped "bad body" to a user.
+      // Never surface a raw parser error to a person.
       return json(res, 400, { error: 'We could not read that upload. Try the screenshot again.' });
     }
 
