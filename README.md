@@ -1,7 +1,11 @@
-# Instant audit — v1 (local)
+# RUANGKOTAK
 
-One screen, two screenshots, three taps. The whole report lands before any
-email box appears.
+RUANGKOTAK is a new marketing agency's first product: an instant Instagram
+creator audit. One screen, two screenshots, three taps — the whole report
+lands before any email box appears.
+
+This repo is the audit app itself. Built and shipped in the open as the
+agency comes together.
 
 ## Run
 
