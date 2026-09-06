@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy — Ruangkotak</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#EFF2F5;--card:#FFF;--card-2:#F7F9FB;
+  --ink:#14181E;--ink-2:#5A6572;--ink-3:#8A94A0;
+  --rule:#D6DCE3;--rule-2:#E7ECF1;
+  --signal:#1B5FD9;--signal-soft:#E4EDFC;
+  --friction:#A93B24;--good:#17795E;--good-soft:#E1F2EC;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --body:"Source Serif 4",Georgia,serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --paper:#0F1216;--card:#171B21;--card-2:#1D222A;
+  --ink:#E6EAEE;--ink-2:#9AA5B1;--ink-3:#6B7683;
+  --rule:#2A313A;--rule-2:#222831;
+  --signal:#6BA3FF;--signal-soft:#16243B;
+  --friction:#E08268;--good:#4FBF9B;--good-soft:#122C25;
+}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:640px;margin:0 auto;padding:32px 20px 100px}
+.brand{font-family:var(--mono);font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-3);margin-bottom:10px}
+.back{font-family:var(--mono);font-size:12.5px;color:var(--signal);text-decoration:none;display:inline-block;margin-bottom:28px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,6vw,36px);line-height:1.08;letter-spacing:-.025em;margin:0 0 6px}
+.updated{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin:0 0 30px}
+h2{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.012em;margin:34px 0 10px}
+p{margin:0 0 14px;font-size:16px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:18px 20px;margin:0 0 14px}
+.card b{font-family:var(--display);font-weight:700;font-size:15.5px;display:block;margin-bottom:5px}
+.card p{margin:0;font-size:15px;color:var(--ink-2)}
+.card.good{border-left:3px solid var(--good)}
+code{font-family:var(--mono);font-size:14px;background:var(--card-2);border:1px solid var(--rule);padding:1px 5px;border-radius:3px}
+a{color:var(--signal)}
+footer{border-top:1px solid var(--rule);margin-top:40px;padding-top:16px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Ruangkotak</div>
+  <a class="back" href="/">← back to the audit</a>
+  <h1>Privacy</h1>
+  <p class="updated">Last updated 2026-09-05 · plain language, matches what the code actually does</p>
+
+  <h2>What we ask you for</h2>
+  <p>Two screenshots — your Instagram Insights screen and your profile page — and three short answers: what you make, your 90-day goal, and how often you post. That's the entire form.</p>
+
+  <h2>What happens to them</h2>
+  <div class="card good">
+    <b>Right now, running this locally</b>
+    <p>No <code>ANTHROPIC_API_KEY</code> is set, so nothing you enter leaves your own machine. The report you get back is fixed sample data, clearly marked "Demo reading" — not a read of your screenshots.</p>
+  </div>
+  <div class="card">
+    <b>When a real reading is switched on</b>
+    <p>Your two screenshots and three answers are sent once to Anthropic's Claude API, which reads the numbers off the images and writes the report. That single request is the only place your data goes. We do not save the images, or your answers, anywhere — not to a database, not to a file, not to a log. Once your report is generated, the input is gone from our side.</p>
+  </div>
+
+  <h2>What we don't do</h2>
+  <p>No account, no email required to see your report. No Google Analytics, no Meta Pixel, no third-party ad trackers. A first-party counter on our own server records only that an audit started and finished — an event name and a timestamp, nothing about you or your account.</p>
+
+  <h2>Who else sees it</h2>
+  <p>Anthropic, as the processor that reads your screenshots when a live reading runs — solely to generate your report, under their own API data-handling terms. Nobody else. We don't sell, share, or use your data for anything beyond producing the one report you asked for.</p>
+
+  <h2>Your rights</h2>
+  <p>If you're in Malaysia, the Personal Data Protection Act 2010 applies to how we'd handle any data we did retain. Since v1 retains none — no stored images, no stored answers, no email — there's nothing on file to request or delete. If a later version adds an email capture or saved reports, this page will say so before it ships, and will explain how to see or delete what's held.</p>
+  <p>Questions: <a href="mailto:hello@ruangkotak.com">hello@ruangkotak.com</a></p>
+
+  <footer>Ruangkotak · this notice describes the code as built, not a legal certification</footer>
+</div>
+</body>
+</html>

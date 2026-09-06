@@ -1,0 +1,14 @@
+{
+  "name": "ruangkotak-audit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "zod": "^4.0.0"
+  }
+}
