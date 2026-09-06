@@ -16,18 +16,6 @@ For a real reading:
     export ANTHROPIC_API_KEY=sk-ant-...
     npm start
 
-## What it does differently
-
-| ISDA | here |
-|---|---|
-| up to 8 screenshots | 2 |
-| 5 metrics retyped by hand | 0 |
-| `TOO BIG` on a 4MB image | canvas-downscaled to 1600px/q0.8 before upload |
-| `THAT DID NOT WORK · bad body` | one server retry, then a demo reading — never a raw error |
-| a metric rendered as `—` | tile is dropped, provenance line says how many were unreadable |
-| diagnosis changed between screens | computed once in `lib/score.mjs`, never by the model |
-| diagnostic labels printed as content pillars | pillars come only from the grid; the diagnosis cannot reach that field |
-
 ## Pre-launch gate
 
 Every page and API route are behind HTTP Basic Auth once `GATE_USER` and `GATE_PASS`
