@@ -1,3 +1,0 @@
-# Pre-launch — keep this out of search entirely until it's ready to announce.
-User-agent: *
-Disallow: /
