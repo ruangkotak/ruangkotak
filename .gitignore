@@ -3,3 +3,14 @@ node_modules/
 .DS_Store
 .obsidian/
 JOURNAL.md
+OFFER.md
+OPEN.md
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# raw photo and video originals, converted into public/media and motion/public
+/assets/raw/
+
+# vendored third-party skills, reinstallable from skills-lock.json
+/.agents/
