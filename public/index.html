@@ -64,6 +64,14 @@
     --mx:min(1320px,100% - 3rem);
     --grain:.038;
     --ease:cubic-bezier(.16,1,.3,1); --dur:.72s;
+    /* soft-extrusion pair: one light source, top-left, everywhere on the page.
+       the composites read --nu-lite/--nu-dark at use time, so the dark scheme
+       only has to override those two. */
+    --nu-lite:rgba(255,255,255,.94); --nu-dark:rgba(20,20,26,.13);
+    --nu-out:7px 7px 18px var(--nu-dark), -6px -6px 14px var(--nu-lite);
+    --nu-out-sm:4px 4px 11px var(--nu-dark), -3px -3px 8px var(--nu-lite);
+    --nu-out-lg:12px 12px 30px var(--nu-dark), -9px -9px 22px var(--nu-lite);
+    --nu-in:inset 3px 3px 8px var(--nu-dark), inset -3px -3px 7px var(--nu-lite);
   }
   @media (prefers-color-scheme:dark){
     :root{
@@ -72,6 +80,9 @@
       --ink:#f3f3f1; --ink-2:#a6a6af; --ink-3:#76767f;
       --accent:#7a9dff; --accent-ink:#0d0d16;
       --grain:.055;
+      /* on a near-black ground the highlight has to be a whisper and the
+         shadow has to do the work, or the surfaces turn into grey slabs. */
+      --nu-lite:rgba(255,255,255,.052); --nu-dark:rgba(0,0,0,.66);
     }
   }
   *{box-sizing:border-box}
@@ -134,12 +145,16 @@
     border-radius:var(--r); padding:.7rem 1.3rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.76rem;
     letter-spacing:.1em; text-transform:uppercase; white-space:nowrap;
-    transition:background .2s var(--ease), color .2s var(--ease)}
+    box-shadow:var(--nu-out-sm);
+    transition:background .2s var(--ease), color .2s var(--ease),
+      box-shadow .2s var(--ease), translate .2s var(--ease)}
+  .btn:hover{translate:0 -1px; box-shadow:var(--nu-out)}
+  .btn:active{translate:0 1px; box-shadow:var(--nu-in)}
   .btn::after{content:""; position:absolute; inset:-5px; border:1px solid var(--hair);
     border-radius:calc(var(--r) + 4px); pointer-events:none;
     transition:inset .22s var(--ease), border-color .22s var(--ease)}
   .btn:hover::after{inset:-9px; border-color:var(--ink)}
-  .btn.ghost{background:transparent; color:var(--ink); border-color:var(--hair)}
+  .btn.ghost{background:var(--surface); color:var(--ink); border-color:transparent}
   .btn.ghost:hover{background:var(--ink); color:var(--bg); border-color:var(--ink)}
   .btn:focus-visible,a:focus-visible{outline:2px solid var(--accent); outline-offset:4px}
 
@@ -149,7 +164,8 @@
   .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;
     overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
   .wordmark{width:var(--mx); margin-inline:auto; background:var(--plate);
-    border-radius:var(--r); overflow:hidden; line-height:0; aspect-ratio:1920/430}
+    border-radius:calc(var(--r) + 4px); overflow:hidden; line-height:0; aspect-ratio:1920/430;
+    box-shadow:var(--nu-out-lg)}
   .wordmark video{width:100%; height:100%; object-fit:cover; display:block}
   @media(max-width:760px){ .wordmark{aspect-ratio:1920/320} }
 
@@ -159,26 +175,34 @@
     line-height:1.62; max-width:34ch; color:var(--ink)}
   .hero-foot .btn{margin-top:2rem}
   .rail{margin:0; padding:0; list-style:none; display:grid; gap:.4rem; color:var(--ink-2)}
-  .hero-foot .rail{justify-self:end; text-align:right}
+  .hero-foot .rail{justify-self:end; text-align:right; gap:.5rem}
+  .hero-foot .rail li{padding:.3rem .7rem; border-radius:calc(var(--r) - 1px);
+    box-shadow:var(--nu-in)}
   @media(max-width:860px){
     .hero-foot{grid-template-columns:1fr; gap:2rem}
     .hero-foot .rail{justify-self:start; text-align:left}
   }
 
+  /* the hero plate: the month timeline, full width under the hero foot.
+     1600x840 source, so the box holds that ratio and never reflows on load. */
+  .hero-plate{width:100%; margin:clamp(2.5rem,5vw,4rem) 0 0; background:var(--plate);
+    border-radius:calc(var(--r) + 4px); overflow:hidden; line-height:0;
+    aspect-ratio:1600/840; box-shadow:var(--nu-out-lg)}
+  .hero-plate video{width:100%; height:100%; object-fit:cover; display:block}
+  .hero-plate + .plate-cap{width:100%; max-width:none}
+
   /* the stats strip, rebuilt. every row here is a fact about the offer,
      not a result. no client counts, nothing that needs a footnote. */
-  .facts{display:grid; gap:0; margin-top:clamp(3rem,7vw,6rem); max-width:520px; margin-left:auto}
+  .facts{display:grid; gap:0; margin-top:clamp(3rem,7vw,6rem); max-width:520px; margin-left:auto;
+    background:var(--surface); border-radius:calc(var(--r) + 4px);
+    padding:.5rem clamp(1.1rem,2.4vw,1.6rem); box-shadow:var(--nu-out)}
   .fact{display:flex; align-items:baseline; gap:.9rem; padding:.85rem 0;
     border-bottom:1px solid var(--line)}
-  .fact:first-child{border-top:1px solid var(--line)}
+  .fact:last-child{border-bottom:0}
   .fact b{font-weight:500; font-size:1.05rem; letter-spacing:-0.02em; min-width:5.5ch}
   .fact span{color:var(--ink-2)}
   @media(max-width:860px){ .facts{margin-left:0} }
 
-  /* the centre plate: one modest portrait asset, not a full-bleed banner */
-  .center-plate{width:min(330px,72%); margin:clamp(3rem,7vw,6rem) auto 0;
-    background:var(--plate); border-radius:var(--r); overflow:hidden; line-height:0}
-  .center-plate video{width:100%; height:auto; display:block}
   .plate-cap{margin:.9rem auto 0; width:min(330px,72%); color:var(--ink-3); text-align:center}
 
   /* stacked tiles. the reference stacks case studies here. there are none,
@@ -187,8 +211,9 @@
   .tile{position:relative; background:var(--plate); border-radius:var(--r);
     padding:clamp(3rem,7vw,5.5rem) clamp(1.5rem,4vw,3rem); color:#f3f3f1;
     display:grid; justify-items:center; text-align:center; overflow:hidden;
-    transition:transform .4s var(--ease)}
-  .tile:hover{transform:translateY(-4px)}
+    box-shadow:var(--nu-out);
+    transition:transform .4s var(--ease), box-shadow .4s var(--ease)}
+  .tile:hover{transform:translateY(-4px); box-shadow:var(--nu-out-lg)}
   .tile .lab{color:rgba(243,243,241,.5)}
   .tile h3{font-size:clamp(1.6rem,3.4vw,2.6rem); letter-spacing:-0.03em; margin:1.1rem 0 1.3rem}
   .tile .sub{max-width:44ch; color:rgba(243,243,241,.62); font-family:"DM Mono",ui-monospace,Menlo,monospace;
@@ -247,8 +272,9 @@
     .steps p{grid-column:2}
   }
 
-  .gate{border:1px solid var(--line); border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem);
-    background:var(--surface); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px}
+  .gate{border:0; border-radius:calc(var(--r) + 4px); padding:clamp(1.5rem,3vw,2rem);
+    background:var(--surface); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
+    box-shadow:var(--nu-out)}
   .gate ul{margin:1.1rem 0 0; padding:0; list-style:none; display:grid; gap:.5rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.82rem; color:var(--ink-2)}
   .gate li{padding-left:1.1rem; position:relative}
@@ -285,11 +311,10 @@
   @keyframes lift{ to{opacity:1; translate:0 0} }
 
   @media (prefers-reduced-motion:reduce){
-    .wordmark video,.center-plate video{display:none}
+    .wordmark video,.hero-plate video{display:none}
     .wordmark{aspect-ratio:1920/560;
       background:var(--plate) url("/media/hero-wordmark.jpg") center/cover no-repeat}
-    .center-plate{aspect-ratio:4/5;
-      background:var(--plate) url("/media/month-planned.jpg") center/cover no-repeat}
+    .hero-plate{background:var(--plate) url("/media/month-timeline.jpg") center/cover no-repeat}
     .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
       transition:none !important; animation:none !important}
     .tile:hover,.row:hover{transform:none; padding-left:0}
@@ -334,6 +359,13 @@
         </ul>
       </div>
 
+      <figure class="hero-plate reveal">
+        <video src="/media/month-timeline.mp4" poster="/media/month-timeline.jpg"
+               autoplay muted loop playsinline preload="none"
+               aria-label="A month of content in progress: positioning, eight ideas, scripts and captions filling in across four weeks, with the filming weeks marked as the client's."></video>
+      </figure>
+      <p class="plate-cap mono reveal">Eight ideas, grouped into four weeks.</p>
+
       <div class="facts reveal">
         <div class="fact"><b>8</b><span>ideas, scripts and captions a month</span></div>
         <div class="fact"><b>4</b><span>clients at a time, by design</span></div>
@@ -351,12 +383,6 @@
         <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">That loop is rarely a discipline problem. It is what happens when nobody decided who the content is for, what it promises, or what each piece is meant to prove. Without those three, every week starts from scratch and the account ends up looking like five different businesses.</p>
         <p class="mono" style="margin-top:1.4rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle those three things first, then turn them into a month of content you can actually film. One product, one price, four clients at a time.</p>
       </div>
-      <figure class="center-plate" style="margin-bottom:0">
-        <video src="/media/month-planned.mp4" poster="/media/month-planned.jpg"
-               autoplay muted loop playsinline preload="none"
-               aria-label="A month of content, planned: eight ideas grouped into four weeks."></video>
-      </figure>
-      <p class="plate-cap mono">Eight ideas, grouped into four weeks.</p>
     </div>
   </section>
 
