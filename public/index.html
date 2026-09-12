@@ -67,16 +67,16 @@
   :root{
     /* greyscale ramp */
     --bg:#1e1e1e; --bg-2:#202020;
-    --raise-hi:#2e2e2e;   /* light edge, top-left */
-    --raise-lo:#101010;   /* dark edge, bottom-right */
+    --raise-hi:#3a3a3a;   /* light edge, top-left */
+    --raise-lo:#0a0a0a;   /* dark edge, bottom-right */
     --sink-hi:#2b2b2b; --sink-lo:#121212;
 
-    --text:#f2f2f2; --text-2:#a6a6a6; --text-3:#767676;
+    --text:#f2f2f2; --text-2:#a6a6a6; --text-3:#8f8f8f;
     --white:#ffffff;      /* the accent slot, and the only bright value */
 
     /* aliases: the names the rest of this sheet already asks for */
     --line:#2c2c2c; --hair:#2c2c2c;
-    --ink:#f2f2f2; --ink-2:#a6a6a6; --ink-3:#767676;
+    --ink:#f2f2f2; --ink-2:#a6a6a6; --ink-3:#8f8f8f;
 
     /* elevations */
     --up-sm:-3px -3px 7px var(--raise-hi), 3px 3px 7px var(--raise-lo);
@@ -113,7 +113,7 @@
   .mono{font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
     letter-spacing:0; font-size:.83rem; line-height:1.65}
   .lab{font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
-    letter-spacing:.22em; text-transform:uppercase; color:var(--ink-3)}
+    letter-spacing:.22em; text-transform:uppercase; color:var(--ink-2)}
 
   /* display: one size, used for every statement on the page. borrowed
      straight from the reference, where body copy is set at headline scale. */
@@ -123,7 +123,8 @@
   .display-sm{font-family:var(--serif); font-size:clamp(1.4rem,2.6vw,2rem);
     line-height:1.2; letter-spacing:-0.012em; font-weight:400; color:var(--white)}
 
-  section{padding-block:clamp(4.5rem,10vw,9rem)}
+  html{scroll-behavior:smooth}
+  section{padding-block:clamp(4.5rem,10vw,9rem); scroll-margin-top:76px}
   .sec-head{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
     gap:clamp(1.5rem,4vw,3rem); align-items:start}
   @media(max-width:860px){ .sec-head{grid-template-columns:1fr; gap:1.5rem} }
@@ -135,13 +136,18 @@
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.16em;
     text-transform:uppercase}
   .nav a{text-decoration:none; color:var(--text-2);
-    padding:.55rem 1rem; border-radius:var(--r-pill); box-shadow:var(--up-sm);
+    padding:.8rem 1.1rem; border-radius:var(--r-pill); box-shadow:var(--up-sm);
     transition:box-shadow .16s ease, color .16s ease}
-  .nav a:hover{color:var(--white); box-shadow:var(--in-sm)}
-  .nav .mark{color:var(--white); font-weight:500; letter-spacing:.2em;
-    box-shadow:var(--in-sm)}
-  .nav-mid{display:flex; gap:2.5rem}
-  @media(max-width:760px){ .nav-mid{display:none} }
+  .nav a:hover{color:var(--white); box-shadow:var(--up)}
+  .nav .mark{color:var(--white); font-weight:500; letter-spacing:.2em}
+  .nav-mid{display:flex; gap:clamp(.5rem,2.5vw,2.5rem)}
+  /* mobile keeps the section links: the nav wraps to a second row rather
+     than hiding three quarters of the page behind nothing. */
+  @media(max-width:760px){
+    .nav{height:auto; flex-wrap:wrap; padding-block:.6rem; gap:.5rem .75rem}
+    .nav-mid{order:3; width:100%; justify-content:space-between; gap:.4rem}
+    .nav a{padding:.7rem .85rem; letter-spacing:.1em}
+  }
 
   /* buttons: raised greyscale pills that press inward. no fill, no rule
      outside; the shadow is the affordance. */
@@ -149,13 +155,23 @@
     background:var(--bg); border:0; border-radius:var(--r-pill);
     box-shadow:var(--up-sm); color:var(--text-2); text-decoration:none;
     font-family:var(--mono); font-size:.72rem; letter-spacing:.14em;
-    text-transform:uppercase; white-space:nowrap; padding:.85rem 1.4rem;
+    text-transform:uppercase; white-space:nowrap; padding:.95rem 1.5rem;
     cursor:pointer; transition:box-shadow .16s ease, color .16s ease}
   .btn:hover{color:var(--white); box-shadow:var(--up)}
   .btn:active{box-shadow:var(--in-sm); color:var(--white)}
   .btn.ghost{box-shadow:var(--in-sm); color:var(--text-2)}
   .btn.ghost:hover{color:var(--white); box-shadow:var(--in-sm)}
-  .btn:focus-visible,a:focus-visible{outline:2px solid var(--white); outline-offset:3px; border-radius:4px}
+  /* focus is the only moment a borderless surface can say "this one, now",
+     so it gets both a ring and a lift, and never reshapes the element. */
+  :where(a,.btn,summary,input,select,textarea):focus-visible{
+    outline:2px solid var(--white); outline-offset:3px}
+  :where(a,.btn,summary):focus-visible{box-shadow:var(--up)}
+  .skip{position:absolute; left:1rem; top:.5rem; z-index:40; padding:.7rem 1.1rem;
+    border-radius:var(--r-pill); background:var(--bg); box-shadow:var(--up);
+    color:var(--white); text-decoration:none; font-family:var(--mono);
+    font-size:.72rem; letter-spacing:.14em; text-transform:uppercase;
+    transform:translateY(-200%); transition:transform .18s var(--ease)}
+  .skip:focus-visible{transform:translateY(0)}
 
   /* hero. the wordmark is the headline. the sentence under it is 16px mono,
      same inversion the reference uses: type is the image, prose is small. */
@@ -171,7 +187,7 @@
   .wordmark video{width:100%; height:100%; display:block; object-fit:cover;
     border-radius:var(--r-sm); aspect-ratio:1920/430; background:#101010;
     filter:grayscale(1) contrast(1.04)}
-  @media(max-width:760px){ .wordmark{aspect-ratio:1920/320} }
+  @media(max-width:760px){ .wordmark video{aspect-ratio:1920/320} }
 
   .hero-foot{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);
     gap:clamp(1.5rem,4vw,3rem); align-items:start; margin-top:clamp(1.75rem,3vw,2.5rem)}
@@ -210,8 +226,6 @@
   .tile:hover{transform:translateY(-2px); box-shadow:var(--up-lg)}
   .tile:active{transform:none; box-shadow:var(--in)}
   .tile .lab{color:rgba(243,243,241,.5)}
-  .tile h3{font-family:var(--serif); font-weight:400; color:var(--white);
-    font-size:clamp(1.6rem,3.4vw,2.6rem); letter-spacing:-0.015em; margin:1.1rem 0 1.3rem}
   .tile .sub{max-width:44ch; color:rgba(243,243,241,.62); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.7}
   .tile ul{margin:1.6rem 0 0; padding:0; list-style:none; display:grid; gap:.42rem;
@@ -224,10 +238,8 @@
   .rows{margin-top:clamp(2rem,4vw,3rem); border-top:1px solid var(--hair)}
   .row{display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
     gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline;
-    padding:clamp(1.1rem,2.4vw,1.9rem) 0; border-bottom:1px solid var(--hair);
-    transition:padding-left .3s var(--ease)}
-  .row:hover{padding-left:.6rem}
-  .row .n{color:var(--text-2); font-family:var(--mono); font-size:.68rem;
+    padding:clamp(1.1rem,2.4vw,1.9rem) 0; border-bottom:1px solid var(--hair)}
+  .row .n{color:var(--text-2); font-family:var(--mono); font-size:.7rem;
     letter-spacing:.08em; box-shadow:var(--in-sm); border-radius:var(--r-pill);
     padding:.3rem .5rem; justify-self:start}
   .row .t{font-size:clamp(1.15rem,2.5vw,1.85rem); letter-spacing:-0.028em; font-weight:500;
@@ -258,7 +270,7 @@
     display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
     gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline}
   .steps li::before{content:"0" counter(s); color:var(--text-2);
-    font-family:var(--mono); font-size:.68rem; letter-spacing:.08em;
+    font-family:var(--mono); font-size:.7rem; letter-spacing:.08em;
     box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.3rem .5rem;
     justify-self:start}
   .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
@@ -268,6 +280,25 @@
     .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
     .steps p{grid-column:2}
   }
+
+  /* the form. inset wells receive, raised pills act: the one place this
+     style's vocabulary is unambiguous, so the ask uses it literally. */
+  .form{margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
+    border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem); box-shadow:var(--up-lg)}
+  .form .fields{display:grid; gap:1.1rem; margin-top:1.4rem}
+  .form label{display:grid; gap:.5rem; font-family:var(--mono); font-size:.78rem;
+    letter-spacing:0; color:var(--ink-2)}
+  .form .req{color:var(--ink-3); letter-spacing:.14em; font-size:.72rem}
+  .form input,.form select,.form textarea{
+    font-family:var(--mono); font-size:.83rem; color:var(--text); width:100%;
+    background:var(--bg-2); border:0; border-radius:var(--r-sm);
+    box-shadow:var(--in-sm); padding:.8rem .9rem; min-height:44px}
+  .form textarea{resize:vertical; min-height:88px; line-height:1.6}
+  .form select{appearance:none; cursor:pointer}
+  .form input::placeholder,.form textarea::placeholder{color:var(--ink-3)}
+  .form .btn{margin-top:1.6rem; border:0}
+  .form-note{margin-top:1rem; font-family:var(--mono); font-size:.78rem;
+    line-height:1.7; color:var(--ink-2)}
 
   .gate{border:0; border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem);
     background:var(--bg); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
@@ -289,61 +320,73 @@
   .foot{display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center}
 
   /* ------------------------------------------------------------------
-     The sample month, shown as two columns you read across: the same
-     four weeks before and after. Eight posts a side, each opening with
-     <details>. No JS, so it works with scripting off and every post is
-     keyboard reachable.
+     The sample month. Week-major: each row is one week, Before on the
+     left, After on the right. Stacking at 900px therefore keeps the two
+     halves of the comparison adjacent instead of a screen apart. Eight
+     posts a side, each opening with <details>. No JS.
      ------------------------------------------------------------------ */
-  .sample{position:relative; margin-top:clamp(1rem,2vw,1.5rem)}
-  .ba{display:grid; grid-template-columns:1fr 1fr; gap:clamp(1.5rem,4vw,3.5rem);
-    align-items:start}
-  @media(max-width:900px){ .ba{grid-template-columns:1fr; gap:3rem} }
+  .sample{position:relative; margin-top:clamp(2.5rem,5vw,4rem)}
 
-  .pane .lab{display:block}
+  .ba-head{display:grid; grid-template-columns:3.5ch minmax(0,1fr) minmax(0,1fr);
+    gap:clamp(1rem,2.2vw,1.9rem); align-items:start;
+    padding-bottom:clamp(1.25rem,2.5vw,1.75rem)}
+  .ba-head .lab{grid-column:auto}
+  .ba-head > :first-child{grid-column:1}
   .pane-note{font-family:var(--mono); font-size:.8rem; line-height:1.7;
-    color:var(--ink-2); margin:.9rem 0 0; max-width:46ch}
+    color:var(--ink-2); margin:.7rem 0 0; max-width:46ch}
 
-  .weeks{margin-top:clamp(1.5rem,3vw,2rem); border-top:1px solid var(--hair)}
-  .week{display:grid; grid-template-columns:3.5ch minmax(0,1fr);
-    gap:.5rem clamp(.75rem,1.6vw,1.1rem); align-items:start;
-    padding:clamp(1rem,2vw,1.4rem) 0; border-bottom:1px solid var(--hair)}
-  .week .wk{color:var(--text-2); font-family:var(--mono); font-size:.68rem;
+  .weeks{border-top:1px solid var(--hair)}
+  .week{display:grid; grid-template-columns:3.5ch minmax(0,1fr) minmax(0,1fr);
+    gap:.5rem clamp(1rem,2.2vw,1.9rem); align-items:start;
+    padding:clamp(1rem,2vw,1.5rem) 0; border-bottom:1px solid var(--hair)}
+  .week .wk{color:var(--text-2); font-family:var(--mono); font-size:.7rem;
     letter-spacing:.08em; box-shadow:var(--in-sm); border-radius:var(--r-pill);
-    padding:.3rem .5rem; justify-self:start; margin-top:.35rem}
-  .week .post{grid-column:2}
+    padding:.3rem .5rem; justify-self:start; margin-top:.4rem}
+  .side{display:grid; gap:.4rem; align-content:start}
+  .side-lab{display:none}
 
+  /* raised = you can act on it. sixteen collapsed posts now read as keys,
+     on touch as well as on hover, which is where this style usually fails. */
   .post{border-radius:var(--r-sm)}
   .post summary{list-style:none; cursor:pointer; display:grid; gap:.5rem;
-    padding:.65rem .8rem; border-radius:var(--r-sm);
+    padding:.7rem .85rem; border-radius:var(--r-sm); box-shadow:var(--up-sm);
     transition:box-shadow .2s var(--ease), color .2s var(--ease)}
   .post summary::-webkit-details-marker{display:none}
-  .post summary:hover{box-shadow:var(--up-sm)}
+  .post summary:hover{box-shadow:var(--up)}
   .post[open] summary{box-shadow:var(--in-sm)}
-  .post summary:focus-visible{outline:1px solid var(--text-2); outline-offset:2px}
-  .post .pill{font-family:var(--mono); font-size:.62rem; letter-spacing:.2em;
-    text-transform:uppercase; color:var(--ink-3); display:flex; align-items:center; gap:.5rem}
-  .post .pill::after{content:"+"; margin-left:auto; font-size:.9rem; letter-spacing:0;
-    color:var(--ink-3); transition:transform .25s var(--ease)}
+  .post .pill{font-family:var(--mono); font-size:.7rem; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--ink-2); display:flex; align-items:center; gap:.5rem}
+  .post .pill::after{content:"+"; margin-left:auto; font-size:1.05rem; letter-spacing:0;
+    line-height:1; color:var(--ink-2); transition:transform .25s var(--ease)}
   .post[open] .pill::after{transform:rotate(45deg)}
   .post .hook{font-size:.93rem; line-height:1.45; letter-spacing:-0.015em; color:var(--text)}
   .post[open] .hook{color:var(--white)}
 
-  .post-body{padding:.2rem .8rem 1rem; display:grid; gap:.85rem;
+  .post-body{padding:.2rem .85rem 1rem; display:grid; gap:.85rem;
     animation:rk-open .34s var(--ease) both}
-  .post-body .lab{font-size:.62rem; letter-spacing:.2em}
-  .post-body p,.post-body li{font-family:var(--mono); font-size:.76rem; line-height:1.7;
+  .post-body .lab{font-size:.7rem; letter-spacing:.18em}
+  .post-body p,.post-body li{font-family:var(--mono); font-size:.78rem; line-height:1.7;
     color:var(--ink-2); margin:.3rem 0 0}
   .post-body ol{margin:.3rem 0 0; padding:0; list-style:none; counter-reset:b;
     display:grid; gap:.45rem}
-  .post-body ol li{counter-increment:b; padding-left:1.6rem; position:relative}
+  .post-body ol li{counter-increment:b; padding-left:1.7rem; position:relative}
   .post-body ol li::before{content:counter(b); position:absolute; left:0; top:0;
-    font-size:.62rem; color:var(--ink-3); letter-spacing:.08em}
+    font-size:.7rem; color:var(--ink-3); letter-spacing:.08em}
   .post-body .act{color:var(--text); box-shadow:var(--in-sm); border-radius:var(--r-sm);
     padding:.6rem .8rem}
   @keyframes rk-open{ from{opacity:0; translate:0 -6px} to{opacity:1; translate:0 0} }
 
   .sample-foot{margin-top:clamp(1.75rem,3.5vw,2.5rem); font-family:var(--mono);
-    font-size:.78rem; line-height:1.7; color:var(--ink-3); max-width:58ch}
+    font-size:.78rem; line-height:1.7; color:var(--ink-2); max-width:58ch}
+
+  /* stacked: the week stays the unit, so W1 before sits directly above
+     W1 after and the comparison is still one glance. */
+  @media(max-width:900px){
+    .ba-head{display:none}
+    .week{grid-template-columns:1fr; gap:.9rem; padding:clamp(1.4rem,3vw,1.9rem) 0}
+    .week .wk{margin-top:0}
+    .side-lab{display:block; font-size:.7rem; letter-spacing:.18em}
+  }
 
   /* motion: one curve, staged starts, nothing loops */
   .reveal{opacity:0; translate:0 18px}
@@ -372,7 +415,7 @@
       aspect-ratio:1600/840}
     .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
       transition:none !important; animation:none !important}
-    .tile:hover,.row:hover{transform:none; padding-left:0}
+    .tile:hover{transform:none}
     .post-body{animation:none !important}
     .post .pill::after{transition:none}
   }
@@ -383,7 +426,8 @@
       --ink:#000; --ink-2:#333; --ink-3:#666; --line:#bbb}
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
-    .tile,.gate,.nav a,.row .n,.steps li::before,.hero-foot .rail li,
+    .tile,.gate,.form,.form input,.form select,.form textarea,
+    .nav a,.row .n,.steps li::before,.hero-foot .rail li,
     .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
@@ -395,6 +439,8 @@
 </style>
 </head>
 <body>
+
+<a class="skip" href="#work">Skip to the work</a>
 
 <header>
   <nav class="wrap nav" aria-label="Main">
@@ -423,9 +469,8 @@
       <div class="hero-foot">
         <div class="lift lift-2">
           <p class="hero-line">Eight ideas a month that could only have come from you. You film and post. We do everything on either side of that.</p>
-          <a class="btn" href="#apply">Apply for a spot</a>
+          <a class="btn" href="#apply-form">Apply for a spot</a>
         </div>
-        <div class="lift lift-3"></div>
         <ul class="rail mono lift lift-4">
           <li>Positioning</li>
           <li>Monthly content plans</li>
@@ -450,8 +495,8 @@
     <div class="wrap sec-head reveal">
       <p class="lab">Who we are</p>
       <div>
-        <p class="display">FOUR CLIENTS AT A TIME</p>
-        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle what you stand for, who it is for, and what each post is meant to do, then turn that into a month of content you can actually film. One product, one price.</p>
+        <h2 class="display">WE SETTLE WHAT YOU STAND FOR, WHO IT IS FOR, AND WHAT EACH POST IS MEANT TO DO.</h2>
+        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We turn that into a month of content you can actually film. One product, one price, four clients at a time.</p>
       </div>
     </div>
   </section>
@@ -460,7 +505,7 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">Who it is for</p>
-        <p class="display-sm">Creators and talent.</p>
+        <h2 class="display-sm">Creators and talent.</h2>
       </div>
       <div class="tiles stagger">
         <article class="tile">
@@ -472,7 +517,7 @@
             <li>Comment and DM routing, so interest lands somewhere</li>
             <li>A monthly read, and the one change worth making</li>
           </ul>
-          <a class="btn" href="#apply">Apply for a spot</a>
+          <a class="btn" href="#apply-form">Apply for a spot</a>
         </article>
       </div>
     </div>
@@ -482,7 +527,7 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">How a month runs</p>
-        <p class="display-sm">The same four beats every month, so you always know what is coming and when.</p>
+        <h2 class="display-sm">The same four beats every month, so you always know what is coming and when.</h2>
       </div>
       <div class="rows stagger">
         <div class="row">
@@ -513,7 +558,7 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">What you get</p>
-        <p class="display-sm">Seven things, every month.</p>
+        <h2 class="display-sm">Seven things, every month.</h2>
       </div>
       <div class="rows stagger">
         <div class="row"><span class="n">01</span><span class="t">Positioning</span><span class="d">Your angle, written down, revisited every quarter.</span></div>
@@ -548,307 +593,320 @@
 
   <section id="work">
     <div class="wrap reveal">
-      <h2 class="sr-only">A month of content, before and after</h2>
+      <div class="sec-head">
+        <p class="lab">The work</p>
+        <h2 class="display-sm">One month, before and after.</h2>
+      </div>
 
       <div class="sample">
-        <div class="ba">
-
-          <div class="pane">
+        <div class="ba-head">
+          <span aria-hidden="true"></span>
+          <div>
             <p class="lab">Before</p>
-            <p class="pane-note">A makeup artist in Kuala Lumpur who teaches a weekend class and takes wedding bookings. They posted every week without missing. Nothing in it said who they work with, so someone planning a wedding had no reason to pick them over the artist with more followers. Open any post to see who it was written for.</p>
-            <div class="weeks">
-          <div class="week">
-            <span class="wk">W1</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">New palette haul</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Other makeup artists.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>People who already own the palette. Nobody deciding who to book learns anything from it.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">Get ready with me, trending audio</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Whoever the sound reaches.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>Reach without an address. It travels for a day, then nothing happens.</p>
-              </div>
-            </details>
+            <p class="pane-note">A makeup artist in Kuala Lumpur who teaches a weekend class and takes wedding bookings. They posted every week without missing. Nothing in it said who they work with, so someone planning a wedding had no reason to pick them over the artist with more followers.</p>
           </div>
-          <div class="week">
-            <span class="wk">W2</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">A quote over a mirror selfie</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Anyone.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>Nobody books an artist because of a quote.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">Public holiday greetings</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Everyone in the country.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>Every other artist posts the same thing on the same morning.</p>
-              </div>
-            </details>
-          </div>
-          <div class="week">
-            <span class="wk">W3</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">A client photo, reposted with no story</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>The client, mostly.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>A good result with nothing about how it was reached, or who it would suit.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">Which look do you prefer, 1 or 2?</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>People who like voting.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Tap a number.</p>
-                <p class="lab">Why it stalls</p>
-                <p>A tap is not a conversation. The poll closes and nobody has moved.</p>
-              </div>
-            </details>
-          </div>
-          <div class="week">
-            <span class="wk">W4</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">New ring light in the studio</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Other artists.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>Gear news. Someone planning a wedding does not care.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Anyone</span>
-                <span class="hook">Behind the scenes at a shoot</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Written for</p>
-                <p>Whoever recognises the set.</p>
-                <p class="lab">Asks the reader to</p>
-                <p>Nothing.</p>
-                <p class="lab">Why it stalls</p>
-                <p>Unlabelled. It could be anyone's day, and it is addressed to nobody.</p>
-              </div>
-            </details>
-          </div>
-            </div>
-          </div>
-
-          <div class="pane">
+          <div>
             <p class="lab">After</p>
-            <p class="pane-note">Every post is written for one reader: someone with a wedding in four months, working out whether to book an artist or do their own face. Same artist, same hour of filming. Open any post to see the script, the caption, and the one thing it asks for.</p>
-            <div class="weeks">
+            <p class="pane-note">Every post is written for one reader: someone with a wedding in four months, working out whether to book an artist or do their own face. Same artist, same hour of filming.</p>
+          </div>
+        </div>
+
+        <div class="weeks">
           <div class="week">
             <span class="wk">W1</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Teach</span>
-                <span class="hook">The step people skip that makes everything slide by noon</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>It is thirty three degrees outside and your face has to last twelve hours. Skip this and nothing else you do matters.</li>
-                  <li>Put it on one side only, on camera, then carry on filming and come back to it.</li>
-                  <li>Say what is worth spending on and what is not.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Half my face, six hours apart, same day, same weather. The difference is one step and it takes forty seconds.</p>
-                <p class="lab">One action</p>
-                <p class="act">Comment HALF for the product list.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Point of view</span>
-                <span class="hook">Why they ask what time your event ends before anything else</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Every booking starts with the same question, and it is not about the look you want.</li>
-                  <li>Twelve hours in this weather is a different job from four hours in an air-conditioned hall.</li>
-                  <li>What changes in the kit when the answer is: we finish at midnight.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Tell me when your event ends and I will tell you what your face needs. It changes more than the look does.</p>
-                <p class="lab">One action</p>
-                <p class="act">Reply with your end time.</p>
-              </div>
-            </details>
+            <div class="side">
+              <p class="lab side-lab">Before</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">New palette haul</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Other makeup artists.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>People who already own the palette. Nobody deciding who to book learns anything from it.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">Get ready with me, trending audio</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Whoever the sound reaches.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>Reach without an address. It travels for a day, then nothing happens.</p>
+                </div>
+              </details>
+            </div>
+            <div class="side">
+              <p class="lab side-lab">After</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Teach</span>
+                  <span class="hook">The step people skip that makes everything slide by noon</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>It is thirty three degrees outside and your face has to last twelve hours. Skip this and nothing else you do matters.</li>
+                    <li>Put it on one side only, on camera, then carry on filming and come back to it.</li>
+                    <li>Say what is worth spending on and what is not.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Half my face, six hours apart, same day, same weather. The difference is one step and it takes forty seconds.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Comment HALF for the product list.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Point of view</span>
+                  <span class="hook">Why they ask what time your event ends before anything else</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Every booking starts with the same question, and it is not about the look you want.</li>
+                    <li>Twelve hours in this weather is a different job from four hours in an air-conditioned hall.</li>
+                    <li>What changes in the kit when the answer is: we finish at midnight.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Tell me when your event ends and I will tell you what your face needs. It changes more than the look does.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Reply with your end time.</p>
+                </div>
+              </details>
+            </div>
           </div>
           <div class="week">
             <span class="wk">W2</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Teach</span>
-                <span class="hook">What they tell someone doing their own wedding makeup, four months out</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Four months out, this is a practice problem, not a shopping problem.</li>
-                  <li>The three things to test now, in this order, and why the order matters.</li>
-                  <li>The one thing not to buy yet.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Four months out and planning to do your own? Start here. The shopping comes last, not first.</p>
-                <p class="lab">One action</p>
-                <p class="act">DM the word FOUR for the practice schedule.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Point of view</span>
-                <span class="hook">The three bookings they turn down, and where those people go instead</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Not every wedding is theirs to take. Three get turned down, and it gets said early.</li>
-                  <li>Name all three, plainly, and who each one gets sent to.</li>
-                  <li>Why saying no early is part of the job.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>If you are one of these three, I am not your artist, and you will hear that in the first message. Here is who is.</p>
-                <p class="lab">One action</p>
-                <p class="act">Send it to whoever is still deciding.</p>
-              </div>
-            </details>
+            <div class="side">
+              <p class="lab side-lab">Before</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">A quote over a mirror selfie</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Anyone.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>Nobody books an artist because of a quote.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">Public holiday greetings</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Everyone in the country.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>Every other artist posts the same thing on the same morning.</p>
+                </div>
+              </details>
+            </div>
+            <div class="side">
+              <p class="lab side-lab">After</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Teach</span>
+                  <span class="hook">What they tell someone doing their own wedding makeup, four months out</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Four months out, this is a practice problem, not a shopping problem.</li>
+                    <li>The three things to test now, in this order, and why the order matters.</li>
+                    <li>The one thing not to buy yet.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Four months out and planning to do your own? Start here. The shopping comes last, not first.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">DM the word FOUR for the practice schedule.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Point of view</span>
+                  <span class="hook">The three bookings they turn down, and where those people go instead</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Not every wedding is theirs to take. Three get turned down, and it gets said early.</li>
+                    <li>Name all three, plainly, and who each one gets sent to.</li>
+                    <li>Why saying no early is part of the job.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>If you are one of these three, I am not your artist, and you will hear that in the first message. Here is who is.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Send it to whoever is still deciding.</p>
+                </div>
+              </details>
+            </div>
           </div>
           <div class="week">
             <span class="wk">W3</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Proof</span>
-                <span class="hook">A full trial, start to finish, in real time</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Ninety minutes cut down, one phone on a tripod, no edit tricks.</li>
-                  <li>Talk through each stage as it happens: skin, base, eyes, setting.</li>
-                  <li>End on what they walk out with: photos, a product list, written notes.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>A trial from start to finish, so you know exactly what you are booking before you book it.</p>
-                <p class="lab">One action</p>
-                <p class="act">Trial dates are on the booking page.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Teach</span>
-                <span class="hook">The three photos to take tonight, before you decide anything</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Your face has to work under a phone flash at eleven at night, not just in daylight.</li>
-                  <li>Take the same photo in three lights, on camera, so the difference is visible.</li>
-                  <li>What to change if the third one comes out grey.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Three photos, three lights, tonight. If the last one looks grey, that is fixable, and it is not your foundation.</p>
-                <p class="lab">One action</p>
-                <p class="act">Post the three and tag them. They will tell you which one to fix.</p>
-              </div>
-            </details>
+            <div class="side">
+              <p class="lab side-lab">Before</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">A client photo, reposted with no story</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>The client, mostly.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>A good result with nothing about how it was reached, or who it would suit.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">Which look do you prefer, 1 or 2?</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>People who like voting.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Tap a number.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>A tap is not a conversation. The poll closes and nobody has moved.</p>
+                </div>
+              </details>
+            </div>
+            <div class="side">
+              <p class="lab side-lab">After</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Proof</span>
+                  <span class="hook">A full trial, start to finish, in real time</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Ninety minutes cut down, one phone on a tripod, no edit tricks.</li>
+                    <li>Talk through each stage as it happens: skin, base, eyes, setting.</li>
+                    <li>End on what they walk out with: photos, a product list, written notes.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>A trial from start to finish, so you know exactly what you are booking before you book it.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Trial dates are on the booking page.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Teach</span>
+                  <span class="hook">The three photos to take tonight, before you decide anything</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Your face has to work under a phone flash at eleven at night, not just in daylight.</li>
+                    <li>Take the same photo in three lights, on camera, so the difference is visible.</li>
+                    <li>What to change if the third one comes out grey.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Three photos, three lights, tonight. If the last one looks grey, that is fixable, and it is not your foundation.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Post the three and tag them. They will tell you which one to fix.</p>
+                </div>
+              </details>
+            </div>
           </div>
           <div class="week">
             <span class="wk">W4</span>
-            <details class="post">
-              <summary>
-                <span class="pill">Point of view</span>
-                <span class="hook">A cheaper base is not the saving you think it is</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>Where people cut the cost, and what it actually costs them by the reception.</li>
-                  <li>Where to spend, and where genuinely not to bother.</li>
-                  <li>What is in the kit, said plainly, with no affiliate talk.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Spend on the base, save on the eyes. That is most of the rule.</p>
-                <p class="lab">One action</p>
-                <p class="act">Comment BASE for the full list.</p>
-              </div>
-            </details>
-            <details class="post">
-              <summary>
-                <span class="pill">Offer</span>
-                <span class="hook">Dates left this season, and what a booking includes</span>
-              </summary>
-              <div class="post-body">
-                <p class="lab">Script, for a phone and one take</p>
-                <ol>
-                  <li>The plain version: these dates, these two packages, nothing else.</li>
-                  <li>Who each one suits, and who should book a trial first.</li>
-                  <li>What to send in the first message so it can be answered in one reply.</li>
-                </ol>
-                <p class="lab">Caption</p>
-                <p>Remaining dates for the season are on the booking page. Send your date, your venue and your end time.</p>
-                <p class="lab">One action</p>
-                <p class="act">Book it, or DM your date to check.</p>
-              </div>
-            </details>
-          </div>
+            <div class="side">
+              <p class="lab side-lab">Before</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">New ring light in the studio</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Other artists.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>Gear news. Someone planning a wedding does not care.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Anyone</span>
+                  <span class="hook">Behind the scenes at a shoot</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Written for</p>
+                  <p>Whoever recognises the set.</p>
+                  <p class="lab">Asks the reader to</p>
+                  <p>Nothing.</p>
+                  <p class="lab">Why it stalls</p>
+                  <p>Unlabelled. It could be anyone's day, and it is addressed to nobody.</p>
+                </div>
+              </details>
+            </div>
+            <div class="side">
+              <p class="lab side-lab">After</p>
+              <details class="post">
+                <summary>
+                  <span class="pill">Point of view</span>
+                  <span class="hook">A cheaper base is not the saving you think it is</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>Where people cut the cost, and what it actually costs them by the reception.</li>
+                    <li>Where to spend, and where genuinely not to bother.</li>
+                    <li>What is in the kit, said plainly, with no affiliate talk.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Spend on the base, save on the eyes. That is most of the rule.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Comment BASE for the full list.</p>
+                </div>
+              </details>
+              <details class="post">
+                <summary>
+                  <span class="pill">Offer</span>
+                  <span class="hook">Dates left this season, and what a booking includes</span>
+                </summary>
+                <div class="post-body">
+                  <p class="lab">Script, for a phone and one take</p>
+                  <ol>
+                    <li>The plain version: these dates, these two packages, nothing else.</li>
+                    <li>Who each one suits, and who should book a trial first.</li>
+                    <li>What to send in the first message so it can be answered in one reply.</li>
+                  </ol>
+                  <p class="lab">Caption</p>
+                  <p>Remaining dates for the season are on the booking page. Send your date, your venue and your end time.</p>
+                  <p class="lab">One action</p>
+                  <p class="act">Book it, or DM your date to check.</p>
+                </div>
+              </details>
             </div>
           </div>
-
         </div>
-        <p class="sample-foot">A worked example, not a client. We wrote every post here to show the shape of a month. The filming is still yours.</p>
+
+        <p class="sample-foot">Open any post for the script, the caption, and the one thing it asks for. A worked example, not a client: we wrote every post here to show the shape of a month. The filming is still yours.</p>
       </div>
     </div>
   </section>
@@ -857,7 +915,7 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">Apply</p>
-        <p class="display-sm">We shorten the onboarding list so we can give close attention. The form takes about five minutes.</p>
+        <h2 class="display-sm">We take on few people at once so the work stays close. The form takes about five minutes.</h2>
       </div>
       <ol class="steps stagger">
         <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
@@ -873,16 +931,43 @@
           <li>You can make decisions</li>
           <li>You can commit to the plan we agree on</li>
         </ul>
-        <p class="mono" style="margin-top:1.4rem; color:var(--ink-3)">One monthly fee, no setup charge, cancel any month. You get the number on the call.</p>
+        <p class="mono" style="margin-top:1.4rem; color:var(--ink-2)">One monthly fee, no setup charge, cancel any month. You get the number on the call.</p>
       </div>
+
+      <!-- Swap the mailto: below for your address, or for a Tally/Google Form URL
+           (then drop method/enctype). Nothing else needs to change. -->
+      <form class="form" id="apply-form" method="post" enctype="text/plain"
+            action="mailto:CHANGE-ME@ruangkotak.com">
+        <p class="lab">Tell us about you</p>
+        <div class="fields">
+          <label>What do you sell, and who for? <span class="req">Required</span>
+            <textarea name="what-you-sell" required placeholder="One or two lines is plenty."></textarea>
+          </label>
+          <label>Where do you post? <span class="req">Required</span>
+            <input type="text" name="handle" required placeholder="@yourhandle, or a link">
+          </label>
+          <label>Can you film and edit, or is there someone who can? <span class="req">Required</span>
+            <select name="can-film" required>
+              <option value="">Pick one</option>
+              <option>Yes, I film and edit myself</option>
+              <option>Yes, someone on my side does</option>
+              <option>Not yet</option>
+            </select>
+          </label>
+          <label>What do you want to be true in ninety days?
+            <textarea name="ninety-days" placeholder="Optional, but it makes the call better."></textarea>
+          </label>
+        </div>
+        <button class="btn" type="submit">Send it</button>
+        <p class="form-note">We read every one. If we cannot help, we will say so and point you somewhere better.</p>
+      </form>
     </div>
   </section>
 
   <section class="close">
     <div class="wrap reveal">
-      <p class="display">Ready when you are.</p>
-      <!-- TODO: point href at the Google Form once it exists. Placeholder until then. -->
-      <a class="btn" href="#apply">Apply for a spot</a>
+      <h2 class="display">Ready when you are.</h2>
+      <a class="btn" href="#apply-form">Apply for a spot</a>
     </div>
   </section>
 
@@ -892,6 +977,7 @@
   <div class="wrap foot">
     <span>RUANGKOTAK</span>
     <span>Kuala Lumpur</span>
+    <span><a href="mailto:CHANGE-ME@ruangkotak.com">CHANGE-ME@ruangkotak.com</a></span>
     <span>&copy; 2026</span>
   </div>
 </footer>
