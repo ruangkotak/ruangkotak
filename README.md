@@ -1,8 +1,7 @@
 # RUANGKOTAK
 
-RUANGKOTAK is a new marketing agency. This repo is a fresh start — the
-previous Instagram-audit product concept has been retired. What gets built
-here next is still being decided.
+RUANGKOTAK is a new marketing agency. This repo is a fresh start — what gets
+built here is still being decided.
 
 ## Run
 

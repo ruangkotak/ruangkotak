@@ -124,7 +124,7 @@
     line-height:1.2; letter-spacing:-0.012em; font-weight:400; color:var(--white)}
 
   html{scroll-behavior:smooth}
-  section{padding-block:clamp(4.5rem,10vw,9rem); scroll-margin-top:76px}
+  section{padding-block:clamp(3rem,6vw,5.5rem); scroll-margin-top:76px}
   .sec-head{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
     gap:clamp(1.5rem,4vw,3rem); align-items:start}
   @media(max-width:860px){ .sec-head{grid-template-columns:1fr; gap:1.5rem} }
@@ -189,14 +189,17 @@
     filter:grayscale(1) contrast(1.04)}
   @media(max-width:760px){ .wordmark video{aspect-ratio:1920/320} }
 
-  .hero-foot{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);
+  .hero-foot{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
     gap:clamp(1.5rem,4vw,3rem); align-items:start; margin-top:clamp(1.75rem,3vw,2.5rem)}
   .hero-line{font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.86rem;
-    line-height:1.62; max-width:34ch; color:var(--ink)}
+    line-height:1.62; max-width:66ch; color:var(--ink)}
   .hero-foot .btn{margin-top:2rem}
+  /* hand-set breaks keep hero lines to ten words or so; phones reflow freely */
+  @media(max-width:760px){ .br-wide{display:none} }
   .rail{margin:0; padding:0; list-style:none; display:grid; gap:.4rem; color:var(--ink-2)}
   .hero-foot .rail{justify-self:end; align-items:end; gap:.55rem}
-  .hero-foot .rail li{padding:.4rem .85rem; border-radius:var(--r-pill);
+  .about-rail{display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.75rem}
+  .hero-foot .rail li,.about-rail li{padding:.4rem .85rem; border-radius:var(--r-pill);
     box-shadow:var(--in-sm); font-size:.72rem; letter-spacing:.14em;
     text-transform:uppercase}
   @media(max-width:860px){
@@ -219,12 +222,11 @@
      so the single entry point takes the slot instead. */
   .tiles{display:grid; gap:clamp(1rem,2vw,1.5rem); margin-top:clamp(2.5rem,5vw,4rem)}
   .tile{position:relative; background:var(--bg); border-radius:var(--r);
-    padding:clamp(3rem,7vw,5.5rem) clamp(1.5rem,4vw,3rem); color:#f3f3f1;
+    padding:clamp(2rem,4.5vw,3.5rem) clamp(1.25rem,4vw,3rem); color:#f3f3f1;
     display:grid; justify-items:center; text-align:center; overflow:hidden;
     box-shadow:var(--up);
     transition:transform .2s ease, box-shadow .2s ease}
   .tile:hover{transform:translateY(-2px); box-shadow:var(--up-lg)}
-  .tile:active{transform:none; box-shadow:var(--in)}
   .tile .lab{color:rgba(243,243,241,.5)}
   .tile .sub{max-width:44ch; color:rgba(243,243,241,.62); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.7}
@@ -232,6 +234,26 @@
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.78rem;
     color:rgba(243,243,241,.78); line-height:1.6}
   .tile .btn{margin-top:2.4rem}
+
+  /* the issue checklist: real checkboxes, raised until ticked, then sunk */
+  .issues{margin:1.25rem 0 0; padding:0; list-style:none; width:min(100%,720px);
+    display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.6rem; text-align:left}
+  @media(max-width:640px){ .issues{grid-template-columns:1fr} }
+  .issues label{display:flex; align-items:center; gap:.75rem; height:100%;
+    padding:.8rem .95rem; border-radius:var(--r-sm); box-shadow:var(--up-sm); cursor:pointer;
+    font-family:var(--mono); font-size:.8rem; line-height:1.5; color:rgba(243,243,241,.78);
+    transition:box-shadow .2s var(--ease), color .2s var(--ease)}
+  .issues label:hover{box-shadow:var(--up)}
+  .issues label:has(input:checked){box-shadow:var(--in-sm); color:var(--white)}
+  .issues input{appearance:none; flex:none; width:18px; height:18px; margin:0; cursor:pointer;
+    border-radius:5px; background:var(--bg-2); box-shadow:var(--in-sm);
+    display:grid; place-items:center}
+  .issues input::after{content:""; width:5px; height:9px; border:solid var(--white);
+    border-width:0 2px 2px 0; transform:translateY(-1px) rotate(45deg) scale(0);
+    transition:transform .18s var(--ease)}
+  .issues input:checked::after{transform:translateY(-1px) rotate(45deg) scale(1)}
+  .issues input:focus-visible{outline:2px solid var(--white); outline-offset:3px}
+  .issues-foot{margin-top:1.4rem}
 
   /* hairline rows: the reference sets its service list as one big word per
      row with a rule between. same device, carrying the deliverables. */
@@ -392,6 +414,152 @@
     .side-lab{display:block; font-size:.7rem; letter-spacing:.18em}
   }
 
+  /* ------------------------------------------------------------------
+     The breakdown: three steps, one stage. Tabs are raised keys and the
+     active one sinks, same as the posts. While it is on screen it walks
+     through the steps on its own; the moment someone picks a step, it
+     stops and stays where they put it. Hover pauses it.
+     ------------------------------------------------------------------ */
+  .bd{margin-top:clamp(2.5rem,5vw,4rem); display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:clamp(1.25rem,3vw,2.5rem);
+    align-items:stretch}
+  @media(max-width:860px){ .bd{grid-template-columns:1fr} }
+  .bd-tabs{display:grid; gap:.8rem; align-content:start}
+  .bd-tab{position:relative; display:grid; grid-template-columns:3.5ch minmax(0,1fr);
+    gap:.5rem 1rem; align-items:baseline; text-align:left; font:inherit;
+    background:var(--bg); color:var(--text-2); border:0; border-radius:var(--r);
+    padding:1.1rem 1.2rem 1.4rem; box-shadow:var(--up-sm); cursor:pointer; overflow:hidden;
+    transition:box-shadow .2s var(--ease), color .2s var(--ease)}
+  .bd-tab:hover{box-shadow:var(--up); color:var(--text)}
+  .bd-tab[aria-selected="true"]{box-shadow:var(--in-sm); color:var(--white)}
+  .bd-tab:focus-visible{outline:2px solid var(--white); outline-offset:3px}
+  .bd-tab .n{font-family:var(--mono); font-size:.7rem; letter-spacing:.08em; color:var(--text-2);
+    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.3rem .5rem; justify-self:start}
+  .bd-tab .t{font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em; font-weight:500;
+    line-height:1.25}
+  .bd-tab .d{grid-column:2; font-family:var(--mono); font-size:.78rem; line-height:1.65;
+    color:var(--ink-2); display:none}
+  .bd-tab[aria-selected="true"] .d{display:block; animation:rk-open .34s var(--ease) both}
+  .bd-bar{position:absolute; left:1.2rem; right:1.2rem; bottom:.65rem; height:2px;
+    border-radius:2px; background:var(--hair); overflow:hidden; display:none}
+  .bd.auto .bd-tab[aria-selected="true"] .bd-bar{display:block}
+  .bd-bar::after{content:""; position:absolute; inset:0; background:var(--white);
+    transform-origin:left; transform:scaleX(0)}
+  .bd.auto .bd-tab[aria-selected="true"] .bd-bar::after{
+    animation:bd-fill 7s linear forwards; animation-play-state:paused}
+  .bd.auto.live .bd-tab[aria-selected="true"] .bd-bar::after{animation-play-state:running}
+  .bd.auto.live:hover .bd-tab[aria-selected="true"] .bd-bar::after{animation-play-state:paused}
+
+  .bd-stage{background:var(--bg); border-radius:calc(var(--r) + 6px); padding:14px;
+    box-shadow:var(--up-lg)}
+  .bd-screen{height:100%; min-height:430px; border-radius:var(--r); box-shadow:var(--in-lg);
+    background:var(--bg-2); padding:clamp(1rem,2.5vw,1.6rem); overflow:hidden}
+  @media(max-width:860px){ .bd-screen{min-height:0} }
+  .bd-panel{display:grid; gap:1.1rem; align-content:start}
+  .bd-panel[hidden]{display:none}
+  .bd-top{display:flex; justify-content:space-between; align-items:center; gap:1rem;
+    font-family:var(--mono); font-size:.7rem; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink-2)}
+  .bd-who{padding:.35rem .75rem; border-radius:var(--r-pill); box-shadow:var(--up-sm);
+    color:var(--white); white-space:nowrap}
+
+  /* step 1: the month plan fills in, card by card */
+  .bd-ideas{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem}
+  @media(max-width:560px){ .bd-ideas{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .bd-idea{border-radius:var(--r-sm); box-shadow:var(--up-sm); padding:.75rem;
+    display:grid; gap:.5rem; align-content:start; font-family:var(--mono); font-size:.68rem;
+    color:var(--ink-2)}
+  .bd-idea b{font-weight:500; color:var(--text); font-size:.74rem; letter-spacing:.06em}
+  .bd-idea .tag{justify-self:start; font-size:.6rem; letter-spacing:.14em; text-transform:uppercase;
+    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.2rem .5rem}
+  .bd-ticks{display:grid; gap:.2rem}
+  .bd-ticks span::before{content:""; display:inline-block; width:6px; height:6px;
+    border-radius:50%; margin-right:.45rem; vertical-align:.08em;
+    background:var(--bg-2); box-shadow:var(--in-sm)}
+  .bd-panel.play .bd-idea{animation:bd-pop .5s var(--ease) both;
+    animation-delay:calc(var(--i) * .12s)}
+  .bd-panel.play .bd-ticks span::before{animation:bd-dot .25s ease both;
+    animation-delay:calc(var(--i) * .12s + .55s)}
+  .bd-panel.play .bd-ticks span:nth-child(2)::before{animation-delay:calc(var(--i) * .12s + .75s)}
+  .bd-panel.play .bd-ticks span:nth-child(3)::before{animation-delay:calc(var(--i) * .12s + .95s)}
+
+  /* step 2: the phone records, the schedule flips to posted */
+  .bd-film{display:grid; grid-template-columns:minmax(0,150px) minmax(0,1fr);
+    gap:clamp(1rem,3vw,1.75rem); align-items:center}
+  @media(max-width:560px){
+    .bd-film{grid-template-columns:1fr}
+    .bd-phone{width:130px; margin-inline:auto}
+  }
+  .bd-phone{aspect-ratio:9/17; border-radius:22px; background:var(--bg); padding:9px;
+    box-shadow:var(--up)}
+  .bd-glass{position:relative; height:100%; border-radius:15px; background:#161616;
+    box-shadow:var(--in); display:grid; place-items:center; text-align:center; padding:.8rem;
+    font-family:var(--mono); font-size:.64rem; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-2); line-height:1.6}
+  .bd-rec{position:absolute; top:.75rem; left:.85rem; display:flex; align-items:center;
+    gap:.4rem; color:var(--text)}
+  .bd-rec i{width:7px; height:7px; border-radius:50%; background:var(--white)}
+  .bd-panel.play .bd-rec i{animation:bd-blink 1.1s ease-in-out 5}
+  /* the phone names the idea being filmed, in step with its slot flipping to posted */
+  .bd-filming{display:grid}
+  .bd-filming > span{grid-area:1/1; opacity:0}
+  .bd-panel.play .bd-filming > span{animation:bd-in .2s ease both, bd-out .2s ease forwards;
+    animation-delay:calc(.7s + var(--i) * .6s), calc(1.3s + var(--i) * .6s)}
+  .bd-panel.play .bd-filming > span:last-child{animation:bd-in .2s ease both;
+    animation-delay:calc(.7s + var(--i) * .6s)}
+  .bd-weeks{display:grid; gap:.5rem}
+  .bd-wk{display:grid; grid-template-columns:3.5ch minmax(0,1fr) minmax(0,1fr); gap:.55rem;
+    align-items:center}
+  .bd-wk .wk{font-family:var(--mono); font-size:.64rem; letter-spacing:.08em; color:var(--text-2);
+    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.25rem .45rem; justify-self:start}
+  .bd-slot{display:flex; justify-content:space-between; align-items:center; gap:.5rem;
+    border-radius:var(--r-sm); box-shadow:var(--in-sm); padding:.55rem .7rem;
+    font-family:var(--mono); font-size:.68rem; color:var(--ink-3)}
+  @media(max-width:560px){ .bd-slot{flex-wrap:wrap; gap:.15rem .5rem; padding:.5rem .6rem} }
+  .bd-panel.play .bd-slot{animation:bd-lift .4s var(--ease) both;
+    animation-delay:calc(.7s + var(--i) * .6s)}
+
+  /* step 3: the report, number by number, then the one change */
+  .bd-report{display:grid; gap:.5rem}
+  .bd-metric{display:flex; justify-content:space-between; align-items:center; gap:1rem;
+    border-radius:var(--r-sm); box-shadow:var(--in-sm); padding:.8rem .95rem;
+    font-family:var(--mono); font-size:.78rem; color:var(--text)}
+  .bd-panel.play .bd-metric{animation:bd-pop .5s var(--ease) both;
+    animation-delay:calc(var(--i) * .15s)}
+  .bd-change{border-radius:var(--r-sm); box-shadow:var(--up-sm); padding:1rem 1.05rem;
+    display:grid; gap:.45rem}
+  .bd-change p:last-child{font-family:var(--mono); font-size:.8rem; line-height:1.65; color:var(--text)}
+  .bd-panel.play .bd-change{animation:bd-pop .6s var(--ease) both; animation-delay:1.5s}
+
+  /* a status that swaps once: first word out, second word in */
+  .bd-swap{display:inline-grid; font-size:.62rem; letter-spacing:.14em; text-transform:uppercase}
+  .bd-swap > *{grid-area:1/1; text-align:right}
+  .bd-swap .b{opacity:0; color:var(--white)}
+  .bd-panel.play .bd-swap .a{animation:bd-out .25s ease both; animation-delay:var(--d)}
+  .bd-panel.play .bd-swap .b{animation:bd-in .25s ease both; animation-delay:var(--d)}
+  .bd-slot .bd-swap{--d:calc(.7s + var(--i) * .6s)}
+  .bd-metric .bd-swap{--d:calc(.5s + var(--i) * .25s)}
+
+  .bd-note{margin-top:1.1rem; color:var(--ink-2)}
+
+  @keyframes bd-fill{ to{transform:scaleX(1)} }
+  @keyframes bd-pop{ from{opacity:0; translate:0 10px} to{opacity:1; translate:0 0} }
+  @keyframes bd-dot{ to{background:var(--white); box-shadow:none} }
+  @keyframes bd-lift{ to{box-shadow:var(--up-sm); color:var(--text)} }
+  @keyframes bd-blink{ 50%{opacity:.15} }
+  @keyframes bd-out{ to{opacity:0} }
+  @keyframes bd-in{ to{opacity:1} }
+
+  /* reduced motion: no walking, and every step lands on its finished state */
+  @media (prefers-reduced-motion:reduce){
+    .bd *, .bd *::before, .bd *::after{animation-duration:0s !important;
+      animation-delay:0s !important; animation-iteration-count:1 !important}
+  }
+  @media print{
+    .bd-bar{display:none !important}
+    .bd-panel[hidden]{display:grid}
+  }
+
   /* motion: one curve, staged starts, nothing loops */
   .reveal{opacity:0; translate:0 18px}
   .reveal.in{opacity:1; translate:0 0;
@@ -431,7 +599,7 @@
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
     .tile,.gate,.form,.form input,.form select,.form textarea,
-    .nav a,.row .n,.steps li::before,.hero-foot .rail li,
+    .nav a,.row .n,.steps li::before,.hero-foot .rail li,.about-rail li,
     .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
@@ -471,16 +639,11 @@
 
     <div class="wrap">
       <div class="hero-foot">
+        <p class="lab lift lift-2">About RUANGKOTAK</p>
         <div class="lift lift-2">
-          <p class="hero-line">Eight ideas a month that could only have come from you. You film and post. We do everything on either side of that.</p>
-          <a class="btn" href="#apply-form">Apply for a spot</a>
+          <p class="hero-line">We focus on what matters.</p>
+          <p class="hero-line" style="margin-top:1rem">We work with you directly to understand what you’re building,<br class="br-wide"> then plan the content to get there.<br class="br-wide"> You film and post, and every month we go through<br class="br-wide"> the numbers from your analytics together.</p>
         </div>
-        <ul class="rail mono lift lift-4">
-          <li>Positioning</li>
-          <li>Monthly content plans</li>
-          <li>Scripts and captions</li>
-          <li>Reporting</li>
-        </ul>
       </div>
 
       <figure class="hero-plate reveal">
@@ -495,12 +658,94 @@
     </div>
   </section>
 
+  <section id="how">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">How it works</p>
+        <h2 class="display-sm">Three steps, and you always know whose turn it is.</h2>
+      </div>
+
+      <div class="bd" data-bd>
+        <div class="bd-tabs" role="tablist" aria-label="How it works, step by step">
+          <button class="bd-tab" type="button" role="tab" id="bd-tab-1" aria-controls="bd-panel-1" aria-selected="true" tabindex="0">
+            <span class="n">01</span><span class="t">We plan</span>
+            <span class="d">We settle your angle, then write the month: eight ideas, each with a script, a caption and a day to post.</span>
+            <span class="bd-bar" aria-hidden="true"></span>
+          </button>
+          <button class="bd-tab" type="button" role="tab" id="bd-tab-2" aria-controls="bd-panel-2" aria-selected="false" tabindex="-1">
+            <span class="n">02</span><span class="t">You film and post</span>
+            <span class="d">You shoot on your phone, or hand it to your editor, and post on the days in the schedule. If a question comes up, we answer it.</span>
+            <span class="bd-bar" aria-hidden="true"></span>
+          </button>
+          <button class="bd-tab" type="button" role="tab" id="bd-tab-3" aria-controls="bd-panel-3" aria-selected="false" tabindex="-1">
+            <span class="n">03</span><span class="t">We go through the numbers</span>
+            <span class="d">At the end of the month we open your analytics together, look at four numbers, and pick the one thing to change next month.</span>
+            <span class="bd-bar" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <div class="bd-stage">
+          <div class="bd-screen">
+            <div class="bd-panel" role="tabpanel" id="bd-panel-1" aria-labelledby="bd-tab-1">
+              <div class="bd-top"><span>Your month plan</span><span class="bd-who">We do this</span></div>
+              <div class="bd-ideas">
+                <div class="bd-idea" style="--i:0"><b>Idea 01</b><span class="tag">Teach</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W1 Tue</span></span></div>
+                <div class="bd-idea" style="--i:1"><b>Idea 02</b><span class="tag">Prove</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W1 Fri</span></span></div>
+                <div class="bd-idea" style="--i:2"><b>Idea 03</b><span class="tag">Story</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W2 Tue</span></span></div>
+                <div class="bd-idea" style="--i:3"><b>Idea 04</b><span class="tag">Offer</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W2 Fri</span></span></div>
+                <div class="bd-idea" style="--i:4"><b>Idea 05</b><span class="tag">Teach</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W3 Tue</span></span></div>
+                <div class="bd-idea" style="--i:5"><b>Idea 06</b><span class="tag">Prove</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W3 Fri</span></span></div>
+                <div class="bd-idea" style="--i:6"><b>Idea 07</b><span class="tag">Story</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W4 Tue</span></span></div>
+                <div class="bd-idea" style="--i:7"><b>Idea 08</b><span class="tag">Offer</span><span class="bd-ticks"><span>Script</span><span>Caption</span><span>W4 Fri</span></span></div>
+              </div>
+            </div>
+
+            <div class="bd-panel" role="tabpanel" id="bd-panel-2" aria-labelledby="bd-tab-2" hidden>
+              <div class="bd-top"><span>Your posting weeks</span><span class="bd-who">You do this</span></div>
+              <div class="bd-film">
+                <div class="bd-phone" aria-hidden="true">
+                  <div class="bd-glass"><span class="bd-rec"><i></i>Rec</span><span class="bd-filming"><span style="--i:0">Filming<br>idea 01</span><span style="--i:1">Filming<br>idea 02</span><span style="--i:2">Filming<br>idea 03</span><span style="--i:3">Filming<br>idea 04</span><span style="--i:4">Filming<br>idea 05</span><span style="--i:5">Filming<br>idea 06</span><span style="--i:6">Filming<br>idea 07</span><span style="--i:7">Filming<br>idea 08</span></span></div>
+                </div>
+                <div class="bd-weeks">
+                    <div class="bd-wk"><span class="wk">W1</span><span class="bd-slot" style="--i:0">Idea 01<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span><span class="bd-slot" style="--i:1">Idea 02<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span></div>
+                    <div class="bd-wk"><span class="wk">W2</span><span class="bd-slot" style="--i:2">Idea 03<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span><span class="bd-slot" style="--i:3">Idea 04<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span></div>
+                    <div class="bd-wk"><span class="wk">W3</span><span class="bd-slot" style="--i:4">Idea 05<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span><span class="bd-slot" style="--i:5">Idea 06<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span></div>
+                    <div class="bd-wk"><span class="wk">W4</span><span class="bd-slot" style="--i:6">Idea 07<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span><span class="bd-slot" style="--i:7">Idea 08<span class="bd-swap"><span class="a">Planned</span><span class="b">Posted</span></span></span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bd-panel" role="tabpanel" id="bd-panel-3" aria-labelledby="bd-tab-3" hidden>
+              <div class="bd-top"><span>Month report</span><span class="bd-who">Together</span></div>
+              <div class="bd-report">
+                <div class="bd-metric" style="--i:0">Meaningful replies<span class="bd-swap"><span class="a">Pulling</span><span class="b">Checked</span></span></div>
+                <div class="bd-metric" style="--i:1">DMs started<span class="bd-swap"><span class="a">Pulling</span><span class="b">Checked</span></span></div>
+                <div class="bd-metric" style="--i:2">Profile and website actions<span class="bd-swap"><span class="a">Pulling</span><span class="b">Checked</span></span></div>
+                <div class="bd-metric" style="--i:3">Qualified leads booked<span class="bd-swap"><span class="a">Pulling</span><span class="b">Checked</span></span></div>
+              </div>
+              <div class="bd-change">
+                <p class="lab">One change for next month</p>
+                <p>Picked together on the call, then built into next month&rsquo;s plan.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="about">
     <div class="wrap sec-head reveal">
-      <p class="lab">Who we are</p>
+      <p class="lab">About RUANGKOTAK</p>
       <div>
         <h2 class="display">WE SETTLE WHAT YOU STAND FOR.</h2>
-        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle who it is for and what each post is meant to do, then turn that into a month of content you can actually film. One product, one price, four clients at a time.</p>
+        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle who it is for and what each post is meant to do, then turn that into a month of content you can actually film.</p>
+        <ul class="rail mono about-rail">
+          <li>Positioning</li>
+          <li>Monthly content plans</li>
+          <li>Scripts and captions</li>
+          <li>Reporting</li>
+        </ul>
       </div>
     </div>
   </section>
@@ -513,13 +758,21 @@
       </div>
       <div class="tiles stagger">
         <article class="tile">
-          <p class="sub">You are the product. The job is making what you know repeatable, so the week does not start with a blank page.</p>
+          <p class="lab">Tick what sounds like you</p>
+          <ul class="issues">
+            <li><label><input type="checkbox"><span>You run out of ideas every week</span></label></li>
+            <li><label><input type="checkbox"><span>You post without a plan</span></label></li>
+            <li><label><input type="checkbox"><span>People can’t tell what you actually sell</span></label></li>
+            <li><label><input type="checkbox"><span>You post in bursts, then go quiet</span></label></li>
+            <li><label><input type="checkbox"><span>Your views don’t turn into DMs</span></label></li>
+            <li><label><input type="checkbox"><span>You’re not sure which numbers matter</span></label></li>
+          </ul>
+          <p class="sub issues-foot">That’s what we work on.</p>
           <ul>
             <li>An angle built around what you actually sell</li>
-            <li>Eight scripts a month, written for a phone and one take</li>
+            <li>Eight scripts a month, written to be filmed on a phone, by you</li>
             <li>Hooks, captions, one clear action per post</li>
-            <li>Comment and DM routing, so interest lands somewhere</li>
-            <li>A monthly read, and the one change worth making</li>
+            <li>A monthly report and call on your four numbers, and the one change to make next</li>
           </ul>
           <a class="btn" href="#apply-form">Apply for a spot</a>
         </article>
@@ -562,16 +815,15 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">What you get</p>
-        <h2 class="display-sm">Seven things, every month.</h2>
+        <h2 class="display-sm">Six things, every month.</h2>
       </div>
       <div class="rows stagger">
         <div class="row"><span class="n">01</span><span class="t">Positioning</span><span class="d">Your angle, written down, revisited every quarter.</span></div>
-        <div class="row"><span class="n">02</span><span class="t">Eight ideas</span><span class="d">Each one mapped to a pillar, not pulled from a trending list.</span></div>
-        <div class="row"><span class="n">03</span><span class="t">Eight scripts</span><span class="d">Written for a phone and one take.</span></div>
+        <div class="row"><span class="n">02</span><span class="t">Eight ideas</span><span class="d">Each one mapped to one of your content pillars.</span></div>
+        <div class="row"><span class="n">03</span><span class="t">Eight scripts</span><span class="d">Written to be filmed on a phone, by you.</span></div>
         <div class="row"><span class="n">04</span><span class="t">Eight captions</span><span class="d">One clear action each. No caption ends with nothing to do.</span></div>
         <div class="row"><span class="n">05</span><span class="t">A schedule</span><span class="d">What goes out, where, and on which day.</span></div>
-        <div class="row"><span class="n">06</span><span class="t">A report</span><span class="d">Four numbers that matter, and the one change to make next.</span></div>
-        <div class="row"><span class="n">07</span><span class="t">One call</span><span class="d">Thirty minutes at the end of the month.</span></div>
+        <div class="row"><span class="n">06</span><span class="t">A report and a call</span><span class="d">We go through your four numbers and the one change to make next month.</span></div>
       </div>
       <div class="cols">
         <div>
@@ -657,7 +909,7 @@
                   <span class="hook">The step people skip that makes everything slide by noon</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>It is thirty three degrees outside and your face has to last twelve hours. Skip this and nothing else you do matters.</li>
                     <li>Put it on one side only, on camera, then carry on filming and come back to it.</li>
@@ -675,7 +927,7 @@
                   <span class="hook">Why they ask what time your event ends before anything else</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Every booking starts with the same question, and it is not about the look you want.</li>
                     <li>Twelve hours in this weather is a different job from four hours in an air-conditioned hall.</li>
@@ -730,7 +982,7 @@
                   <span class="hook">What they tell someone doing their own wedding makeup, four months out</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Four months out, this is a practice problem, not a shopping problem.</li>
                     <li>The three things to test now, in this order, and why the order matters.</li>
@@ -748,7 +1000,7 @@
                   <span class="hook">The three bookings they turn down, and where those people go instead</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Not every wedding is theirs to take. Three get turned down, and it gets said early.</li>
                     <li>Name all three, plainly, and who each one gets sent to.</li>
@@ -803,7 +1055,7 @@
                   <span class="hook">A full trial, start to finish, in real time</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Ninety minutes cut down, one phone on a tripod, no edit tricks.</li>
                     <li>Talk through each stage as it happens: skin, base, eyes, setting.</li>
@@ -821,7 +1073,7 @@
                   <span class="hook">The three photos to take tonight, before you decide anything</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Your face has to work under a phone flash at eleven at night, not just in daylight.</li>
                     <li>Take the same photo in three lights, on camera, so the difference is visible.</li>
@@ -876,7 +1128,7 @@
                   <span class="hook">A cheaper base is not the saving you think it is</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>Where people cut the cost, and what it actually costs them by the reception.</li>
                     <li>Where to spend, and where genuinely not to bother.</li>
@@ -894,7 +1146,7 @@
                   <span class="hook">Dates left this season, and what a booking includes</span>
                 </summary>
                 <div class="post-body">
-                  <p class="lab">Script, for a phone and one take</p>
+                  <p class="lab">Script, for a phone</p>
                   <ol>
                     <li>The plain version: these dates, these two packages, nothing else.</li>
                     <li>Who each one suits, and who should book a trial first.</li>
@@ -919,7 +1171,7 @@
     <div class="wrap reveal">
       <div class="sec-head">
         <p class="lab">Apply</p>
-        <h2 class="display-sm">We take on few people at once so the work stays close. The form takes about five minutes.</h2>
+        <h2 class="display-sm">We take on few people at once so the work stays close. The form takes about a minute.</h2>
       </div>
       <ol class="steps stagger">
         <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
@@ -938,17 +1190,51 @@
         <p class="mono" style="margin-top:1.4rem; color:var(--ink-2)">One monthly fee, no setup charge, cancel any month. You get the number on the call.</p>
       </div>
 
-      <!-- Swap the mailto: below for your address, or for a Tally/Google Form URL
-           (then drop method/enctype). Nothing else needs to change. -->
+      <!-- Answers go to the mailto: below. To stop relying on the visitor's mail app,
+           swap it for a Tally/Google Form/Formspree URL (then drop method/enctype). -->
       <form class="form" id="apply-form" method="post" enctype="text/plain"
-            action="mailto:CHANGE-ME@ruangkotak.com">
+            action="mailto:storagebox100percent@gmail.com?subject=RUANGKOTAK%20application">
         <p class="lab">Tell us about you</p>
         <div class="fields">
-          <label>What do you sell, and who for? <span class="req">Required</span>
-            <textarea name="what-you-sell" required placeholder="One or two lines is plenty."></textarea>
+          <label>Who are you applying as? <span class="req">Required</span>
+            <select name="applying-as" required>
+              <option value="">Pick one</option>
+              <option>Creator</option>
+              <option>Talent or on-camera personality</option>
+              <option>Coach or consultant who creates</option>
+            </select>
           </label>
-          <label>Where do you post? <span class="req">Required</span>
+          <label>What do you sell? <span class="req">Required</span>
+            <select name="what-you-sell" required>
+              <option value="">Pick one</option>
+              <option>My own merch or product</option>
+              <option>A digital product or course</option>
+              <option>Coaching, consulting or a service</option>
+              <option>Brand deals and sponsorships</option>
+              <option>Nothing yet</option>
+            </select>
+          </label>
+          <label>Where do you post most? <span class="req">Required</span>
+            <select name="main-platform" required>
+              <option value="">Pick one</option>
+              <option>Instagram</option>
+              <option>TikTok</option>
+              <option>YouTube</option>
+              <option>Facebook</option>
+              <option>A mix, roughly equal</option>
+            </select>
+          </label>
+          <label>Your handle <span class="req">Required</span>
             <input type="text" name="handle" required placeholder="@yourhandle, or a link">
+          </label>
+          <label>How often do you publish now? <span class="req">Required</span>
+            <select name="publishing-now" required>
+              <option value="">Pick one</option>
+              <option>Most days</option>
+              <option>About once a week</option>
+              <option>A few times a month</option>
+              <option>Rarely, or not yet</option>
+            </select>
           </label>
           <label>Can you film and edit, or is there someone who can? <span class="req">Required</span>
             <select name="can-film" required>
@@ -958,8 +1244,15 @@
               <option>Not yet</option>
             </select>
           </label>
-          <label>What do you want to be true in ninety days?
-            <textarea name="ninety-days" placeholder="Optional, but it makes the call better."></textarea>
+          <label>What do you want to be true in ninety days? <span class="req">Required</span>
+            <select name="ninety-days" required>
+              <option value="">Pick one</option>
+              <option>More qualified conversations and enquiries</option>
+              <option>More product or course sales</option>
+              <option>Brand deals worth taking</option>
+              <option>A clear angle people recognise</option>
+              <option>Publishing consistently without guessing</option>
+            </select>
           </label>
         </div>
         <button class="btn" type="submit">Send it</button>
@@ -998,6 +1291,62 @@
   } else {
     els.forEach(el => el.classList.add('in'));
   }
+</script>
+
+<script>
+  /* the breakdown: tabs with arrow keys, and a walk-through that only runs
+     while the section is on screen and stops for good once someone clicks */
+  (() => {
+    const bd = document.querySelector('[data-bd]');
+    if (!bd) return;
+    const tabs = [...bd.querySelectorAll('[role="tab"]')];
+    const panels = tabs.map(t => document.getElementById(t.getAttribute('aria-controls')));
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cur = 0;
+
+    function show(i, focus) {
+      cur = (i + tabs.length) % tabs.length;
+      tabs.forEach((t, k) => {
+        const on = k === cur;
+        t.setAttribute('aria-selected', on);
+        t.tabIndex = on ? 0 : -1;
+        panels[k].hidden = !on;
+        panels[k].classList.remove('play');
+      });
+      void panels[cur].offsetWidth;
+      panels[cur].classList.add('play');
+      if (focus) tabs[cur].focus();
+    }
+    const stop = () => bd.classList.remove('auto');
+
+    tabs.forEach((t, k) => {
+      t.addEventListener('click', () => { stop(); show(k); });
+      t.addEventListener('keydown', (e) => {
+        const to = { ArrowDown: cur + 1, ArrowRight: cur + 1, ArrowUp: cur - 1, ArrowLeft: cur - 1,
+          Home: 0, End: tabs.length - 1 }[e.key];
+        if (to === undefined) return;
+        e.preventDefault(); stop(); show(to, true);
+      });
+    });
+
+    bd.addEventListener('animationend', (e) => {
+      if (e.target.classList.contains('bd-bar') && bd.classList.contains('auto')) show(cur + 1);
+    });
+
+    if (!still) bd.classList.add('auto');
+    let started = false;
+    const start = () => { if (!started) { started = true; show(cur); } };
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          bd.classList.toggle('live', e.isIntersecting);
+          if (e.isIntersecting) start();
+        }
+      }, { threshold: 0.35 }).observe(bd);
+    } else {
+      bd.classList.add('live'); start();
+    }
+  })();
 </script>
 
 <!-- review overlay. self-gated: does nothing unless ?edit=1 on localhost. -->
