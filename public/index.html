@@ -4,9 +4,554 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RUANGKOTAK</title>
+<meta name="description" content="A recurring growth system that turns positioning into consistent content, conversations, and measurable demand. For creators and brands.">
+<style>
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url(/fonts/DMSans-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 100 1000;
+  font-display: swap;
+  src: url(/fonts/DMSans-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/DMMono-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/DMMono-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/fonts/DMMono-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/fonts/DMMono-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+  :root{
+    --bg:#f4f4f2; --surface:#ffffff; --plate:#141416;
+    --line:#dcdcd7; --hair:#c9c9c2;
+    --ink:#0d0d0f; --ink-2:#5a5a62; --ink-3:#8e8e95;
+    --accent:#1f4ed8; --accent-ink:#ffffff;
+    --r:6px;
+    --mx:min(1320px,100% - 3rem);
+    --grain:.038;
+    --ease:cubic-bezier(.16,1,.3,1); --dur:.72s;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e0e10; --surface:#161619; --plate:#1b1b1f;
+      --line:#2a2a31; --hair:#33333b;
+      --ink:#f3f3f1; --ink-2:#a6a6af; --ink-3:#76767f;
+      --accent:#7a9dff; --accent-ink:#0d0d16;
+      --grain:.055;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"DM Sans",ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:16px; line-height:1.6; letter-spacing:-0.011em;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* grain. a fixed noise layer over the whole page, generated in an inline SVG
+     so it costs no request and no file. it sits above everything at very low
+     opacity, which is what gives the black plates and the flat ground some
+     texture instead of reading as pure #000 and pure paper. */
+  body::after{
+    content:""; position:fixed; inset:0; z-index:9999; pointer-events:none;
+    opacity:var(--grain);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size:180px 180px;
+  }
+  .wrap{width:var(--mx); margin-inline:auto}
+  p{margin:0}
+  a{color:inherit}
+  h1,h2,h3{margin:0; font-weight:500}
+
+  /* mono is the working layer of this page: navigation, labels, lists,
+     captions, every number. display type is DM Sans and nothing else. */
+  .mono{font-family:"DM Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:0; font-size:.83rem; line-height:1.65}
+  .lab{font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
+    letter-spacing:.22em; text-transform:uppercase; color:var(--ink-3)}
+
+  /* display: one size, used for every statement on the page. borrowed
+     straight from the reference, where body copy is set at headline scale. */
+  .display{font-size:clamp(1.9rem,4.1vw,3.35rem); line-height:1.14;
+    letter-spacing:-0.032em; font-weight:500}
+  .display-sm{font-size:clamp(1.4rem,2.6vw,2rem); line-height:1.2;
+    letter-spacing:-0.028em; font-weight:500}
+
+  section{padding-block:clamp(4.5rem,10vw,9rem)}
+  .sec-head{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
+    gap:clamp(1.5rem,4vw,3rem); align-items:start}
+  @media(max-width:860px){ .sec-head{grid-template-columns:1fr; gap:1.5rem} }
+
+  /* nav: three parts, mono, thin */
+  header{position:sticky; top:0; z-index:20;
+    background:color-mix(in srgb,var(--bg) 86%,transparent); backdrop-filter:blur(12px)}
+  .nav{height:60px; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.16em;
+    text-transform:uppercase}
+  .nav a{text-decoration:none; color:var(--ink-2)}
+  .nav a:hover{color:var(--ink)}
+  .nav .mark{color:var(--ink); font-weight:500; letter-spacing:.2em}
+  .nav-mid{display:flex; gap:2.5rem}
+  @media(max-width:760px){ .nav-mid{display:none} }
+
+  /* buttons: filled black plate with a rule sitting outside it */
+  .btn{position:relative; display:inline-flex; align-items:center; justify-content:center;
+    background:var(--ink); color:var(--bg); text-decoration:none; border:1px solid var(--ink);
+    border-radius:var(--r); padding:.7rem 1.3rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.76rem;
+    letter-spacing:.1em; text-transform:uppercase; white-space:nowrap;
+    transition:background .2s var(--ease), color .2s var(--ease)}
+  .btn::after{content:""; position:absolute; inset:-5px; border:1px solid var(--hair);
+    border-radius:calc(var(--r) + 4px); pointer-events:none;
+    transition:inset .22s var(--ease), border-color .22s var(--ease)}
+  .btn:hover::after{inset:-9px; border-color:var(--ink)}
+  .btn.ghost{background:transparent; color:var(--ink); border-color:var(--hair)}
+  .btn.ghost:hover{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+  .btn:focus-visible,a:focus-visible{outline:2px solid var(--accent); outline-offset:4px}
+
+  /* hero. the wordmark is the headline. the sentence under it is 16px mono,
+     same inversion the reference uses: type is the image, prose is small. */
+  .hero{padding-top:clamp(1rem,2vw,2rem); padding-bottom:0}
+  .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
+  .wordmark{width:var(--mx); margin-inline:auto; background:var(--plate);
+    border-radius:var(--r); overflow:hidden; line-height:0; aspect-ratio:1920/430}
+  .wordmark video{width:100%; height:100%; object-fit:cover; display:block}
+  @media(max-width:760px){ .wordmark{aspect-ratio:1920/320} }
+
+  .hero-foot{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);
+    gap:clamp(1.5rem,4vw,3rem); align-items:start; margin-top:clamp(1.75rem,3vw,2.5rem)}
+  .hero-line{font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.86rem;
+    line-height:1.62; max-width:34ch; color:var(--ink)}
+  .hero-foot .btn{margin-top:2rem}
+  .rail{margin:0; padding:0; list-style:none; display:grid; gap:.4rem; color:var(--ink-2)}
+  .hero-foot .rail{justify-self:end; text-align:right}
+  @media(max-width:860px){
+    .hero-foot{grid-template-columns:1fr; gap:2rem}
+    .hero-foot .rail{justify-self:start; text-align:left}
+  }
+
+  /* the stats strip, rebuilt. every row here is a fact about the offer,
+     not a result. no client counts, nothing that needs a footnote. */
+  .facts{display:grid; gap:0; margin-top:clamp(3rem,7vw,6rem); max-width:520px; margin-left:auto}
+  .fact{display:flex; align-items:baseline; gap:.9rem; padding:.85rem 0;
+    border-bottom:1px solid var(--line)}
+  .fact:first-child{border-top:1px solid var(--line)}
+  .fact b{font-weight:500; font-size:1.05rem; letter-spacing:-0.02em; min-width:5.5ch}
+  .fact span{color:var(--ink-2)}
+  @media(max-width:860px){ .facts{margin-left:0} }
+
+  /* the centre plate: one modest portrait asset, not a full-bleed banner */
+  .center-plate{width:min(330px,72%); margin:clamp(3rem,7vw,6rem) auto 0;
+    background:var(--plate); border-radius:var(--r); overflow:hidden; line-height:0}
+  .center-plate video{width:100%; height:auto; display:block}
+  .plate-cap{margin:.9rem auto 0; width:min(330px,72%); color:var(--ink-3); text-align:center}
+
+  /* stacked tiles. the reference stacks case studies here. there are none,
+     so the two entry points take the slot instead. */
+  .tiles{display:grid; gap:clamp(1rem,2vw,1.5rem); margin-top:clamp(2.5rem,5vw,4rem)}
+  .tile{position:relative; background:var(--plate); border-radius:var(--r);
+    padding:clamp(3rem,7vw,5.5rem) clamp(1.5rem,4vw,3rem); color:#f3f3f1;
+    display:grid; justify-items:center; text-align:center; overflow:hidden;
+    transition:transform .4s var(--ease)}
+  .tile:hover{transform:translateY(-4px)}
+  .tile .lab{color:rgba(243,243,241,.5)}
+  .tile h3{font-size:clamp(1.6rem,3.4vw,2.6rem); letter-spacing:-0.03em; margin:1.1rem 0 1.3rem}
+  .tile .sub{max-width:44ch; color:rgba(243,243,241,.62); font-family:"DM Mono",ui-monospace,Menlo,monospace;
+    font-size:.8rem; line-height:1.7}
+  .tile ul{margin:1.6rem 0 0; padding:0; list-style:none; display:grid; gap:.42rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.78rem;
+    color:rgba(243,243,241,.78); line-height:1.6}
+  .tile .btn{margin-top:2.4rem; background:#f3f3f1; color:#141416; border-color:#f3f3f1}
+  .tile .btn::after{border-color:rgba(243,243,241,.35)}
+  .tile .btn:hover::after{border-color:#f3f3f1}
+
+  /* hairline rows: the reference sets its service list as one big word per
+     row with a rule between. same device, carrying the deliverables. */
+  .rows{margin-top:clamp(2rem,4vw,3rem); border-top:1px solid var(--hair)}
+  .row{display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
+    gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline;
+    padding:clamp(1.1rem,2.4vw,1.9rem) 0; border-bottom:1px solid var(--hair);
+    transition:padding-left .3s var(--ease)}
+  .row:hover{padding-left:.6rem}
+  .row .n{color:var(--ink-3); font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
+    letter-spacing:.08em}
+  .row .t{font-size:clamp(1.15rem,2.5vw,1.85rem); letter-spacing:-0.028em; font-weight:500;
+    line-height:1.2}
+  .row .d{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
+    font-size:.8rem; line-height:1.65; max-width:52ch}
+  @media(max-width:760px){
+    .row{grid-template-columns:3.5ch minmax(0,1fr); gap:.75rem 1rem}
+    .row .d{grid-column:2}
+  }
+
+  /* two-column mono comparison, used once, in the worked example */
+  .cols{display:grid; grid-template-columns:1fr 1fr; gap:clamp(2rem,5vw,4rem);
+    margin-top:clamp(2.5rem,5vw,4rem)}
+  .cols ul{margin:1rem 0 0; padding:0; list-style:none; display:grid; gap:.55rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.82rem;
+    color:var(--ink-2); line-height:1.6}
+  .cols li{padding-left:1.1rem; position:relative}
+  .cols li::before{content:""; position:absolute; left:0; top:.72em; width:6px; height:1px;
+    background:var(--ink-3)}
+  @media(max-width:760px){ .cols{grid-template-columns:1fr; gap:2.25rem} }
+
+  /* numbered application steps */
+  .steps{margin:clamp(2rem,4vw,3rem) 0 0; padding:0; list-style:none; counter-reset:s;
+    display:grid; gap:0; border-top:1px solid var(--hair)}
+  .steps li{counter-increment:s; padding:clamp(1.1rem,2.4vw,1.7rem) 0;
+    border-bottom:1px solid var(--hair);
+    display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
+    gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline}
+  .steps li::before{content:"0" counter(s); color:var(--ink-3);
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.08em}
+  .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
+  .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
+    font-size:.8rem; line-height:1.65; max-width:52ch}
+  @media(max-width:760px){
+    .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
+    .steps p{grid-column:2}
+  }
+
+  .gate{border:1px solid var(--line); border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem);
+    background:var(--surface); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px}
+  .gate ul{margin:1.1rem 0 0; padding:0; list-style:none; display:grid; gap:.5rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.82rem; color:var(--ink-2)}
+  .gate li{padding-left:1.1rem; position:relative}
+  .gate li::before{content:""; position:absolute; left:0; top:.72em; width:6px; height:1px;
+    background:var(--ink-3)}
+
+  /* closing */
+  .close{text-align:left; border-top:1px solid var(--hair)}
+  .close .display{max-width:20ch}
+  .close .btn{margin-top:clamp(2rem,4vw,3rem)}
+
+  footer{border-top:1px solid var(--line); padding-block:2rem;
+    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
+  .foot{display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center}
+
+  /* motion: one curve, staged starts, nothing loops */
+  .reveal{opacity:0; translate:0 18px}
+  .reveal.in{opacity:1; translate:0 0;
+    transition:opacity var(--dur) var(--ease), translate var(--dur) var(--ease)}
+  .stagger > *{opacity:0; translate:0 14px}
+  .stagger.in > *{opacity:1; translate:0 0;
+    transition:opacity .62s var(--ease), translate .62s var(--ease)}
+  .stagger.in > *:nth-child(1){transition-delay:.06s}
+  .stagger.in > *:nth-child(2){transition-delay:.13s}
+  .stagger.in > *:nth-child(3){transition-delay:.20s}
+  .stagger.in > *:nth-child(4){transition-delay:.27s}
+  .stagger.in > *:nth-child(5){transition-delay:.34s}
+  .stagger.in > *:nth-child(6){transition-delay:.41s}
+  .stagger.in > *:nth-child(n+7){transition-delay:.47s}
+  .lift{opacity:0; translate:0 20px; animation:lift .8s var(--ease) forwards}
+  .lift-1{animation-delay:.05s} .lift-2{animation-delay:.16s}
+  .lift-3{animation-delay:.26s} .lift-4{animation-delay:.35s}
+  @keyframes lift{ to{opacity:1; translate:0 0} }
+
+  @media (prefers-reduced-motion:reduce){
+    .wordmark video,.center-plate video{display:none}
+    .wordmark{aspect-ratio:1920/560;
+      background:var(--plate) url("/media/hero-wordmark.jpg") center/cover no-repeat}
+    .center-plate{aspect-ratio:4/5;
+      background:var(--plate) url("/media/month-planned.jpg") center/cover no-repeat}
+    .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
+      transition:none !important; animation:none !important}
+    .tile:hover,.row:hover{transform:none; padding-left:0}
+  }
+</style>
 </head>
 <body>
-<h1>RUANGKOTAK</h1>
-<p>A new marketing agency. More soon.</p>
+
+<header>
+  <nav class="wrap nav" aria-label="Main">
+    <a class="mark" href="/">RUANGKOTAK</a>
+    <div class="nav-mid">
+      <a href="#paths">Who it is for</a>
+      <a href="#month">How it runs</a>
+      <a href="#work">The work</a>
+    </div>
+    <a href="#apply">Apply</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="hero">
+    <div class="wordmark lift lift-1">
+      <video src="/media/hero-wordmark.mp4" poster="/media/hero-wordmark.jpg"
+             autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>
+      <h1 class="sr-only">RUANGKOTAK</h1>
+    </div>
+
+    <div class="wrap">
+      <div class="hero-foot">
+        <div class="lift lift-2">
+          <p class="hero-line">Eight ideas a month that could only have come from you. You film and post. We do everything on either side of that.</p>
+          <a class="btn" href="#apply">Apply for a spot</a>
+        </div>
+        <div class="lift lift-3"></div>
+        <ul class="rail mono lift lift-4">
+          <li>Positioning</li>
+          <li>Monthly content plans</li>
+          <li>Scripts and captions</li>
+          <li>Reporting</li>
+        </ul>
+      </div>
+
+      <div class="facts reveal">
+        <div class="fact"><b>8</b><span>ideas, scripts and captions a month</span></div>
+        <div class="fact"><b>4</b><span>clients at a time, by design</span></div>
+        <div class="fact"><b>14</b><span>days of setup before month one</span></div>
+        <div class="fact"><b>1</b><span>call and one change every month</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="about">
+    <div class="wrap sec-head reveal">
+      <p class="lab">Who we are</p>
+      <div>
+        <p class="display">YOUR MONDAY MORNING WILL NEVER BE THE SAME!</p>
+        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">That loop is rarely a discipline problem. It is what happens when nobody decided who the content is for, what it promises, or what each piece is meant to prove. Without those three, every week starts from scratch and the account ends up looking like five different businesses.</p>
+        <p class="mono" style="margin-top:1.4rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle those three things first, then turn them into a month of content you can actually film. One product, one price, four clients at a time.</p>
+      </div>
+      <figure class="center-plate" style="margin-bottom:0">
+        <video src="/media/month-planned.mp4" poster="/media/month-planned.jpg"
+               autoplay muted loop playsinline preload="none"
+               aria-label="A month of content, planned: eight ideas grouped into four weeks."></video>
+      </figure>
+      <p class="plate-cap mono">Eight ideas, grouped into four weeks.</p>
+    </div>
+  </section>
+
+  <section id="paths">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">Two ways in</p>
+        <p class="display-sm">Same system, same price. What changes is what lands in your inbox on the first of the month.</p>
+      </div>
+      <div class="tiles stagger">
+        <article class="tile">
+          <p class="lab">Entry one</p>
+          <h3>For creators and talent</h3>
+          <p class="sub">You are the product. The job is making what you know repeatable, so the week does not start with a blank page.</p>
+          <ul>
+            <li>An angle built around what you actually sell</li>
+            <li>Eight scripts a month, written for a phone and one take</li>
+            <li>Hooks, captions, one clear action per post</li>
+            <li>Comment and DM routing, so interest lands somewhere</li>
+            <li>A monthly read, and the one change worth making</li>
+          </ul>
+          <a class="btn" href="#apply">Apply for a spot</a>
+        </article>
+        <article class="tile">
+          <p class="lab">Entry two</p>
+          <h3>For brands</h3>
+          <p class="sub">You have a product and people to run it. The job is settling what you stand for, then handing the team something clear enough to execute.</p>
+          <ul>
+            <li>Messaging your whole team can say the same way</li>
+            <li>A monthly plan tied to one business goal</li>
+            <li>Eight concepts, with scripts and captions</li>
+            <li>A production brief your editor can shoot from</li>
+            <li>A monthly read, and the one change worth making</li>
+          </ul>
+          <a class="btn" href="#apply">Apply for a spot</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="month">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">How a month runs</p>
+        <p class="display-sm">The same four beats every month, so you always know what is coming and when.</p>
+      </div>
+      <div class="rows stagger">
+        <div class="row">
+          <span class="n">W1</span>
+          <span class="t">The plan lands</span>
+          <span class="d">Ideas, hooks, scripts, captions, schedule. You approve it, or send one round of changes.</span>
+        </div>
+        <div class="row">
+          <span class="n">W2</span>
+          <span class="t">You publish</span>
+          <span class="d">Questions get answered as they come. If the audience reacts to something nobody expected, we follow it.</span>
+        </div>
+        <div class="row">
+          <span class="n">W3</span>
+          <span class="t">Mid-month check</span>
+          <span class="d">A short look at the four numbers. If something is dying, you hear about it while there is still time to act.</span>
+        </div>
+        <div class="row">
+          <span class="n">W4</span>
+          <span class="t">Report and one change</span>
+          <span class="d">What happened, which topic started real conversations, and the single thing to do differently next month.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="included">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">What you get</p>
+        <p class="display-sm">Seven things, every month, whichever way you came in.</p>
+      </div>
+      <div class="rows stagger">
+        <div class="row"><span class="n">01</span><span class="t">Positioning</span><span class="d">Your angle, written down, revisited every quarter.</span></div>
+        <div class="row"><span class="n">02</span><span class="t">Eight ideas</span><span class="d">Each one mapped to a pillar, not pulled from a trending list.</span></div>
+        <div class="row"><span class="n">03</span><span class="t">Eight scripts</span><span class="d">Written for a phone and one take, or as concepts your editor can shoot.</span></div>
+        <div class="row"><span class="n">04</span><span class="t">Eight captions</span><span class="d">One clear action each. No caption ends with nothing to do.</span></div>
+        <div class="row"><span class="n">05</span><span class="t">A schedule</span><span class="d">What goes out, where, and on which day.</span></div>
+        <div class="row"><span class="n">06</span><span class="t">A report</span><span class="d">Four numbers that matter, and the one change to make next.</span></div>
+        <div class="row"><span class="n">07</span><span class="t">One call</span><span class="d">Thirty minutes at the end of the month, or forty-five for brands.</span></div>
+      </div>
+      <div class="cols">
+        <div>
+          <p class="lab">Not included, on purpose</p>
+          <ul>
+            <li>Filming and editing. You produce, or your editor does.</li>
+            <li>Posting for you</li>
+            <li>Running your DMs day to day</li>
+            <li>Paid ads and media buying</li>
+            <li>Unlimited revisions. One round per plan.</li>
+          </ul>
+        </div>
+        <div>
+          <p class="lab">Why</p>
+          <ul>
+            <li>Leaving production out keeps the work sharp and the price sane.</li>
+            <li>If nobody on your side can film, this is not the right fit yet.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="work">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">The actual work</p>
+        <p class="display-sm">Take a physiotherapist in KL who treats runners. One line about what she does, turned into a month.</p>
+      </div>
+      <div class="cols stagger">
+        <div>
+          <p class="lab">Before</p>
+          <ul>
+            <li>Stretch of the week</li>
+            <li>Clinic renovation photos</li>
+            <li>A quote over a sunset</li>
+            <li>Public holiday greetings</li>
+          </ul>
+          <p class="mono" style="margin-top:1.35rem; color:var(--ink-3)">Consistent. Pleasant. Could belong to any clinic in the country, and nothing in it says who she is for.</p>
+        </div>
+        <div>
+          <p class="lab">Four of the eight angles</p>
+          <ul>
+            <li>The knee pain runners self-diagnose wrong, and what it usually is</li>
+            <li>Why your physio keeps asking about your shoes</li>
+            <li>What she tells a runner six weeks out from a marathon with a niggle</li>
+            <li>The three runners she turns away, and where she sends them</li>
+          </ul>
+          <p class="mono" style="margin-top:1.35rem; color:var(--ink-3)">Same clinic, same hour of filming. Now every post is aimed at a runner deciding who to trust with an injury.</p>
+        </div>
+      </div>
+      <p class="mono" style="margin:clamp(3rem,6vw,5rem) auto 0; max-width:58ch; color:var(--ink-2)">Nothing above needs a bigger camera or more hours. It needs somebody to decide who the content is for before anyone hits record. That decision is most of what you are paying for.</p>
+    </div>
+  </section>
+
+  <section id="apply">
+    <div class="wrap reveal">
+      <div class="sec-head">
+        <p class="lab">Apply</p>
+        <p class="display-sm">We are keeping the list short to start, so every client gets real attention. The form takes about five minutes.</p>
+      </div>
+      <ol class="steps stagger">
+        <li><strong>Tell us about the business</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
+        <li><strong>We talk for thirty minutes</strong><p>If we do not think we can help, we will say so on that call and point you somewhere better.</p></li>
+        <li><strong>Two weeks of setup</strong><p>Your angle, your path from post to conversation, and a baseline. Then the first month starts.</p></li>
+      </ol>
+      <div class="gate">
+        <p class="lab">Before you apply</p>
+        <p class="mono" style="margin-top:.7rem; color:var(--ink-2)">This works if you can say yes to all four.</p>
+        <ul>
+          <li>You already have something people pay for</li>
+          <li>You can film, or someone on your side can</li>
+          <li>One person can approve a plan</li>
+          <li>You can publish at least once a week</li>
+        </ul>
+        <p class="mono" style="margin-top:1.4rem; color:var(--ink-3)">One monthly fee, no setup charge, cancel any month. You get the number on the call.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="close">
+    <div class="wrap reveal">
+      <p class="display">Ready to stop starting from a blank page every Monday?</p>
+      <!-- TODO: point href at the Google Form once it exists. Placeholder until then. -->
+      <a class="btn" href="#apply">Apply for a spot</a>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span>RUANGKOTAK</span>
+    <span>Kuala Lumpur</span>
+    <span>&copy; 2026</span>
+  </div>
+</footer>
+
+<script>
+  const els = document.querySelectorAll('.reveal, .stagger');
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      }
+    }, { threshold: 0.1, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(el => io.observe(el));
+  } else {
+    els.forEach(el => el.classList.add('in'));
+  }
+</script>
 </body>
 </html>
