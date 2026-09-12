@@ -1,0 +1,16 @@
+{
+  "name": "ruangkotak-motion",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio --no-open",
+    "render": "remotion render"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.523",
+    "@remotion/google-fonts": "^4.0.523",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "remotion": "^4.0.523"
+  }
+}
