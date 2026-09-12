@@ -55,53 +55,53 @@
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
+  /* ------------------------------------------------------------------
+     The Content Desk system: black and white neumorphic. No hue anywhere,
+     every colour below is pure greyscale. Depth carries the meaning colour
+     used to, so surfaces stay soft and TYPE stays high-contrast.
+
+     The old token names are kept as aliases onto the new ramp, so every
+     rule further down this sheet inherits the scheme without being touched.
+     Dark-only, like the desk: there is no light scheme to switch to.
+     ------------------------------------------------------------------ */
   :root{
-    --bg:#f4f4f2; --surface:#ffffff; --plate:#141416;
-    --line:#dcdcd7; --hair:#c9c9c2;
-    --ink:#0d0d0f; --ink-2:#5a5a62; --ink-3:#8e8e95;
-    --accent:#1f4ed8; --accent-ink:#ffffff;
-    --r:6px;
+    /* greyscale ramp */
+    --bg:#1e1e1e; --bg-2:#202020;
+    --raise-hi:#2e2e2e;   /* light edge, top-left */
+    --raise-lo:#101010;   /* dark edge, bottom-right */
+    --sink-hi:#2b2b2b; --sink-lo:#121212;
+
+    --text:#f2f2f2; --text-2:#a6a6a6; --text-3:#767676;
+    --white:#ffffff;      /* the accent slot, and the only bright value */
+
+    /* aliases: the names the rest of this sheet already asks for */
+    --line:#2c2c2c; --hair:#2c2c2c;
+    --ink:#f2f2f2; --ink-2:#a6a6a6; --ink-3:#767676;
+
+    /* elevations */
+    --up-sm:-3px -3px 7px var(--raise-hi), 3px 3px 7px var(--raise-lo);
+    --up:-5px -5px 12px var(--raise-hi), 5px 5px 12px var(--raise-lo);
+    --up-lg:-8px -8px 20px var(--raise-hi), 8px 8px 20px var(--raise-lo);
+    --in-sm:inset -2px -2px 5px var(--sink-hi), inset 2px 2px 5px var(--sink-lo);
+    --in:inset -4px -4px 9px var(--sink-hi), inset 4px 4px 9px var(--sink-lo);
+    --in-lg:inset -7px -7px 16px var(--sink-hi), inset 7px 7px 16px var(--sink-lo);
+
+    --r:14px;             /* the soft radius neumorphism lives or dies by */
+    --r-sm:9px; --r-pill:999px;
+
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --mono:"DM Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
     --mx:min(1320px,100% - 3rem);
-    --grain:.038;
     --ease:cubic-bezier(.16,1,.3,1); --dur:.72s;
-    /* soft-extrusion pair: one light source, top-left, everywhere on the page.
-       the composites read --nu-lite/--nu-dark at use time, so the dark scheme
-       only has to override those two. */
-    --nu-lite:rgba(255,255,255,.94); --nu-dark:rgba(20,20,26,.13);
-    --nu-out:7px 7px 18px var(--nu-dark), -6px -6px 14px var(--nu-lite);
-    --nu-out-sm:4px 4px 11px var(--nu-dark), -3px -3px 8px var(--nu-lite);
-    --nu-out-lg:12px 12px 30px var(--nu-dark), -9px -9px 22px var(--nu-lite);
-    --nu-in:inset 3px 3px 8px var(--nu-dark), inset -3px -3px 7px var(--nu-lite);
-  }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#0e0e10; --surface:#161619; --plate:#1b1b1f;
-      --line:#2a2a31; --hair:#33333b;
-      --ink:#f3f3f1; --ink-2:#a6a6af; --ink-3:#76767f;
-      --accent:#7a9dff; --accent-ink:#0d0d16;
-      --grain:.055;
-      /* on a near-black ground the highlight has to be a whisper and the
-         shadow has to do the work, or the surfaces turn into grey slabs. */
-      --nu-lite:rgba(255,255,255,.052); --nu-dark:rgba(0,0,0,.66);
-    }
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{
-    margin:0; background:var(--bg); color:var(--ink);
+    margin:0; background:var(--bg); color:var(--text);
     font-family:"DM Sans",ui-sans-serif,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     font-size:16px; line-height:1.6; letter-spacing:-0.011em;
     -webkit-font-smoothing:antialiased;
-  }
-  /* grain. a fixed noise layer over the whole page, generated in an inline SVG
-     so it costs no request and no file. it sits above everything at very low
-     opacity, which is what gives the black plates and the flat ground some
-     texture instead of reading as pure #000 and pure paper. */
-  body::after{
-    content:""; position:fixed; inset:0; z-index:9999; pointer-events:none;
-    opacity:var(--grain);
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size:180px 180px;
   }
   .wrap{width:var(--mx); margin-inline:auto}
   p{margin:0}
@@ -117,10 +117,11 @@
 
   /* display: one size, used for every statement on the page. borrowed
      straight from the reference, where body copy is set at headline scale. */
-  .display{font-size:clamp(1.9rem,4.1vw,3.35rem); line-height:1.14;
-    letter-spacing:-0.032em; font-weight:500}
-  .display-sm{font-size:clamp(1.4rem,2.6vw,2rem); line-height:1.2;
-    letter-spacing:-0.028em; font-weight:500}
+  .display{font-family:var(--serif); font-size:clamp(1.9rem,4.1vw,3.35rem);
+    line-height:1.1; letter-spacing:-0.015em; font-weight:400; color:var(--white)}
+  .display em{font-style:italic; color:var(--text-2)}
+  .display-sm{font-family:var(--serif); font-size:clamp(1.4rem,2.6vw,2rem);
+    line-height:1.2; letter-spacing:-0.012em; font-weight:400; color:var(--white)}
 
   section{padding-block:clamp(4.5rem,10vw,9rem)}
   .sec-head{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
@@ -133,40 +134,43 @@
   .nav{height:60px; display:flex; align-items:center; justify-content:space-between; gap:1rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.16em;
     text-transform:uppercase}
-  .nav a{text-decoration:none; color:var(--ink-2)}
-  .nav a:hover{color:var(--ink)}
-  .nav .mark{color:var(--ink); font-weight:500; letter-spacing:.2em}
+  .nav a{text-decoration:none; color:var(--text-2);
+    padding:.55rem 1rem; border-radius:var(--r-pill); box-shadow:var(--up-sm);
+    transition:box-shadow .16s ease, color .16s ease}
+  .nav a:hover{color:var(--white); box-shadow:var(--in-sm)}
+  .nav .mark{color:var(--white); font-weight:500; letter-spacing:.2em;
+    box-shadow:var(--in-sm)}
   .nav-mid{display:flex; gap:2.5rem}
   @media(max-width:760px){ .nav-mid{display:none} }
 
-  /* buttons: filled black plate with a rule sitting outside it */
-  .btn{position:relative; display:inline-flex; align-items:center; justify-content:center;
-    background:var(--ink); color:var(--bg); text-decoration:none; border:1px solid var(--ink);
-    border-radius:var(--r); padding:.7rem 1.3rem;
-    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.76rem;
-    letter-spacing:.1em; text-transform:uppercase; white-space:nowrap;
-    box-shadow:var(--nu-out-sm);
-    transition:background .2s var(--ease), color .2s var(--ease),
-      box-shadow .2s var(--ease), translate .2s var(--ease)}
-  .btn:hover{translate:0 -1px; box-shadow:var(--nu-out)}
-  .btn:active{translate:0 1px; box-shadow:var(--nu-in)}
-  .btn::after{content:""; position:absolute; inset:-5px; border:1px solid var(--hair);
-    border-radius:calc(var(--r) + 4px); pointer-events:none;
-    transition:inset .22s var(--ease), border-color .22s var(--ease)}
-  .btn:hover::after{inset:-9px; border-color:var(--ink)}
-  .btn.ghost{background:var(--surface); color:var(--ink); border-color:transparent}
-  .btn.ghost:hover{background:var(--ink); color:var(--bg); border-color:var(--ink)}
-  .btn:focus-visible,a:focus-visible{outline:2px solid var(--accent); outline-offset:4px}
+  /* buttons: raised greyscale pills that press inward. no fill, no rule
+     outside; the shadow is the affordance. */
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--bg); border:0; border-radius:var(--r-pill);
+    box-shadow:var(--up-sm); color:var(--text-2); text-decoration:none;
+    font-family:var(--mono); font-size:.72rem; letter-spacing:.14em;
+    text-transform:uppercase; white-space:nowrap; padding:.85rem 1.4rem;
+    cursor:pointer; transition:box-shadow .16s ease, color .16s ease}
+  .btn:hover{color:var(--white); box-shadow:var(--up)}
+  .btn:active{box-shadow:var(--in-sm); color:var(--white)}
+  .btn.ghost{box-shadow:var(--in-sm); color:var(--text-2)}
+  .btn.ghost:hover{color:var(--white); box-shadow:var(--in-sm)}
+  .btn:focus-visible,a:focus-visible{outline:2px solid var(--white); outline-offset:3px; border-radius:4px}
 
   /* hero. the wordmark is the headline. the sentence under it is 16px mono,
      same inversion the reference uses: type is the image, prose is small. */
   .hero{padding-top:clamp(1rem,2vw,2rem); padding-bottom:0}
   .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;
     overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0}
-  .wordmark{width:var(--mx); margin-inline:auto; background:var(--plate);
-    border-radius:calc(var(--r) + 4px); overflow:hidden; line-height:0; aspect-ratio:1920/430;
-    box-shadow:var(--nu-out-lg)}
-  .wordmark video{width:100%; height:100%; object-fit:cover; display:block}
+  /* every moving image on this page sits the desk way: a raised shell with a
+     sunken frame inside it, so the video reads as inset into the surface. */
+  .wordmark{width:var(--mx); margin-inline:auto; background:var(--bg);
+    border-radius:calc(var(--r) + 6px); padding:14px; box-shadow:var(--up-lg)}
+  .wordmark .frame{border-radius:var(--r); box-shadow:var(--in-lg); padding:10px;
+    background:var(--bg-2); line-height:0}
+  .wordmark video{width:100%; height:100%; display:block; object-fit:cover;
+    border-radius:var(--r-sm); aspect-ratio:1920/430; background:#101010;
+    filter:grayscale(1) contrast(1.04)}
   @media(max-width:760px){ .wordmark{aspect-ratio:1920/320} }
 
   .hero-foot{display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr);
@@ -175,9 +179,10 @@
     line-height:1.62; max-width:34ch; color:var(--ink)}
   .hero-foot .btn{margin-top:2rem}
   .rail{margin:0; padding:0; list-style:none; display:grid; gap:.4rem; color:var(--ink-2)}
-  .hero-foot .rail{justify-self:end; text-align:right; gap:.5rem}
-  .hero-foot .rail li{padding:.3rem .7rem; border-radius:calc(var(--r) - 1px);
-    box-shadow:var(--nu-in)}
+  .hero-foot .rail{justify-self:end; align-items:end; gap:.55rem}
+  .hero-foot .rail li{padding:.4rem .85rem; border-radius:var(--r-pill);
+    box-shadow:var(--in-sm); font-size:.72rem; letter-spacing:.14em;
+    text-transform:uppercase}
   @media(max-width:860px){
     .hero-foot{grid-template-columns:1fr; gap:2rem}
     .hero-foot .rail{justify-self:start; text-align:left}
@@ -185,45 +190,34 @@
 
   /* the hero plate: the month timeline, full width under the hero foot.
      1600x840 source, so the box holds that ratio and never reflows on load. */
-  .hero-plate{width:100%; margin:clamp(2.5rem,5vw,4rem) 0 0; background:var(--plate);
-    border-radius:calc(var(--r) + 4px); overflow:hidden; line-height:0;
-    aspect-ratio:1600/840; box-shadow:var(--nu-out-lg)}
-  .hero-plate video{width:100%; height:100%; object-fit:cover; display:block}
-  .hero-plate + .plate-cap{width:100%; max-width:none}
-
-  /* the stats strip, rebuilt. every row here is a fact about the offer,
-     not a result. no client counts, nothing that needs a footnote. */
-  .facts{display:grid; gap:0; margin-top:clamp(3rem,7vw,6rem); max-width:520px; margin-left:auto;
-    background:var(--surface); border-radius:calc(var(--r) + 4px);
-    padding:.5rem clamp(1.1rem,2.4vw,1.6rem); box-shadow:var(--nu-out)}
-  .fact{display:flex; align-items:baseline; gap:.9rem; padding:.85rem 0;
-    border-bottom:1px solid var(--line)}
-  .fact:last-child{border-bottom:0}
-  .fact b{font-weight:500; font-size:1.05rem; letter-spacing:-0.02em; min-width:5.5ch}
-  .fact span{color:var(--ink-2)}
-  @media(max-width:860px){ .facts{margin-left:0} }
-
-  .plate-cap{margin:.9rem auto 0; width:min(330px,72%); color:var(--ink-3); text-align:center}
+  .hero-plate{width:100%; margin:clamp(2.5rem,5vw,4rem) 0 0; background:var(--bg);
+    border-radius:calc(var(--r) + 6px); padding:18px; box-shadow:var(--up-lg)}
+  .hero-plate .frame{border-radius:var(--r); box-shadow:var(--in-lg); padding:12px;
+    background:var(--bg-2); line-height:0}
+  .hero-plate video{width:100%; display:block; border-radius:var(--r-sm);
+    aspect-ratio:1600/840; background:#101010; object-fit:cover;
+    filter:grayscale(1) contrast(1.04)}
+  .hero-plate + .plate-cap{width:100%; max-width:none; margin-top:1.1rem}
 
   /* stacked tiles. the reference stacks case studies here. there are none,
      so the two entry points take the slot instead. */
   .tiles{display:grid; gap:clamp(1rem,2vw,1.5rem); margin-top:clamp(2.5rem,5vw,4rem)}
-  .tile{position:relative; background:var(--plate); border-radius:var(--r);
+  .tile{position:relative; background:var(--bg); border-radius:var(--r);
     padding:clamp(3rem,7vw,5.5rem) clamp(1.5rem,4vw,3rem); color:#f3f3f1;
     display:grid; justify-items:center; text-align:center; overflow:hidden;
-    box-shadow:var(--nu-out);
-    transition:transform .4s var(--ease), box-shadow .4s var(--ease)}
-  .tile:hover{transform:translateY(-4px); box-shadow:var(--nu-out-lg)}
+    box-shadow:var(--up);
+    transition:transform .2s ease, box-shadow .2s ease}
+  .tile:hover{transform:translateY(-2px); box-shadow:var(--up-lg)}
+  .tile:active{transform:none; box-shadow:var(--in)}
   .tile .lab{color:rgba(243,243,241,.5)}
-  .tile h3{font-size:clamp(1.6rem,3.4vw,2.6rem); letter-spacing:-0.03em; margin:1.1rem 0 1.3rem}
+  .tile h3{font-family:var(--serif); font-weight:400; color:var(--white);
+    font-size:clamp(1.6rem,3.4vw,2.6rem); letter-spacing:-0.015em; margin:1.1rem 0 1.3rem}
   .tile .sub{max-width:44ch; color:rgba(243,243,241,.62); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.7}
   .tile ul{margin:1.6rem 0 0; padding:0; list-style:none; display:grid; gap:.42rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.78rem;
     color:rgba(243,243,241,.78); line-height:1.6}
-  .tile .btn{margin-top:2.4rem; background:#f3f3f1; color:#141416; border-color:#f3f3f1}
-  .tile .btn::after{border-color:rgba(243,243,241,.35)}
-  .tile .btn:hover::after{border-color:#f3f3f1}
+  .tile .btn{margin-top:2.4rem}
 
   /* hairline rows: the reference sets its service list as one big word per
      row with a rule between. same device, carrying the deliverables. */
@@ -233,8 +227,9 @@
     padding:clamp(1.1rem,2.4vw,1.9rem) 0; border-bottom:1px solid var(--hair);
     transition:padding-left .3s var(--ease)}
   .row:hover{padding-left:.6rem}
-  .row .n{color:var(--ink-3); font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
-    letter-spacing:.08em}
+  .row .n{color:var(--text-2); font-family:var(--mono); font-size:.68rem;
+    letter-spacing:.08em; box-shadow:var(--in-sm); border-radius:var(--r-pill);
+    padding:.3rem .5rem; justify-self:start}
   .row .t{font-size:clamp(1.15rem,2.5vw,1.85rem); letter-spacing:-0.028em; font-weight:500;
     line-height:1.2}
   .row .d{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
@@ -262,8 +257,10 @@
     border-bottom:1px solid var(--hair);
     display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
     gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline}
-  .steps li::before{content:"0" counter(s); color:var(--ink-3);
-    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem; letter-spacing:.08em}
+  .steps li::before{content:"0" counter(s); color:var(--text-2);
+    font-family:var(--mono); font-size:.68rem; letter-spacing:.08em;
+    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.3rem .5rem;
+    justify-self:start}
   .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
   .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.65; max-width:52ch}
@@ -272,9 +269,9 @@
     .steps p{grid-column:2}
   }
 
-  .gate{border:0; border-radius:calc(var(--r) + 4px); padding:clamp(1.5rem,3vw,2rem);
-    background:var(--surface); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
-    box-shadow:var(--nu-out)}
+  .gate{border:0; border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem);
+    background:var(--bg); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
+    box-shadow:var(--up)}
   .gate ul{margin:1.1rem 0 0; padding:0; list-style:none; display:grid; gap:.5rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.82rem; color:var(--ink-2)}
   .gate li{padding-left:1.1rem; position:relative}
@@ -312,12 +309,25 @@
 
   @media (prefers-reduced-motion:reduce){
     .wordmark video,.hero-plate video{display:none}
-    .wordmark{aspect-ratio:1920/560;
-      background:var(--plate) url("/media/hero-wordmark.jpg") center/cover no-repeat}
-    .hero-plate{background:var(--plate) url("/media/month-timeline.jpg") center/cover no-repeat}
+    .wordmark .frame{background:var(--bg-2) url("/media/hero-wordmark.jpg") center/cover no-repeat;
+      aspect-ratio:1920/430}
+    .hero-plate .frame{background:var(--bg-2) url("/media/month-timeline.jpg") center/cover no-repeat;
+      aspect-ratio:1600/840}
     .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
       transition:none !important; animation:none !important}
     .tile:hover,.row:hover{transform:none; padding-left:0}
+  }
+
+  /* print: flatten every shadow, the way the desk does */
+  @media print{
+    :root{--text:#000; --text-2:#333; --text-3:#666; --white:#000; --hair:#bbb;
+      --ink:#000; --ink-2:#333; --ink-3:#666; --line:#bbb}
+    body{background:#fff; color:#000}
+    header,.wordmark,.hero-plate,.btn{display:none !important}
+    .tile,.gate,.nav a,.row .n,.steps li::before,.hero-foot .rail li{
+      box-shadow:none !important; background:#fff !important;
+      border:.5pt solid #bbb; border-radius:4pt}
+    .tile{color:#000 !important}
   }
 </style>
 </head>
@@ -339,8 +349,10 @@
 
   <section class="hero">
     <div class="wordmark lift lift-1">
-      <video src="/media/hero-wordmark.mp4" poster="/media/hero-wordmark.jpg"
-             autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>
+      <div class="frame">
+        <video src="/media/hero-wordmark.mp4" poster="/media/hero-wordmark.jpg"
+               autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>
+      </div>
       <h1 class="sr-only">RUANGKOTAK</h1>
     </div>
 
@@ -360,18 +372,14 @@
       </div>
 
       <figure class="hero-plate reveal">
-        <video src="/media/month-timeline.mp4" poster="/media/month-timeline.jpg"
-               autoplay muted loop playsinline preload="none"
-               aria-label="A month of content in progress: positioning, eight ideas, scripts and captions filling in across four weeks, with the filming weeks marked as the client's."></video>
+        <div class="frame">
+          <video src="/media/month-timeline.mp4" poster="/media/month-timeline.jpg"
+                 autoplay muted loop playsinline preload="none"
+                 aria-label="A month of content in progress: positioning, eight ideas, scripts and captions filling in across four weeks, with the filming weeks marked as the client's."></video>
+        </div>
       </figure>
       <p class="plate-cap mono reveal">Eight ideas, grouped into four weeks.</p>
 
-      <div class="facts reveal">
-        <div class="fact"><b>8</b><span>ideas, scripts and captions a month</span></div>
-        <div class="fact"><b>4</b><span>clients at a time, by design</span></div>
-        <div class="fact"><b>14</b><span>days of setup before month one</span></div>
-        <div class="fact"><b>1</b><span>call and one change every month</span></div>
-      </div>
     </div>
   </section>
 
