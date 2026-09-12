@@ -288,6 +288,63 @@
     letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
   .foot{display:flex; flex-wrap:wrap; gap:1rem; justify-content:space-between; align-items:center}
 
+  /* ------------------------------------------------------------------
+     The sample month, shown as two columns you read across: the same
+     four weeks before and after. Eight posts a side, each opening with
+     <details>. No JS, so it works with scripting off and every post is
+     keyboard reachable.
+     ------------------------------------------------------------------ */
+  .sample{position:relative; margin-top:clamp(1rem,2vw,1.5rem)}
+  .ba{display:grid; grid-template-columns:1fr 1fr; gap:clamp(1.5rem,4vw,3.5rem);
+    align-items:start}
+  @media(max-width:900px){ .ba{grid-template-columns:1fr; gap:3rem} }
+
+  .pane .lab{display:block}
+  .pane-note{font-family:var(--mono); font-size:.8rem; line-height:1.7;
+    color:var(--ink-2); margin:.9rem 0 0; max-width:46ch}
+
+  .weeks{margin-top:clamp(1.5rem,3vw,2rem); border-top:1px solid var(--hair)}
+  .week{display:grid; grid-template-columns:3.5ch minmax(0,1fr);
+    gap:.5rem clamp(.75rem,1.6vw,1.1rem); align-items:start;
+    padding:clamp(1rem,2vw,1.4rem) 0; border-bottom:1px solid var(--hair)}
+  .week .wk{color:var(--text-2); font-family:var(--mono); font-size:.68rem;
+    letter-spacing:.08em; box-shadow:var(--in-sm); border-radius:var(--r-pill);
+    padding:.3rem .5rem; justify-self:start; margin-top:.35rem}
+  .week .post{grid-column:2}
+
+  .post{border-radius:var(--r-sm)}
+  .post summary{list-style:none; cursor:pointer; display:grid; gap:.5rem;
+    padding:.65rem .8rem; border-radius:var(--r-sm);
+    transition:box-shadow .2s var(--ease), color .2s var(--ease)}
+  .post summary::-webkit-details-marker{display:none}
+  .post summary:hover{box-shadow:var(--up-sm)}
+  .post[open] summary{box-shadow:var(--in-sm)}
+  .post summary:focus-visible{outline:1px solid var(--text-2); outline-offset:2px}
+  .post .pill{font-family:var(--mono); font-size:.62rem; letter-spacing:.2em;
+    text-transform:uppercase; color:var(--ink-3); display:flex; align-items:center; gap:.5rem}
+  .post .pill::after{content:"+"; margin-left:auto; font-size:.9rem; letter-spacing:0;
+    color:var(--ink-3); transition:transform .25s var(--ease)}
+  .post[open] .pill::after{transform:rotate(45deg)}
+  .post .hook{font-size:.93rem; line-height:1.45; letter-spacing:-0.015em; color:var(--text)}
+  .post[open] .hook{color:var(--white)}
+
+  .post-body{padding:.2rem .8rem 1rem; display:grid; gap:.85rem;
+    animation:rk-open .34s var(--ease) both}
+  .post-body .lab{font-size:.62rem; letter-spacing:.2em}
+  .post-body p,.post-body li{font-family:var(--mono); font-size:.76rem; line-height:1.7;
+    color:var(--ink-2); margin:.3rem 0 0}
+  .post-body ol{margin:.3rem 0 0; padding:0; list-style:none; counter-reset:b;
+    display:grid; gap:.45rem}
+  .post-body ol li{counter-increment:b; padding-left:1.6rem; position:relative}
+  .post-body ol li::before{content:counter(b); position:absolute; left:0; top:0;
+    font-size:.62rem; color:var(--ink-3); letter-spacing:.08em}
+  .post-body .act{color:var(--text); box-shadow:var(--in-sm); border-radius:var(--r-sm);
+    padding:.6rem .8rem}
+  @keyframes rk-open{ from{opacity:0; translate:0 -6px} to{opacity:1; translate:0 0} }
+
+  .sample-foot{margin-top:clamp(1.75rem,3.5vw,2.5rem); font-family:var(--mono);
+    font-size:.78rem; line-height:1.7; color:var(--ink-3); max-width:58ch}
+
   /* motion: one curve, staged starts, nothing loops */
   .reveal{opacity:0; translate:0 18px}
   .reveal.in{opacity:1; translate:0 0;
@@ -316,6 +373,8 @@
     .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
       transition:none !important; animation:none !important}
     .tile:hover,.row:hover{transform:none; padding-left:0}
+    .post-body{animation:none !important}
+    .post .pill::after{transition:none}
   }
 
   /* print: flatten every shadow, the way the desk does */
@@ -324,10 +383,14 @@
       --ink:#000; --ink-2:#333; --ink-3:#666; --line:#bbb}
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
-    .tile,.gate,.nav a,.row .n,.steps li::before,.hero-foot .rail li{
+    .tile,.gate,.nav a,.row .n,.steps li::before,.hero-foot .rail li,
+    .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
     .tile{color:#000 !important}
+    /* paper cannot expand a post, so print every one of them open */
+    .post-body{display:grid !important; animation:none !important}
+    .post .pill::after{content:"" !important}
   }
 </style>
 </head>
@@ -485,31 +548,307 @@
 
   <section id="work">
     <div class="wrap reveal">
-      <div class="sec-head">
-        <p class="lab">The actual work</p>
-        <p class="display-sm">A physiotherapist in Kuala Lumpur who treats runners.</p>
-      </div>
-      <div class="cols stagger">
-        <div>
-          <p class="lab">Before</p>
-          <ul>
-            <li>Stretch of the week</li>
-            <li>Photos of the clinic renovation</li>
-            <li>A quote over a sunset</li>
-            <li>Public holiday greetings</li>
-          </ul>
-          <p class="mono" style="margin-top:1.35rem; color:var(--ink-3)">She posted every week without missing. Nothing in it said who she treats, so a runner with a sore knee had no reason to pick her over the clinic down the road.</p>
+      <h2 class="sr-only">A month of content, before and after</h2>
+
+      <div class="sample">
+        <div class="ba">
+
+          <div class="pane">
+            <p class="lab">Before</p>
+            <p class="pane-note">She posted every week without missing. Nothing in it said who she treats, so a runner with a sore knee had no reason to pick her over the clinic down the road. Open any post to see who it was written for.</p>
+            <div class="weeks">
+          <div class="week">
+            <span class="wk">W1</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Stretch of the week</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Anyone with a body.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>A runner with a sore knee cannot tell this was made for them, so they keep scrolling.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Photos of the clinic renovation</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>People who already come here.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>New paint is news to the clinic, not to the person deciding who to call.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W2</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">A quote over a sunset</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Anyone.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>Nobody books a physio because of a quote. It costs an hour and asks for nothing back.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Public holiday greetings</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Everyone in the country.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>Every other clinic posts the same thing on the same morning.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W3</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Stretch of the week, again</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Anyone with a body.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>The same slot, the same shape, four weeks running. No reason to follow for the next one.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Trending audio at the clinic door</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Whoever the sound reaches.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>Reach without an address. The people it lands on are not looking for a physio.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W4</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">A reposted infographic about posture</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Anyone.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>Somebody else made it, so it says nothing about how she works.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Anyone</span>
+                <span class="hook">Team photo from a conference</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Written for</p>
+                <p>Other physios.</p>
+                <p class="lab">Asks the reader to</p>
+                <p>Nothing.</p>
+                <p class="lab">Why it stalls</p>
+                <p>Good for peers. A runner reading it learns nothing about their knee.</p>
+              </div>
+            </details>
+          </div>
+            </div>
+          </div>
+
+          <div class="pane">
+            <p class="lab">After</p>
+            <p class="pane-note">Every post is written for one reader: a runner with an injury, working out which physio to call. Same clinic, same hour of filming. Open any post to see the script, the caption, and the one thing it asks for.</p>
+            <div class="weeks">
+          <div class="week">
+            <span class="wk">W1</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Teach</span>
+                <span class="hook">The knee pain runners self-diagnose wrong, and what it usually is</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Point at the outside of your knee. If that is where it hurts after a long run, it is usually not the knee itself.</li>
+                  <li>Show where the band actually runs, and what it is doing by kilometre eight.</li>
+                  <li>One thing to stop this week, one thing to start.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Sore on the outside of the knee after a long run? Tell me which kilometre it starts and I will tell you what I would check first.</p>
+                <p class="lab">One action</p>
+                <p class="act">Comment the kilometre. She replies in the thread, then moves it to DM.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Point of view</span>
+                <span class="hook">Why your physio keeps asking about your shoes</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Every runner who walks in gets asked about their shoes. Most of them think it is a sales question.</li>
+                  <li>Hold up two pairs at different wear. Read the sole out loud: here is how this person lands.</li>
+                  <li>Tell them what to photograph before a first session.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Bring your two most-run pairs to a first session. The soles say more than the form you fill in.</p>
+                <p class="lab">One action</p>
+                <p class="act">Save it for your next appointment.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W2</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Teach</span>
+                <span class="hook">What she tells a runner six weeks out from a marathon with a niggle</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Six weeks out, a niggle is a scheduling problem before it is a pain problem.</li>
+                  <li>The three questions she asks before touching anyone's training plan.</li>
+                  <li>What she will not do this close to a race, and why.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Six weeks out and something is grumbling? The plan changes before the treatment does. Here is the order I work in.</p>
+                <p class="lab">One action</p>
+                <p class="act">DM the word SIX for the sheet she works from.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Point of view</span>
+                <span class="hook">The three runners she turns away, and where she sends them</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Not every sore knee is hers to treat. Three of them go somewhere else, same day.</li>
+                  <li>Name all three, plainly, and who she picks up the phone to for each.</li>
+                  <li>Why sending someone away is part of the job.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>If you are one of these three, I am not the right call, and you will hear that in the first ten minutes. Here is who is.</p>
+                <p class="lab">One action</p>
+                <p class="act">Send it to the runner who has been putting off a scan.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W3</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Proof</span>
+                <span class="hook">What a first session actually looks like, minute by minute</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Forty minutes, filmed from the doorway, nothing staged.</li>
+                  <li>Talk through each block as it happens: history, gait, hands on, plan.</li>
+                  <li>End on what they walk out with, on paper.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>First session, start to finish, so you know what you are booking before you book it.</p>
+                <p class="lab">One action</p>
+                <p class="act">Booking link is in the profile.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Teach</span>
+                <span class="hook">The warm-up most runners skip, and the one that earns its place</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Nobody has fifteen minutes. So cut it down to the part that pays for itself.</li>
+                  <li>Do it at speed, in normal clothes, on the pavement outside.</li>
+                  <li>Say how long it takes. Four minutes.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Four minutes, before your next run. That is the whole ask.</p>
+                <p class="lab">One action</p>
+                <p class="act">Try it tomorrow, then tell her if the first kilometre felt different.</p>
+              </div>
+            </details>
+          </div>
+          <div class="week">
+            <span class="wk">W4</span>
+            <details class="post">
+              <summary>
+                <span class="pill">Point of view</span>
+                <span class="hook">Rest is not a treatment plan</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>Two weeks off, then straight back to the same mileage. That is the loop she sees most.</li>
+                  <li>What rest fixes, and what it leaves exactly where it was.</li>
+                  <li>Give the shape of a return instead of a number.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Rest buys you time. It does not change what caused it. That part is the work.</p>
+                <p class="lab">One action</p>
+                <p class="act">Comment REST for the return-to-running outline.</p>
+              </div>
+            </details>
+            <details class="post">
+              <summary>
+                <span class="pill">Offer</span>
+                <span class="hook">Who she can see this month, and what to bring</span>
+              </summary>
+              <div class="post-body">
+                <p class="lab">Script, for a phone and one take</p>
+                <ol>
+                  <li>The plain version: a few slots left, these days, these hours.</li>
+                  <li>Who they are best spent on, and who is fine to wait.</li>
+                  <li>What to bring, and what happens in the first ten minutes.</li>
+                </ol>
+                <p class="lab">Caption</p>
+                <p>Slots for this month are on the booking page. Bring your shoes and your last four weeks of runs.</p>
+                <p class="lab">One action</p>
+                <p class="act">Book it, or DM if you are not sure it is the right fit.</p>
+              </div>
+            </details>
+          </div>
+            </div>
+          </div>
+
         </div>
-        <div>
-          <p class="lab">After</p>
-          <ul>
-            <li>The knee pain runners self-diagnose wrong, and what it usually is</li>
-            <li>Why your physio keeps asking about your shoes</li>
-            <li>What she tells a runner six weeks out from a marathon with a niggle</li>
-            <li>The three runners she turns away, and where she sends them</li>
-          </ul>
-          <p class="mono" style="margin-top:1.35rem; color:var(--ink-3)">Every post is written for one reader: a runner with an injury, working out which physio to call. Same clinic, same hour of filming. What changed is who the posts are addressed to.</p>
-        </div>
+        <p class="sample-foot">A worked example, not a client. We wrote every post here to show the shape of a month. The filming is still yours.</p>
       </div>
     </div>
   </section>
