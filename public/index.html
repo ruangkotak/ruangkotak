@@ -254,9 +254,9 @@
   .box{background:var(--bg); border-radius:var(--r); box-shadow:var(--up);
     padding:clamp(1.5rem,3.5vw,2.75rem) clamp(1.25rem,3.5vw,2.75rem);
     margin-top:clamp(2rem,4vw,3rem)}
-  .box > .rows,.box .steps{margin-top:0; border-top:0}
-  .box > .rows .row:first-child,.box .steps li:first-child{padding-top:0}
-  .box > .rows .row:last-child,.box .steps li:last-child{padding-bottom:0; border-bottom:0}
+  .box > .rows{margin-top:0; border-top:0}
+  .box > .rows .row:first-child{padding-top:0}
+  .box > .rows .row:last-child{padding-bottom:0; border-bottom:0}
 
   /* the issue checklist: real checkboxes, raised until ticked, then sunk */
   .issues{margin:1.25rem 0 0; padding:0; list-style:none; width:min(100%,720px);
@@ -307,28 +307,6 @@
     background:var(--ink-3)}
   @media(max-width:760px){ .cols{grid-template-columns:1fr; gap:2.25rem} }
 
-  /* numbered application steps */
-  .steps{margin:clamp(2rem,4vw,3rem) 0 0; padding:0; list-style:none; counter-reset:s;
-    display:grid; gap:0; border-top:1px solid var(--hair)}
-  .steps li{counter-increment:s; padding:clamp(1.1rem,2.4vw,1.7rem) 0;
-    border-bottom:1px solid var(--hair);
-    display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
-    gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline}
-  .steps li::before{content:"0" counter(s); color:var(--text-2);
-    font-family:var(--mono); font-size:.7rem; letter-spacing:.08em;
-    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.3rem .5rem;
-    justify-self:start}
-  .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
-  .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
-    font-size:.8rem; line-height:1.65; max-width:52ch}
-  .apply-end{display:grid; justify-items:start; gap:clamp(1.25rem,3vw,2rem);
-    margin-top:clamp(1.75rem,3.5vw,2.5rem); padding-top:clamp(1.75rem,3.5vw,2.5rem);
-    border-top:1px solid var(--hair)}
-  .apply-end .display{max-width:20ch}
-  @media(max-width:760px){
-    .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
-    .steps p{grid-column:2}
-  }
 
   /* the form. inset wells receive, raised pills act: the one place this
      style's vocabulary is unambiguous, so the ask uses it literally. */
@@ -574,11 +552,11 @@
      sizes stay equal across sections. the how-it-works demo screen (.bd-screen)
      keeps its own small sizes: it is a picture of an app, not page copy. ---- */
   .display,.display-sm{font-size:var(--fs-h)}
-  .row .t,.steps strong,.bd-tab .t{font-size:var(--fs-sub)}
-  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,.steps p,
+  .row .t,.bd-tab .t{font-size:var(--fs-sub)}
+  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,
   .bd-tab .d,.pane-note,.form label,.form-note,.form input,.form select,.form textarea{font-size:var(--fs-body)}
   .lab,.nav,.nav a,.btn,.skip,.rail li,.hero-foot .rail li,.about-rail li,
-  .row .n,.steps li::before,.bd-tab .n,.form .req{font-size:var(--fs-label)}
+  .row .n,.bd-tab .n,.form .req{font-size:var(--fs-label)}
 
   /* smaller controls: same pill shapes, less padding */
   .btn{padding:.62rem 1.1rem; line-height:1.4}  /* same height for <a> and <button> */
@@ -634,7 +612,7 @@
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
     .tile,.box,.form,.form input,.form select,.form textarea,
-    .nav a,.row .n,.steps li::before,.hero-foot .rail li,.about-rail li,
+    .nav a,.row .n,.hero-foot .rail li,.about-rail li,
     .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
@@ -872,27 +850,6 @@
           </ul>
         </div>
       </div>
-    </div>
-  </section>
-
-  <section id="apply">
-    <div class="wrap reveal">
-      <div class="sec-head">
-        <p class="lab">Apply</p>
-        <h2 class="display-sm">We take on few people at once so the work stays close.</h2>
-      </div>
-      <div class="box">
-      <ol class="steps stagger">
-        <li><strong>Tell us about you</strong><p>Six short questions: who you are, your niche, how you post, what takes most of your time, and what needs to be true in ninety days.</p></li>
-        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p></li>
-        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p></li>
-      </ol>
-      <div class="apply-end">
-        <h2 class="display">Ready when you are.</h2>
-        <a class="btn" href="apply.html">Apply for a spot</a>
-      </div>
-      </div>
-
     </div>
   </section>
 
