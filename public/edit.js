@@ -320,7 +320,7 @@
   // ---------------------------------------------------------------- export
   const report = () => {
     const lines = [
-      `RUANGKOTAK page edits — ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
+      `RUANG KOTAK page edits — ${new Date().toISOString().slice(0, 16).replace("T", " ")}`,
       `${ops.length} edit${ops.length === 1 ? "" : "s"}, in the order they were made.`,
       ``,
     ];
