@@ -243,6 +243,14 @@
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.78rem;
     color:rgba(243,243,241,.78); line-height:1.6}
   .tile .btn{margin-top:2.4rem}
+  /* the same raised shell as the tile, for lists that read left to right. no hover lift:
+     these are content, not a call to act. */
+  .box{background:var(--bg); border-radius:var(--r); box-shadow:var(--up);
+    padding:clamp(1.5rem,3.5vw,2.75rem) clamp(1.25rem,3.5vw,2.75rem);
+    margin-top:clamp(2rem,4vw,3rem)}
+  .box > .rows,.box > .steps{margin-top:0; border-top:0}
+  .box > .rows .row:first-child,.box > .steps li:first-child{padding-top:0}
+  .box > .rows .row:last-child,.box > .steps li:last-child{padding-bottom:0; border-bottom:0}
 
   /* the issue checklist: real checkboxes, raised until ticked, then sunk */
   .issues{margin:1.25rem 0 0; padding:0; list-style:none; width:min(100%,720px);
@@ -314,7 +322,7 @@
 
   /* the form. inset wells receive, raised pills act: the one place this
      style's vocabulary is unambiguous, so the ask uses it literally. */
-  .form{margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
+  .form{margin:clamp(2.5rem,5vw,3.5rem) auto 0; max-width:640px;
     border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem); box-shadow:var(--up-lg)}
   .form .fields{display:grid; gap:1.1rem; margin-top:1.4rem}
   .form label{display:grid; gap:.5rem; font-family:var(--mono); font-size:.78rem;
@@ -333,14 +341,6 @@
   .form-note{margin-top:1rem; font-family:var(--mono); font-size:.78rem;
     line-height:1.7; color:var(--ink-2)}
 
-  .gate{border:0; border-radius:var(--r); padding:clamp(1.5rem,3vw,2rem);
-    background:var(--bg); margin-top:clamp(2.5rem,5vw,3.5rem); max-width:640px;
-    box-shadow:var(--up)}
-  .gate ul{margin:1.1rem 0 0; padding:0; list-style:none; display:grid; gap:.5rem;
-    font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.82rem; color:var(--ink-2)}
-  .gate li{padding-left:1.1rem; position:relative}
-  .gate li::before{content:""; position:absolute; left:0; top:.72em; width:6px; height:1px;
-    background:var(--ink-3)}
 
   /* closing */
   .close{text-align:left; border-top:1px solid var(--hair)}
@@ -605,7 +605,7 @@
       --ink:#000; --ink-2:#333; --ink-3:#666; --line:#bbb}
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
-    .tile,.gate,.form,.form input,.form select,.form textarea,
+    .tile,.box,.form,.form input,.form select,.form textarea,
     .nav a,.row .n,.steps li::before,.hero-foot .rail li,.about-rail li,
     .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
@@ -782,6 +782,7 @@
         <p class="lab">How a month runs</p>
         <h2 class="display-sm">The same four beats every month, so you always know what is coming and when.</h2>
       </div>
+      <div class="box">
       <div class="rows stagger">
         <div class="row">
           <span class="n">W1</span>
@@ -804,6 +805,7 @@
           <span class="d">What happened, which topic started real conversations, and the single thing to do differently next month.</span>
         </div>
       </div>
+      </div>
     </div>
   </section>
 
@@ -813,6 +815,7 @@
         <p class="lab">What you get</p>
         <h2 class="display-sm">Six things, every month.</h2>
       </div>
+      <div class="box">
       <div class="rows stagger">
         <div class="row"><span class="n">01</span><span class="t">Positioning</span><span class="d">Your angle, written down, revisited every quarter.</span></div>
         <div class="row"><span class="n">02</span><span class="t">Eight ideas</span><span class="d">Each one mapped to one of your content pillars.</span></div>
@@ -821,7 +824,8 @@
         <div class="row"><span class="n">05</span><span class="t">A schedule</span><span class="d">What goes out, where, and on which day.</span></div>
         <div class="row"><span class="n">06</span><span class="t">A report and a call</span><span class="d">We go through your four numbers and the one change to make next month.</span></div>
       </div>
-      <div class="cols">
+      </div>
+      <div class="cols box">
         <div>
           <p class="lab">Not included, on purpose</p>
           <ul>
@@ -849,21 +853,12 @@
         <p class="lab">Apply</p>
         <h2 class="display-sm">We take on few people at once so the work stays close. The form takes about a minute.</h2>
       </div>
+      <div class="box">
       <ol class="steps stagger">
         <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
         <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p></li>
         <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p></li>
       </ol>
-      <div class="gate">
-        <p class="lab">Before you apply</p>
-        <p class="mono" style="margin-top:.7rem; color:var(--ink-2)">This works if all four check out.</p>
-        <ul>
-          <li>You can film and edit</li>
-          <li>You commit to publishing at least once a week</li>
-          <li>You can make decisions</li>
-          <li>You can commit to the plan we agree on</li>
-        </ul>
-        <p class="mono" style="margin-top:1.4rem; color:var(--ink-2)">One monthly fee, no setup charge, cancel any month. You get the number on the call.</p>
       </div>
 
       <!-- Answers go to the mailto: below. To stop relying on the visitor's mail app,
