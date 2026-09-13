@@ -94,6 +94,12 @@
 
     --mx:min(1320px,100% - 3rem);
     --ease:cubic-bezier(.16,1,.3,1); --dur:.72s;
+
+    /* type scale: four sizes, every text role maps to exactly one */
+    --fs-h:clamp(1.4rem,2.6vw,2rem);       /* headings */
+    --fs-sub:clamp(1.05rem,2vw,1.35rem);   /* subheadings */
+    --fs-body:.8rem;                       /* body copy */
+    --fs-label:.72rem;                     /* labels, numbers, nav, buttons */
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -248,9 +254,9 @@
   .box{background:var(--bg); border-radius:var(--r); box-shadow:var(--up);
     padding:clamp(1.5rem,3.5vw,2.75rem) clamp(1.25rem,3.5vw,2.75rem);
     margin-top:clamp(2rem,4vw,3rem)}
-  .box > .rows,.box > .steps{margin-top:0; border-top:0}
-  .box > .rows .row:first-child,.box > .steps li:first-child{padding-top:0}
-  .box > .rows .row:last-child,.box > .steps li:last-child{padding-bottom:0; border-bottom:0}
+  .box > .rows,.box .steps{margin-top:0; border-top:0}
+  .box > .rows .row:first-child,.box .steps li:first-child{padding-top:0}
+  .box > .rows .row:last-child,.box .steps li:last-child{padding-bottom:0; border-bottom:0}
 
   /* the issue checklist: real checkboxes, raised until ticked, then sunk */
   .issues{margin:1.25rem 0 0; padding:0; list-style:none; width:min(100%,720px);
@@ -315,9 +321,21 @@
   .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
   .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.65; max-width:52ch}
+  /* a sunken well under each step's description: it receives, like every input on the page */
+  .step-field{grid-column:3; width:100%; min-height:96px; resize:vertical;
+    font-family:var(--mono); font-size:.83rem; line-height:1.6; color:var(--text);
+    background:var(--bg-2); border:0; border-radius:var(--r-sm); box-shadow:var(--in-sm);
+    padding:.8rem .9rem; margin-top:.25rem}
+  .step-field::placeholder{color:var(--ink-3)}
+  .step-field:focus-visible{outline:2px solid var(--white); outline-offset:3px}
+  .apply-end{display:grid; justify-items:start; gap:clamp(1.25rem,3vw,2rem);
+    margin-top:clamp(1.75rem,3.5vw,2.5rem); padding-top:clamp(1.75rem,3.5vw,2.5rem);
+    border-top:1px solid var(--hair)}
+  .apply-end .display{max-width:20ch}
   @media(max-width:760px){
     .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
     .steps p{grid-column:2}
+    .step-field{grid-column:2}
   }
 
   /* the form. inset wells receive, raised pills act: the one place this
@@ -560,6 +578,24 @@
   @keyframes bd-in{ to{opacity:1} }
 
   /* reduced motion: no walking, and every step lands on its finished state */
+  /* ---- type scale and control size. every role below takes one token, so
+     sizes stay equal across sections. the how-it-works demo screen (.bd-screen)
+     keeps its own small sizes: it is a picture of an app, not page copy. ---- */
+  .display,.display-sm{font-size:var(--fs-h)}
+  .row .t,.steps strong,.bd-tab .t{font-size:var(--fs-sub)}
+  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,.steps p,.step-field,
+  .bd-tab .d,.pane-note,.form label,.form-note,.form input,.form select,.form textarea{font-size:var(--fs-body)}
+  .lab,.nav,.nav a,.btn,.skip,.rail li,.hero-foot .rail li,.about-rail li,
+  .row .n,.steps li::before,.bd-tab .n,.form .req{font-size:var(--fs-label)}
+
+  /* smaller controls: same pill shapes, less padding */
+  .btn{padding:.62rem 1.1rem; line-height:1.4}  /* same height for <a> and <button> */
+  .nav a{padding:.58rem .9rem}
+  .skip{padding:.55rem .9rem}
+  .issues label{padding:.55rem .8rem}
+  .bd-tab{padding:.75rem .95rem .85rem}
+  @media(max-width:760px){ .nav a{padding:.5rem .7rem} }
+
   @media (prefers-reduced-motion:reduce){
     .bd *, .bd *::before, .bd *::after{animation-duration:0s !important;
       animation-delay:0s !important; animation-iteration-count:1 !important}
@@ -854,20 +890,20 @@
         <h2 class="display-sm">We take on few people at once so the work stays close.</h2>
       </div>
       <div class="box">
+      <!-- Answers go nowhere yet: the form has no destination until the package launches. -->
+      <form class="apply-form" id="apply-form" aria-label="Application" onsubmit="return false">
       <ol class="steps stagger">
-        <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
-        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p></li>
-        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p></li>
+        <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p><textarea class="step-field" name="tell-us-about-you" rows="3" aria-label="Tell us about you" placeholder="Your answer"></textarea></li>
+        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p><textarea class="step-field" name="we-discuss" rows="3" aria-label="We discuss" placeholder="Your answer"></textarea></li>
+        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p><textarea class="step-field" name="the-setup" rows="3" aria-label="The setup" placeholder="Your answer"></textarea></li>
       </ol>
+      <div class="apply-end">
+        <h2 class="display">Ready when you are.</h2>
+        <button class="btn" type="submit">Apply for a spot</button>
+      </div>
+      </form>
       </div>
 
-    </div>
-  </section>
-
-  <section class="close">
-    <div class="wrap reveal">
-      <h2 class="display">Ready when you are.</h2>
-      <a class="btn" href="#apply">Apply for a spot</a>
     </div>
   </section>
 
