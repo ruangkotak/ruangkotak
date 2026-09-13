@@ -193,6 +193,8 @@
   .done{text-align:left; display:grid; gap:1rem; justify-items:start}
   .done p{font-family:var(--mono); font-size:var(--fs-body); line-height:1.7; color:var(--text-2); max-width:52ch}
   .done[hidden]{display:none}
+  .done a:not(.btn){color:var(--white)}
+  .done-keys{display:flex; flex-wrap:wrap; gap:.75rem; margin-top:.5rem}
 
   footer{border-top:1px solid var(--hair); padding-block:2rem; font-family:var(--mono);
     font-size:var(--fs-label); letter-spacing:.1em; text-transform:uppercase; color:var(--text-3)}
@@ -226,7 +228,7 @@
       <div class="segs"><i></i><i></i><i></i><i></i><i></i><i></i></div>
     </div>
 
-    <!-- DESTINATION: set ENDPOINT in the script below. Until it is set, answers are not sent anywhere. -->
+    <!-- answers go out as an email draft in the applicant's own mail app: see MAILTO in the script below -->
     <form id="quiz" novalidate aria-label="Application">
 
       <fieldset class="q" data-q="1">
@@ -336,10 +338,14 @@
     </form>
 
     <div class="done" id="done" hidden tabindex="-1">
-      <p class="lab">Sent</p>
-      <h2 class="display-sm" id="done-title">Thank you.</h2>
-      <p>We’ll get back to you within a few hours, based on the details you’ve shared.</p>
-      <a class="btn" href="index.html">Back to the site</a>
+      <p class="lab">One last step</p>
+      <h2 class="display-sm" id="done-title">Almost there.</h2>
+      <p>Your email app should have opened with your answers filled in. Press send there to finish, and we’ll get back to you within a few hours, based on the details you’ve shared.</p>
+      <p>Nothing opened? Copy your answers and email them to <a id="mail-addr" href=""></a>.</p>
+      <div class="done-keys">
+        <button class="btn" type="button" id="copy">Copy my answers</button>
+        <a class="btn ghost" href="index.html">Back to the site</a>
+      </div>
     </div>
   </div>
 </main>
@@ -355,8 +361,9 @@
 <script>
   /* one question at a time. without JS every question shows at once and the form still submits. */
   (() => {
-    // where answers go. empty = nowhere yet: the thank-you screen shows but nothing is sent.
-    const ENDPOINT = '';
+    // where answers go. mailto opens the applicant's own mail app with the answers filled in;
+    // nothing is sent until they press send there.
+    const MAILTO = 'storagebox100percent+ruang@gmail.com';
 
     document.documentElement.classList.add('js');
     const form = document.getElementById('quiz');
@@ -432,28 +439,34 @@
       for (let i = 0; i < qs.length; i++) {
         if (!ok(i)) { const msg = err.textContent; show(i); err.textContent = msg; return; }
       }
-      const answers = {
-        name: val('name'), instagram: val('instagram'), tiktok: val('tiktok'),
-        niche: val('niche'), frequency: checked('frequency')[0], formats: checked('formats'),
-        time_sink: checked('time_sink')[0], goal: checked('goal')[0], goal_detail: val('goal_detail'),
-        email: val('email'), mobile: val('mobile'), sent_at: new Date().toISOString(),
-      };
-      if (ENDPOINT) {
-        send.disabled = true; send.textContent = 'Sending';
-        try {
-          const r = await fetch(ENDPOINT, { method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
-            body: JSON.stringify(answers) });
-          if (!r.ok) throw new Error(r.status);
-        } catch {
-          send.disabled = false; send.textContent = 'Send application';
-          err.textContent = 'That didn’t go through. Check your connection and try again.';
-          return;
-        }
-      }
+      const name = val('name');
+      const lines = [
+        `Name: ${name}`,
+        `Instagram: ${val('instagram') || '-'}`,
+        `TikTok: ${val('tiktok') || '-'}`,
+        `Niche: ${val('niche')}`,
+        `Posts: ${checked('frequency')[0]}`,
+        `Formats: ${checked('formats').join(', ')}`,
+        `Most time goes to: ${checked('time_sink')[0]}`,
+        `90-day goal: ${checked('goal')[0]}${val('goal_detail') ? ` (${val('goal_detail')})` : ''}`,
+        `Email: ${val('email')}`,
+        `Mobile: ${val('mobile')}`,
+      ];
+      const body = lines.join('\r\n');
+      const subject = `Application: ${name}${val('instagram') ? ` (${val('instagram')})` : ''}`;
+      // + written as %2B: a few mail apps read a bare + in a mailto link as a space
+      location.href = `mailto:${MAILTO.replace('+', '%2B')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
       form.hidden = true;
       document.querySelector('.progress').style.display = 'none';
-      document.getElementById('done-title').textContent = `Thank you, ${answers.name.split(/\s+/)[0]}.`;
+      document.getElementById('done-title').textContent = `Almost there, ${name.split(/\s+/)[0]}.`;
+      const addr = document.getElementById('mail-addr');
+      addr.textContent = MAILTO; addr.href = `mailto:${MAILTO.replace('+', '%2B')}`;
+      const copy = document.getElementById('copy');
+      copy.onclick = async () => {
+        try { await navigator.clipboard.writeText(`${subject}\n\n${lines.join('\n')}`); copy.textContent = 'Copied'; }
+        catch { copy.textContent = 'Copy failed, select and copy by hand'; }
+      };
       const done = document.getElementById('done');
       done.hidden = false;
       done.focus();
