@@ -363,7 +363,7 @@
   (() => {
     // where answers go. mailto opens the applicant's own mail app with the answers filled in;
     // nothing is sent until they press send there.
-    const MAILTO = 'storagebox100percent+ruang@gmail.com';
+    const MAILTO = 'storagebox100percent@gmail.com';
 
     document.documentElement.classList.add('js');
     const form = document.getElementById('quiz');
@@ -454,14 +454,13 @@
       ];
       const body = lines.join('\r\n');
       const subject = `Application: ${name}${val('instagram') ? ` (${val('instagram')})` : ''}`;
-      // + written as %2B: a few mail apps read a bare + in a mailto link as a space
-      location.href = `mailto:${MAILTO.replace('+', '%2B')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      location.href = `mailto:${MAILTO}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
       form.hidden = true;
       document.querySelector('.progress').style.display = 'none';
       document.getElementById('done-title').textContent = `Almost there, ${name.split(/\s+/)[0]}.`;
       const addr = document.getElementById('mail-addr');
-      addr.textContent = MAILTO; addr.href = `mailto:${MAILTO.replace('+', '%2B')}`;
+      addr.textContent = MAILTO; addr.href = `mailto:${MAILTO}`;
       const copy = document.getElementById('copy');
       copy.onclick = async () => {
         try { await navigator.clipboard.writeText(`${subject}\n\n${lines.join('\n')}`); copy.textContent = 'Copied'; }
