@@ -14,3 +14,6 @@ OPEN.md
 
 # vendored third-party skills, reinstallable from skills-lock.json
 /.agents/
+
+# client audits: private client data, never committed or deployed
+/public/audits/
