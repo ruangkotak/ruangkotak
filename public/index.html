@@ -321,13 +321,6 @@
   .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
   .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
     font-size:.8rem; line-height:1.65; max-width:52ch}
-  /* a sunken well under each step's description: it receives, like every input on the page */
-  .step-field{grid-column:3; width:100%; min-height:96px; resize:vertical;
-    font-family:var(--mono); font-size:.83rem; line-height:1.6; color:var(--text);
-    background:var(--bg-2); border:0; border-radius:var(--r-sm); box-shadow:var(--in-sm);
-    padding:.8rem .9rem; margin-top:.25rem}
-  .step-field::placeholder{color:var(--ink-3)}
-  .step-field:focus-visible{outline:2px solid var(--white); outline-offset:3px}
   .apply-end{display:grid; justify-items:start; gap:clamp(1.25rem,3vw,2rem);
     margin-top:clamp(1.75rem,3.5vw,2.5rem); padding-top:clamp(1.75rem,3.5vw,2.5rem);
     border-top:1px solid var(--hair)}
@@ -335,7 +328,6 @@
   @media(max-width:760px){
     .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
     .steps p{grid-column:2}
-    .step-field{grid-column:2}
   }
 
   /* the form. inset wells receive, raised pills act: the one place this
@@ -583,7 +575,7 @@
      keeps its own small sizes: it is a picture of an app, not page copy. ---- */
   .display,.display-sm{font-size:var(--fs-h)}
   .row .t,.steps strong,.bd-tab .t{font-size:var(--fs-sub)}
-  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,.steps p,.step-field,
+  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,.steps p,
   .bd-tab .d,.pane-note,.form label,.form-note,.form input,.form select,.form textarea{font-size:var(--fs-body)}
   .lab,.nav,.nav a,.btn,.skip,.rail li,.hero-foot .rail li,.about-rail li,
   .row .n,.steps li::before,.bd-tab .n,.form .req{font-size:var(--fs-label)}
@@ -671,7 +663,7 @@
       <a href="#paths">Who it is for</a>
       <a href="#month">How it runs</a>
     </div>
-    <a href="#apply">Apply</a>
+    <a href="apply.html">Apply</a>
   </nav>
 </header>
 
@@ -806,7 +798,7 @@
             <li><label><input type="checkbox"><span>You’re not sure which numbers matter</span></label></li>
           </ul>
           <p class="sub issues-foot">That’s what we work on.</p>
-          <a class="btn" href="#apply">Apply for a spot</a>
+          <a class="btn" href="apply.html">Apply for a spot</a>
         </article>
       </div>
     </div>
@@ -890,18 +882,15 @@
         <h2 class="display-sm">We take on few people at once so the work stays close.</h2>
       </div>
       <div class="box">
-      <!-- Answers go nowhere yet: the form has no destination until the package launches. -->
-      <form class="apply-form" id="apply-form" aria-label="Application" onsubmit="return false">
       <ol class="steps stagger">
-        <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p><textarea class="step-field" name="tell-us-about-you" rows="3" aria-label="Tell us about you" placeholder="Your answer"></textarea></li>
-        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p><textarea class="step-field" name="we-discuss" rows="3" aria-label="We discuss" placeholder="Your answer"></textarea></li>
-        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p><textarea class="step-field" name="the-setup" rows="3" aria-label="The setup" placeholder="Your answer"></textarea></li>
+        <li><strong>Tell us about you</strong><p>Six short questions: who you are, your niche, how you post, what takes most of your time, and what needs to be true in ninety days.</p></li>
+        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p></li>
+        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p></li>
       </ol>
       <div class="apply-end">
         <h2 class="display">Ready when you are.</h2>
-        <button class="btn" type="submit">Apply for a spot</button>
+        <a class="btn" href="apply.html">Apply for a spot</a>
       </div>
-      </form>
       </div>
 
     </div>
