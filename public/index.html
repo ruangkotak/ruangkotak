@@ -199,6 +199,7 @@
   .rail{margin:0; padding:0; list-style:none; display:grid; gap:.4rem; color:var(--ink-2)}
   .hero-foot .rail{justify-self:end; align-items:end; gap:.55rem}
   .about-rail{display:flex; flex-wrap:wrap; gap:.55rem; margin-top:1.75rem}
+  .hero-foot .about-rail{justify-self:start; align-items:center}
   .hero-foot .rail li,.about-rail li{padding:.4rem .85rem; border-radius:var(--r-pill);
     box-shadow:var(--in-sm); font-size:.72rem; letter-spacing:.14em;
     text-transform:uppercase}
@@ -604,9 +605,17 @@
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
     .tile{color:#000 !important}
+    .tile .lab,.tile .sub,.tile ul{color:#333 !important}
     /* paper cannot expand a post, so print every one of them open */
     .post-body{display:grid !important; animation:none !important}
     .post .pill::after{content:"" !important}
+    /* paper gets no shadow anywhere, not just on the listed parts: print viewers draw blurs as grey boxes */
+    *,*::before,*::after{box-shadow:none !important; text-shadow:none !important; filter:none !important}
+    .bd-tab,.bd-tab[aria-selected="true"],.issues label,.issues label:has(input:checked),
+    .post summary,.post[open] summary{box-shadow:none !important}
+    .bd-tab,.bd-idea,.bd-slot,.bd-metric,.bd-change{background:#fff !important; border:.5pt solid #bbb; border-radius:4pt}
+    /* scroll reveals never fire on paper, so print every section in its finished state */
+    .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important; transition:none !important; animation:none !important}
   }
 </style>
 </head>
@@ -643,6 +652,12 @@
         <div class="lift lift-2">
           <p class="hero-line">We focus on what matters.</p>
           <p class="hero-line" style="margin-top:1rem">We work with you directly to understand what you’re building,<br class="br-wide"> then plan the content to get there.<br class="br-wide"> You film and post, and every month we go through<br class="br-wide"> the numbers from your analytics together.</p>
+          <ul class="rail mono about-rail">
+            <li>Positioning</li>
+            <li>Monthly content plans</li>
+            <li>Scripts and captions</li>
+            <li>Reporting</li>
+          </ul>
         </div>
       </div>
 
@@ -730,22 +745,6 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="about">
-    <div class="wrap sec-head reveal">
-      <p class="lab">About RUANGKOTAK</p>
-      <div>
-        <h2 class="display">WE SETTLE WHAT YOU STAND FOR.</h2>
-        <p class="mono" style="margin-top:2rem; max-width:58ch; color:var(--ink-2)">We are a small studio in Kuala Lumpur. We settle who it is for and what each post is meant to do, then turn that into a month of content you can actually film.</p>
-        <ul class="rail mono about-rail">
-          <li>Positioning</li>
-          <li>Monthly content plans</li>
-          <li>Scripts and captions</li>
-          <li>Reporting</li>
-        </ul>
       </div>
     </div>
   </section>
