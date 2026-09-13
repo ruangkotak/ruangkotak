@@ -335,6 +335,17 @@
   .close .display{max-width:20ch}
   .close .btn{margin-top:clamp(2rem,4vw,3rem)}
 
+  /* work in progress: the Apply buttons raise this pill instead of going anywhere */
+  .wip{position:fixed; z-index:30; left:50%; bottom:clamp(1rem,4vw,2rem);
+    translate:-50% 12px; opacity:0; pointer-events:none;
+    background:var(--bg); color:var(--white); border-radius:var(--r-pill); box-shadow:var(--up);
+    padding:.7rem 1.2rem; font-family:var(--mono); font-size:var(--fs-label);
+    letter-spacing:.16em; text-transform:uppercase; white-space:nowrap;
+    transition:opacity .3s var(--ease), translate .3s var(--ease)}
+  .wip.on{opacity:1; translate:-50% 0}
+  @media (prefers-reduced-motion:reduce){ .wip{transition:none} }
+  @media print{ .wip{display:none !important} }
+
   footer{border-top:1px solid var(--line); padding-block:2rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
     letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3)}
@@ -641,6 +652,7 @@
       <a href="#paths">Who it is for</a>
       <a href="#month">How it runs</a>
     </div>
+    <a href="#" data-wip>Apply</a>
   </nav>
 </header>
 
@@ -775,6 +787,7 @@
             <li><label><input type="checkbox"><span>You’re not sure which numbers matter</span></label></li>
           </ul>
           <p class="sub issues-foot">That’s what we work on.</p>
+          <a class="btn" href="#" data-wip>Apply for a spot</a>
         </article>
       </div>
     </div>
@@ -857,7 +870,6 @@
   <div class="wrap foot">
     <span>RUANG KOTAK</span>
     <span>Kuala Lumpur</span>
-    <span><a href="mailto:CHANGE-ME@ruangkotak.com">CHANGE-ME@ruangkotak.com</a></span>
     <span>&copy; 2026</span>
   </div>
 </footer>
@@ -929,6 +941,23 @@
     } else {
       bd.classList.add('live'); start();
     }
+  })();
+</script>
+
+<p class="wip" id="wip" role="status" aria-live="polite"></p>
+
+<script>
+  /* Apply buttons: no destination yet, so they say so instead of going anywhere */
+  (() => {
+    const note = document.getElementById('wip');
+    let timer;
+    document.querySelectorAll('[data-wip]').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      note.textContent = 'Work in progress';
+      note.classList.add('on');
+      clearTimeout(timer);
+      timer = setTimeout(() => { note.classList.remove('on'); note.textContent = ''; }, 2600);
+    }));
   })();
 </script>
 
