@@ -94,6 +94,12 @@
 
     --mx:min(1320px,100% - 3rem);
     --ease:cubic-bezier(.16,1,.3,1); --dur:.72s;
+
+    /* type scale: four sizes, every text role maps to exactly one */
+    --fs-h:clamp(1.4rem,2.6vw,2rem);       /* headings */
+    --fs-sub:clamp(1.05rem,2vw,1.35rem);   /* subheadings */
+    --fs-body:.8rem;                       /* body copy */
+    --fs-label:.72rem;                     /* labels, numbers, nav, buttons */
   }
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
@@ -248,9 +254,9 @@
   .box{background:var(--bg); border-radius:var(--r); box-shadow:var(--up);
     padding:clamp(1.5rem,3.5vw,2.75rem) clamp(1.25rem,3.5vw,2.75rem);
     margin-top:clamp(2rem,4vw,3rem)}
-  .box > .rows,.box > .steps{margin-top:0; border-top:0}
-  .box > .rows .row:first-child,.box > .steps li:first-child{padding-top:0}
-  .box > .rows .row:last-child,.box > .steps li:last-child{padding-bottom:0; border-bottom:0}
+  .box > .rows{margin-top:0; border-top:0}
+  .box > .rows .row:first-child{padding-top:0}
+  .box > .rows .row:last-child{padding-bottom:0; border-bottom:0}
 
   /* the issue checklist: real checkboxes, raised until ticked, then sunk */
   .issues{margin:1.25rem 0 0; padding:0; list-style:none; width:min(100%,720px);
@@ -301,24 +307,6 @@
     background:var(--ink-3)}
   @media(max-width:760px){ .cols{grid-template-columns:1fr; gap:2.25rem} }
 
-  /* numbered application steps */
-  .steps{margin:clamp(2rem,4vw,3rem) 0 0; padding:0; list-style:none; counter-reset:s;
-    display:grid; gap:0; border-top:1px solid var(--hair)}
-  .steps li{counter-increment:s; padding:clamp(1.1rem,2.4vw,1.7rem) 0;
-    border-bottom:1px solid var(--hair);
-    display:grid; grid-template-columns:3.5ch minmax(0,16.5rem) minmax(0,1fr);
-    gap:clamp(1rem,2.2vw,1.9rem); align-items:baseline}
-  .steps li::before{content:"0" counter(s); color:var(--text-2);
-    font-family:var(--mono); font-size:.7rem; letter-spacing:.08em;
-    box-shadow:var(--in-sm); border-radius:var(--r-pill); padding:.3rem .5rem;
-    justify-self:start}
-  .steps strong{font-weight:500; font-size:clamp(1.05rem,2vw,1.35rem); letter-spacing:-0.025em}
-  .steps p{color:var(--ink-2); font-family:"DM Mono",ui-monospace,Menlo,monospace;
-    font-size:.8rem; line-height:1.65; max-width:52ch}
-  @media(max-width:760px){
-    .steps li{grid-template-columns:3.5ch minmax(0,1fr); gap:.6rem 1rem}
-    .steps p{grid-column:2}
-  }
 
   /* the form. inset wells receive, raised pills act: the one place this
      style's vocabulary is unambiguous, so the ask uses it literally. */
@@ -346,6 +334,17 @@
   .close{text-align:left; border-top:1px solid var(--hair)}
   .close .display{max-width:20ch}
   .close .btn{margin-top:clamp(2rem,4vw,3rem)}
+
+  /* work in progress: the Apply buttons raise this pill instead of going anywhere */
+  .wip{position:fixed; z-index:30; left:50%; bottom:clamp(1rem,4vw,2rem);
+    translate:-50% 12px; opacity:0; pointer-events:none;
+    background:var(--bg); color:var(--white); border-radius:var(--r-pill); box-shadow:var(--up);
+    padding:.7rem 1.2rem; font-family:var(--mono); font-size:var(--fs-label);
+    letter-spacing:.16em; text-transform:uppercase; white-space:nowrap;
+    transition:opacity .3s var(--ease), translate .3s var(--ease)}
+  .wip.on{opacity:1; translate:-50% 0}
+  @media (prefers-reduced-motion:reduce){ .wip{transition:none} }
+  @media print{ .wip{display:none !important} }
 
   footer{border-top:1px solid var(--line); padding-block:2rem;
     font-family:"DM Mono",ui-monospace,Menlo,monospace; font-size:.72rem;
@@ -560,6 +559,24 @@
   @keyframes bd-in{ to{opacity:1} }
 
   /* reduced motion: no walking, and every step lands on its finished state */
+  /* ---- type scale and control size. every role below takes one token, so
+     sizes stay equal across sections. the how-it-works demo screen (.bd-screen)
+     keeps its own small sizes: it is a picture of an app, not page copy. ---- */
+  .display,.display-sm{font-size:var(--fs-h)}
+  .row .t,.bd-tab .t{font-size:var(--fs-sub)}
+  .mono,.hero-line,.tile .sub,.tile ul,.issues label,.row .d,.cols ul,
+  .bd-tab .d,.pane-note,.form label,.form-note,.form input,.form select,.form textarea{font-size:var(--fs-body)}
+  .lab,.nav,.nav a,.btn,.skip,.rail li,.hero-foot .rail li,.about-rail li,
+  .row .n,.bd-tab .n,.form .req{font-size:var(--fs-label)}
+
+  /* smaller controls: same pill shapes, less padding */
+  .btn{padding:.62rem 1.1rem; line-height:1.4}  /* same height for <a> and <button> */
+  .nav a{padding:.58rem .9rem}
+  .skip{padding:.55rem .9rem}
+  .issues label{padding:.55rem .8rem}
+  .bd-tab{padding:.75rem .95rem .85rem}
+  @media(max-width:760px){ .nav a{padding:.5rem .7rem} }
+
   @media (prefers-reduced-motion:reduce){
     .bd *, .bd *::before, .bd *::after{animation-duration:0s !important;
       animation-delay:0s !important; animation-iteration-count:1 !important}
@@ -606,7 +623,7 @@
     body{background:#fff; color:#000}
     header,.wordmark,.hero-plate,.btn{display:none !important}
     .tile,.box,.form,.form input,.form select,.form textarea,
-    .nav a,.row .n,.steps li::before,.hero-foot .rail li,.about-rail li,
+    .nav a,.row .n,.hero-foot .rail li,.about-rail li,
     .week .wk,.post summary,.post-body .act{
       box-shadow:none !important; background:#fff !important;
       border:.5pt solid #bbb; border-radius:4pt}
@@ -635,7 +652,7 @@
       <a href="#paths">Who it is for</a>
       <a href="#month">How it runs</a>
     </div>
-    <a href="#apply">Apply</a>
+    <a href="#" data-wip>Apply</a>
   </nav>
 </header>
 
@@ -770,7 +787,7 @@
             <li><label><input type="checkbox"><span>You’re not sure which numbers matter</span></label></li>
           </ul>
           <p class="sub issues-foot">That’s what we work on.</p>
-          <a class="btn" href="#apply">Apply for a spot</a>
+          <a class="btn" href="#" data-wip>Apply for a spot</a>
         </article>
       </div>
     </div>
@@ -847,37 +864,12 @@
     </div>
   </section>
 
-  <section id="apply">
-    <div class="wrap reveal">
-      <div class="sec-head">
-        <p class="lab">Apply</p>
-        <h2 class="display-sm">We take on few people at once so the work stays close.</h2>
-      </div>
-      <div class="box">
-      <ol class="steps stagger">
-        <li><strong>Tell us about you</strong><p>What you sell, who for, what you have already tried, and what you want to be true in ninety days.</p></li>
-        <li><strong>We discuss</strong><p>If we cannot help, we will say so and point you somewhere better.</p></li>
-        <li><strong>The setup</strong><p>Two weeks: your angle, your path from post to conversation, and a baseline. If you want to carry on into a first month with us, we talk again then.</p></li>
-      </ol>
-      </div>
-
-    </div>
-  </section>
-
-  <section class="close">
-    <div class="wrap reveal">
-      <h2 class="display">Ready when you are.</h2>
-      <a class="btn" href="#apply">Apply for a spot</a>
-    </div>
-  </section>
-
 </main>
 
 <footer>
   <div class="wrap foot">
     <span>RUANG KOTAK</span>
     <span>Kuala Lumpur</span>
-    <span><a href="mailto:CHANGE-ME@ruangkotak.com">CHANGE-ME@ruangkotak.com</a></span>
     <span>&copy; 2026</span>
   </div>
 </footer>
@@ -949,6 +941,23 @@
     } else {
       bd.classList.add('live'); start();
     }
+  })();
+</script>
+
+<p class="wip" id="wip" role="status" aria-live="polite"></p>
+
+<script>
+  /* Apply buttons: no destination yet, so they say so instead of going anywhere */
+  (() => {
+    const note = document.getElementById('wip');
+    let timer;
+    document.querySelectorAll('[data-wip]').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      note.textContent = 'Work in progress';
+      note.classList.add('on');
+      clearTimeout(timer);
+      timer = setTimeout(() => { note.classList.remove('on'); note.textContent = ''; }, 2600);
+    }));
   })();
 </script>
 
