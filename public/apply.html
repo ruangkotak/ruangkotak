@@ -362,9 +362,10 @@
 <script>
   /* one question at a time. without JS every question shows at once and the form still submits. */
   (() => {
-    // where answers go. mailto opens the applicant's own mail app with the answers filled in;
-    // nothing is sent until they press send there.
-    const MAILTO = 'storagebox100percent@gmail.com';
+    // where answers go: put the address between the quotes. mailto opens the applicant's own
+    // mail app with the answers filled in; nothing is sent until they press send there.
+    // while this is empty, Send application stops with a message and nothing opens.
+    const MAILTO = '';
 
     document.documentElement.classList.add('js');
     const form = document.getElementById('quiz');
@@ -440,6 +441,7 @@
       for (let i = 0; i < qs.length; i++) {
         if (!ok(i)) { const msg = err.textContent; show(i); err.textContent = msg; return; }
       }
+      if (!MAILTO) { err.textContent = 'Applications are not open yet.'; return; }
       const name = val('name');
       const lines = [
         `Name: ${name}`,
