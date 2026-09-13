@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RUANGKOTAK</title>
+<title>RUANG KOTAK</title>
 <meta name="description" content="Eight ideas a month that could only have come from you. You film and post, we do everything on either side of that. A small studio in Kuala Lumpur, for creators and talent.">
 <style>
 @font-face {
@@ -139,8 +139,14 @@
     padding:.8rem 1.1rem; border-radius:var(--r-pill); box-shadow:var(--up-sm);
     transition:box-shadow .16s ease, color .16s ease}
   .nav a:hover{color:var(--white); box-shadow:var(--up)}
-  .nav .mark{color:var(--white); font-weight:500; letter-spacing:.2em}
   .nav-mid{display:flex; gap:clamp(.5rem,2.5vw,2.5rem)}
+  .nav > a:last-child{margin-left:auto}
+  /* no logo on the left any more: a 1fr/auto/1fr grid keeps the section links truly centred */
+  @media(min-width:761px){
+    .nav{display:grid; grid-template-columns:1fr auto 1fr}
+    .nav-mid{grid-column:2}
+    .nav > a:last-child{grid-column:3; justify-self:end}
+  }
   /* mobile keeps the section links: the nav wraps to a second row rather
      than hiding three quarters of the page behind nothing. */
   @media(max-width:760px){
@@ -184,10 +190,12 @@
     border-radius:calc(var(--r) + 6px); padding:14px; box-shadow:var(--up-lg)}
   .wordmark .frame{border-radius:var(--r); box-shadow:var(--in-lg); padding:10px;
     background:var(--bg-2); line-height:0}
-  .wordmark video{width:100%; height:100%; display:block; object-fit:cover;
-    border-radius:var(--r-sm); aspect-ratio:1920/430; background:#101010;
-    filter:grayscale(1) contrast(1.04)}
-  @media(max-width:760px){ .wordmark video{aspect-ratio:1920/320} }
+  /* the logo loop sits on a black plate; its viewBox already carries room for the box to grow */
+  .wordmark .logo-plate{display:grid; place-items:center; aspect-ratio:1920/430; border-radius:var(--r-sm);
+    background:#000; padding-inline:clamp(1.25rem,6%,5rem)}
+  .wordmark .logo-plate picture{display:block; width:100%}
+  .wordmark .logo-plate img{display:block; width:100%; height:auto}
+  @media(max-width:760px){ .wordmark .logo-plate{aspect-ratio:1920/400; padding-inline:7%} }
 
   .hero-foot{display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,4fr);
     gap:clamp(1.5rem,4vw,3rem); align-items:start; margin-top:clamp(1.75rem,3vw,2.5rem)}
@@ -581,9 +589,7 @@
   @keyframes lift{ to{opacity:1; translate:0 0} }
 
   @media (prefers-reduced-motion:reduce){
-    .wordmark video,.hero-plate video{display:none}
-    .wordmark .frame{background:var(--bg-2) url("/media/hero-wordmark.jpg") center/cover no-repeat;
-      aspect-ratio:1920/430}
+    .hero-plate video{display:none}
     .hero-plate .frame{background:var(--bg-2) url("/media/month-timeline.jpg") center/cover no-repeat;
       aspect-ratio:1600/840}
     .reveal,.stagger > *,.lift{opacity:1 !important; translate:none !important;
@@ -625,7 +631,6 @@
 
 <header>
   <nav class="wrap nav" aria-label="Main">
-    <a class="mark" href="/">RUANGKOTAK</a>
     <div class="nav-mid">
       <a href="#paths">Who it is for</a>
       <a href="#month">How it runs</a>
@@ -640,15 +645,14 @@
   <section class="hero">
     <div class="wordmark lift lift-1">
       <div class="frame">
-        <video src="/media/hero-wordmark.mp4" poster="/media/hero-wordmark.jpg"
-               autoplay muted loop playsinline preload="metadata" aria-hidden="true"></video>
+        <div class="logo-plate"><picture><source srcset="/media/logo-still.svg" media="(prefers-reduced-motion: reduce)"><img src="/media/logo-animated.svg" alt="" width="8378" height="1629"></picture></div>
       </div>
-      <h1 class="sr-only">RUANGKOTAK</h1>
+      <h1 class="sr-only">RUANG KOTAK</h1>
     </div>
 
     <div class="wrap">
       <div class="hero-foot">
-        <p class="lab lift lift-2">About RUANGKOTAK</p>
+        <p class="lab lift lift-2">About RUANG KOTAK</p>
         <div class="lift lift-2">
           <p class="hero-line">We focus on what matters.</p>
           <p class="hero-line" style="margin-top:1rem">We work with you directly to understand what you’re building,<br class="br-wide"> then plan the content to get there.<br class="br-wide"> You film and post, and every month we go through<br class="br-wide"> the numbers from your analytics together.</p>
@@ -1186,7 +1190,7 @@
       <!-- Answers go to the mailto: below. To stop relying on the visitor's mail app,
            swap it for a Tally/Google Form/Formspree URL (then drop method/enctype). -->
       <form class="form" id="apply-form" method="post" enctype="text/plain"
-            action="mailto:storagebox100percent@gmail.com?subject=RUANGKOTAK%20application">
+            action="mailto:storagebox100percent@gmail.com?subject=RUANG%20KOTAK%20application">
         <p class="lab">Tell us about you</p>
         <div class="fields">
           <label>Who are you applying as? <span class="req">Required</span>
@@ -1265,7 +1269,7 @@
 
 <footer>
   <div class="wrap foot">
-    <span>RUANGKOTAK</span>
+    <span>RUANG KOTAK</span>
     <span>Kuala Lumpur</span>
     <span><a href="mailto:CHANGE-ME@ruangkotak.com">CHANGE-ME@ruangkotak.com</a></span>
     <span>&copy; 2026</span>
