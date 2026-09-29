@@ -4,6 +4,7 @@ import { ArrowRight, InstagramLogo, LockSimple, TiktokLogo, X } from "@phosphor-
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { FUNNEL_LIVE } from "@/lib/funnel";
 import type { Platform, Teaser } from "@/lib/types";
 
 const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
@@ -24,6 +25,7 @@ export function PreviewFlow() {
   const [platform, setPlatform] = useState<Platform>("tiktok");
   const [handle, setHandle] = useState("");
   const [error, setError] = useState("");
+  const [soon, setSoon] = useState(false);
   const [view, setView] = useState<View>({ k: "closed" });
 
   async function submit(e: React.FormEvent) {
@@ -34,6 +36,7 @@ export function PreviewFlow() {
       return;
     }
     setError("");
+    if (!FUNNEL_LIVE) return setSoon(true);
     setView({ k: "loading", handle: clean });
     try {
       const res = await fetch("/api/preview", {
@@ -104,8 +107,12 @@ export function PreviewFlow() {
             Check my account <ArrowRight size={18} weight="bold" />
           </button>
         </div>
-        <p id="handle-help" className={`mt-2 text-sm ${error ? "text-bad" : "text-muted"}`} role={error ? "alert" : undefined}>
-          {error || "Public videos only. No password, no login."}
+        <p
+          id="handle-help"
+          className={`mt-2 text-sm ${error ? "text-bad" : soon ? "font-medium text-good" : "text-muted"}`}
+          role={error ? "alert" : soon ? "status" : undefined}
+        >
+          {error || (soon ? "Work in progress: free previews open soon." : "Public videos only. No password, no login.")}
         </p>
       </form>
 

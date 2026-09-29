@@ -3,6 +3,7 @@
 import { CheckCircle } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
+import { FUNNEL_LIVE } from "@/lib/funnel";
 
 export function ApplyForm() {
   const [state, setState] = useState<"idle" | "busy" | "sent" | "error">("idle");
@@ -89,8 +90,8 @@ export function ApplyForm() {
                 <Field label="WhatsApp number or email" name="contact" required />
               </div>
               <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
-                <button className="btn-primary" disabled={state === "busy"}>
-                  Send application
+                <button className="btn-primary" disabled={!FUNNEL_LIVE || state === "busy"}>
+                  {FUNNEL_LIVE ? "Send application" : "Work in progress"}
                 </button>
                 {state === "error" && (
                   <p className="text-sm text-bad" role="alert">

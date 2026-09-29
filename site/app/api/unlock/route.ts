@@ -1,3 +1,4 @@
+import { FUNNEL_LIVE, funnelClosed } from "@/lib/funnel";
 import { notifyOwner } from "@/lib/notify";
 import { store } from "@/lib/store";
 
@@ -5,6 +6,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\+?[0-9\s-]{9,15}$/;
 
 export async function POST(req: Request) {
+  if (!FUNNEL_LIVE) return funnelClosed();
   const body = await req.json().catch(() => null);
   const reportId = String(body?.reportId ?? "");
   const contact = String(body?.contact ?? "").trim();

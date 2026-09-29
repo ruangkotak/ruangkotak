@@ -1,3 +1,4 @@
+import { FUNNEL_LIVE, funnelClosed } from "@/lib/funnel";
 import { cookies, headers } from "next/headers";
 import { analyze, toTeaser } from "@/lib/analyze";
 import { notifyOwner } from "@/lib/notify";
@@ -9,6 +10,7 @@ import type { Platform } from "@/lib/types";
 const unavailable = () => Response.json({ ok: false }, { status: 200 });
 
 export async function POST(req: Request) {
+  if (!FUNNEL_LIVE) return funnelClosed();
   const body = await req.json().catch(() => null);
   const platform: Platform = body?.platform === "instagram" ? "instagram" : "tiktok";
   const handle = normaliseHandle(String(body?.handle ?? ""));
