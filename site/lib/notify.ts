@@ -60,7 +60,7 @@ export async function sendReportLink(to: { name: string; email: string }, handle
     "--",
     `You got this email because you asked for a mini-diagnosis at ${BUSINESS.site}.`,
     `${BUSINESS.name}${BUSINESS.registration ? ` (${BUSINESS.registration})` : ""}, ${BUSINESS.email}`,
-    `Privacy Notice / Notis Privasi: https://${BUSINESS.site}/privacy`,
+    `Privacy Notice: https://${BUSINESS.site}/privacy`,
     `To see, correct or delete your data, or withdraw consent, reply to this email.`,
   ].join("\n");
 

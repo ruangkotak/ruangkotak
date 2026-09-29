@@ -25,7 +25,7 @@ function readLead(body: Record<string, unknown> | null, ip: string): { lead: Lea
   // Both required boxes must be ticked; the marketing box is optional and never pre-ticked.
   if (body?.consentNotice !== true || body?.consentOwner !== true) return { bad: "consent" };
   const marketing = body?.consentMarketing === true;
-  const accepted = [CONSENT.notice.en, CONSENT.owner.en, ...(marketing ? [CONSENT.marketing.en] : [])];
+  const accepted = [CONSENT.notice, CONSENT.owner, ...(marketing ? [CONSENT.marketing] : [])];
   return { lead: { name, email, whatsapp, marketing, consent: consentRecord(accepted, ip) } };
 }
 

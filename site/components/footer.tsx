@@ -18,7 +18,7 @@ export function Footer() {
         <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted md:self-end">
           <li><a href="/#how" className="hover:text-ink">How it works</a></li>
           <li><a href="/#monthly" className="hover:text-ink">Monthly</a></li>
-          <li><a href="/privacy" className="hover:text-ink">Privacy / Privasi</a></li>
+          <li><a href="/privacy" className="hover:text-ink">Privacy</a></li>
           <li>© 2026 {BUSINESS.name}</li>
         </ul>
       </div>

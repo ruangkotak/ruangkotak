@@ -14,8 +14,8 @@ export async function POST(req: Request) {
   if (body?.consent !== true) return Response.json({ ok: false, invalid: "consent" }, { status: 400 });
 
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0].trim() ?? "local";
-  const c = consentRecord([APPLY_CONSENT.en], ip);
-  await store.addApplication({ ...a, consentVersion: c.version, consentAt: c.at, consentIp: c.ip, consentText: APPLY_CONSENT.en });
+  const c = consentRecord([APPLY_CONSENT], ip);
+  await store.addApplication({ ...a, consentVersion: c.version, consentAt: c.at, consentIp: c.ip, consentText: APPLY_CONSENT });
   await notifyOwner("Monthly application", FIELDS.map((f) => `${f}: ${a[f] || "-"}`));
   return Response.json({ ok: true });
 }
