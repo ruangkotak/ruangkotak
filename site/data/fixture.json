@@ -1,0 +1,98 @@
+{
+ "handle": "",
+ "platform": "Instagram",
+ "date": "22 Sep 2026",
+ "followers": 2776,
+ "verdict": "Your one story reel pulled 3.7x your usual views, but there was never a second episode, and no reel at all since February.",
+ "videos": [
+  {
+   "title": "Ever wonder just by upgrading to Trapo's car mat is sure to level-up your car aesthetics!  Even if this is your first or existing, go ahead and check out their CNY deals! T&Cs apply. @trapomalaysia @trapocarwipers @trapodetailing",
+   "views": 380,
+   "pillar": "Car accessories",
+   "date": "2026-02-17",
+   "why": "A visible upgrade plus a festive deal gave viewers a reason to watch to the end.",
+   "cover": "/sample/1.jpg"
+  },
+  {
+   "title": "(no caption)",
+   "views": 208,
+   "pillar": "No caption",
+   "date": "2026-01-04",
+   "why": "No caption, so nothing told viewers why this one was worth their time.",
+   "cover": "/sample/2.jpg"
+  },
+  {
+   "title": "Aku sudah ada kawan baru.. panggil dia Ahmad! Ingat tau! Okay cite dia macam ni.. kisah waktu pagi nun dari jauh sana sudah dengar.. Cik Lan...oh... Cik Lan....",
+   "views": 1203,
+   "pillar": "Stories",
+   "date": "2025-12-29",
+   "why": "A character with a name, told in your own voice. People came for you, not a product.",
+   "cover": "/sample/3.jpg"
+  },
+  {
+   "title": "Stepped into TRAPO’s Holiday Scentscape. If you’re around 1 Utama, have a peek! I just settled my blind box 📦.",
+   "views": 131,
+   "pillar": "Brand events",
+   "date": "2025-12-19",
+   "why": "An event only people near 1 Utama could visit, for 6 days. Most viewers can't use it.",
+   "cover": "/sample/4.jpg"
+  },
+  {
+   "title": "DJI NEO 2 UNPREDICTABLE ! This is what you should know about!",
+   "views": 213,
+   "pillar": "Creator gear",
+   "date": "2025-12-17",
+   "why": "The title is hype (“UNPREDICTABLE !”) without saying what the viewer gets.",
+   "cover": "/sample/5.jpg"
+  },
+  {
+   "title": "Just wrapped my visit to the PROTON Tech Showcase 2025. I gotta say, PROTON e.MAS line-up is seriously impressive. Even better, PROTON is pushing EV innovation to the next level.",
+   "views": 222,
+   "pillar": "Brand events",
+   "date": "2025-12-05",
+   "cover": "/sample/6.jpg"
+  },
+  {
+   "title": "This might be the most impressive portable video light I’ve tested so far and it’s exactly what creators need when shooting on the go.",
+   "views": 340,
+   "pillar": "Creator gear",
+   "date": "2025-11-30",
+   "cover": "/sample/7.jpg"
+  },
+  {
+   "title": "Tapi kan.. Selain dari Gadget, sebenarnya ada barang lain yg sepatutnya kita ada waktu awal-awal beli kreta. Tapi ish! Menyesal gak bgtau kadang-kadang.",
+   "views": 327,
+   "pillar": "Car accessories",
+   "date": "2025-11-24",
+   "cover": "/sample/8.jpg"
+  },
+  {
+   "title": "RODE is giving this FREE Wireless Micro Camera receiver to whoever owns RODE Wireless Micro! Have you gotten yours yet?",
+   "views": 356,
+   "pillar": "Creator gear",
+   "date": "2025-11-18",
+   "why": "Free stuff in the first line. Anyone who owns the mic had a reason to stop.",
+   "cover": "/sample/9.jpg"
+  }
+ ],
+ "findings": [
+  {
+   "h": "Your story reel beat everything",
+   "b": "The Ahmad story reel got 1,203 views and 116 likes. That is 3.7x your usual and twice the likes of any other reel here. There was no episode 2."
+  },
+  {
+   "h": "Event visits sink",
+   "b": "The TRAPO Holiday Scentscape and PROTON Tech Showcase reels got 131 and 222 views, both below your usual of 327."
+  },
+  {
+   "h": "No reels since 17 Feb",
+   "b": "Your 9 latest reels ran from 18 Nov to 17 Feb. Since then you have posted 2 carousels, on 1 May and 12 Sep, and no reels."
+  }
+ ],
+ "fixFirst": "Turn the Ahmad story into a weekly reel series and post episode 2 this week.",
+ "fixThen": [
+  "Keep brand event visits for Stories unless the brand pays for the reach.",
+  "Always write the first line of the caption. Your one reel without a caption is among your 3 weakest."
+ ],
+ "target": "4 Ahmad story episodes in 30 days. Median up from {median} to 600 views."
+}

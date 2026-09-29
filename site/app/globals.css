@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-on-solid: var(--on-solid);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Same palette as the mini-diagnosis report. Green is the only accent; red only ever means "below your usual". */
+:root {
+  --bg: #f3f4f5;
+  --surface: #fafbfb;
+  --ink: #0f1317;
+  --muted: #525c66;
+  --line: #d3d8dd;
+  --good: #0b7a64;
+  --good-soft: #d2e8e1;
+  --bad: #be2f4a;
+  --bad-soft: #f5d8de;
+  --on-solid: #fafbfb;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1215;
+    --surface: #161a1e;
+    --ink: #e9ecef;
+    --muted: #9aa3ad;
+    --line: #2a3137;
+    --good: #34b597;
+    --good-soft: #143a31;
+    --bad: #e3657d;
+    --bad-soft: #401c25;
+    --on-solid: #0b0e11;
+    color-scheme: dark;
+  }
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+}
+.num { font-variant-numeric: tabular-nums; }
+
+/* Buttons: sharp corners everywhere, like the logo boxes. */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  white-space: nowrap; padding: 0 1.25rem; min-height: 3rem;
+  background: var(--ink); color: var(--bg); font-weight: 600;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s;
+}
+.btn-primary:hover { transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(1px) scale(0.98); }
+.btn-primary:disabled { opacity: 0.6; cursor: progress; }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
+  padding: 0 1.1rem; min-height: 3rem; border: 1px solid var(--ink); font-weight: 600;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-ghost:hover { transform: translateY(-1px); }
+.btn-ghost:active { transform: translateY(1px) scale(0.98); }
+@layer base {
+  :focus-visible { outline: 2px solid var(--good); outline-offset: 3px; }
+}
+
+.field {
+  width: 100%; min-height: 3rem; padding: 0 0.85rem;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid color-mix(in oklab, var(--ink) 30%, transparent);
+}
+textarea.field { padding: 0.75rem 0.85rem; min-height: 6rem; }
+.field::placeholder { color: var(--muted); }
+.field:focus { outline: 2px solid var(--good); outline-offset: 0; border-color: transparent; }
+
+/* Kotak grid cells: colour arrives after the boxes land, which is the "diagnosis" moment. */
+.kotak-cell { border: 1px solid var(--line); transition: background-color 0.6s ease, border-color 0.6s ease; }
+.t-flat { background: color-mix(in oklab, var(--line) 55%, transparent); border-color: transparent; }
+.t-up { background: var(--good-soft); border-color: transparent; }
+.t-down { background: var(--bad-soft); border-color: transparent; }
+.t-top { background: var(--good); border-color: transparent; }
+.t-bot { background: var(--bad); border-color: transparent; }
+
+html[data-intro="off"] .rk-intro { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-intro="on"] .rise { animation-delay: calc(var(--d, 0s) + 1.9s); }
+  .rise { animation: rise 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: var(--d, 0s); }
+  @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .kotak-cell, .btn-primary, .btn-ghost { transition: none; }
+}

@@ -1,0 +1,7 @@
+node_modules
+.next
+.env*
+tsconfig.tsbuildinfo
+# private planning notes, like OFFER.md at the repo root
+BRIEF.md
+TASKS.md
