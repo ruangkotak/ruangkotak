@@ -3,8 +3,7 @@
 import { motion, useScroll, useTransform, type MotionValue } from "motion/react";
 import { useRef } from "react";
 
-const TEXT =
-  "You post every week. One video hits 10k views. The next ten sit at 400. Your insights show the numbers, never the reason.";
+const TEXT = "Some of your videos take off. Most of them don't. Your insights show the numbers, never the reason.";
 
 function Word({ word, i, n, progress }: { word: string; i: number; n: number; progress: MotionValue<number> }) {
   const opacity = useTransform(progress, [i / n, (i + 1) / n], [0.14, 1]);

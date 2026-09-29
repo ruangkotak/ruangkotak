@@ -7,7 +7,6 @@ import { focusPreview } from "./focus-preview";
 
 const LINKS = [
   ["How it works", "#how"],
-  ["Sample", "#sample"],
   ["Full report", "#full"],
   ["Monthly", "#monthly"],
 ] as const;

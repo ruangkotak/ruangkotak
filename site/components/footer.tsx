@@ -10,7 +10,6 @@ export function Footer() {
         </div>
         <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted md:self-end">
           <li><a href="/#how" className="hover:text-ink">How it works</a></li>
-          <li><a href="/r/sample" className="hover:text-ink">Sample report</a></li>
           <li><a href="/#monthly" className="hover:text-ink">Monthly</a></li>
           <li>© 2026 RUANGKOTAK</li>
         </ul>

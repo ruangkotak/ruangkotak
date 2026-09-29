@@ -1,6 +1,6 @@
 import { fmt, fmtX } from "@/lib/analyze";
 import type { Report } from "@/lib/types";
-import { Cover, RedactedHandle } from "./redacted";
+import { Cover } from "./redacted";
 
 // The mini-diagnosis, same layout and maths as the standalone HTML report. Server component.
 export const FULL_REPORT_ITEMS = [
@@ -11,7 +11,7 @@ export const FULL_REPORT_ITEMS = [
   "Restructured content pillars and named series",
 ];
 
-export function MiniReport({ report: r, compact = false, redact = false }: { report: Report; compact?: boolean; redact?: boolean }) {
+export function MiniReport({ report: r, compact = false }: { report: Report; compact?: boolean }) {
   const H = compact ? "h3" : "h1";
   const S = compact ? "h4" : "h2";
   const max = Math.max(...r.pillars.map((p) => p.multiple), 1.5);
@@ -25,7 +25,7 @@ export function MiniReport({ report: r, compact = false, redact = false }: { rep
         <Cover src={v.cover} good={good} className="w-10" />
         <div>
           <p className="line-clamp-2 text-sm font-semibold leading-snug">
-            {v.url && !redact ? (
+            {v.url ? (
               <a href={v.url} target="_blank" rel="noreferrer" className="underline decoration-line underline-offset-2 hover:decoration-ink">
                 {v.title}
               </a>
@@ -47,7 +47,7 @@ export function MiniReport({ report: r, compact = false, redact = false }: { rep
       <header className="flex flex-wrap items-baseline justify-between gap-2 pb-3 text-[13px] text-muted">
         <span className="font-semibold text-ink">Mini-diagnosis</span>
         <span>
-          {redact ? <RedactedHandle /> : r.handle} on {r.platform}
+          {r.handle} on {r.platform}
           , <span className="num">{fmt(r.followers)}</span> followers, {r.date}
         </span>
       </header>

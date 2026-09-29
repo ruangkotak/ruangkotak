@@ -11,11 +11,9 @@ import { KotakHero } from "@/components/kotak-hero";
 import { Ladder } from "@/components/ladder";
 import { Marquee } from "@/components/marquee";
 import { Method } from "@/components/method";
-import { MiniReport } from "@/components/mini-report";
 import { Nav } from "@/components/nav";
 import { PreviewFlow } from "@/components/preview-flow";
 import { Problem } from "@/components/problem";
-import { Sample } from "@/components/sample";
 import { ScrollProgress } from "@/components/scroll-progress";
 import { analyze } from "@/lib/analyze";
 import { MOCK } from "@/lib/source";
@@ -52,9 +50,6 @@ export default function Home() {
           ]}
         />
         <Method report={sample} />
-        <Sample>
-          <MiniReport report={sample} compact redact />
-        </Sample>
         <Ladder />
         <FullReport report={sample} />
         <ApplyForm />
