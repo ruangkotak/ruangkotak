@@ -10,6 +10,10 @@ export type Video = {
   cover?: string;
   date?: string; // YYYY-MM-DD posted
   url?: string; // public post link, so anyone can check the view count
+  // Set by the TypeSafe tagger (lib/tagger.ts) on live reports; absent on hand-written ones.
+  typeConfidence?: number; // 0-1, how sure the content-type pick is
+  reason?: number; // 0-1 probability the caption gives a reason to keep watching
+  series?: number; // 0-1 probability the caption marks a series episode
 };
 
 // One account's raw input to the diagnosis: scraped videos plus the copy Claude wrote and a person reviewed.

@@ -103,3 +103,50 @@ html[data-intro="off"] .rk-intro { display: none; }
   html { scroll-behavior: auto; }
   .kotak-cell, .btn-primary, .btn-ghost { transition: none; }
 }
+
+/* Animated logo (components/logo-motion.tsx). Same timeline as public/brand/logo-animated.svg: 6s loop, paused off screen.
+   At rest (no animation) it shows the still logo: square popped out, notch open. */
+.lm .lm-anim { animation-duration: 6s; animation-iteration-count: infinite; animation-play-state: paused; }
+.lm[data-play] .lm-anim { animation-play-state: running; }
+.lm .lm-filler { opacity: 0; }
+.lm .lm-ring { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.lm .lm-word { animation-name: lm-word; }
+.lm .lm-mark { animation-name: lm-move; }
+.lm .lm-sq { animation-name: lm-split; }
+.lm .lm-filler { animation-name: lm-seam; }
+.lm .lm-ring { animation-name: lm-ring; }
+.lm .lm-ring-2 { animation-name: lm-ring-2; }
+@keyframes lm-word {
+  0%, 12% { transform: translateX(0px); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
+  26%, 86% { transform: translateX(-7678.41px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  100% { transform: translateX(0px); }
+}
+@keyframes lm-move {
+  0%, 28% { transform: translate(0px, 0px) translate(350px, 679.41px) scale(1) translate(-350px, -679.41px); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  42%, 72% { transform: translate(3592.15px, 82.35px) translate(350px, 679.41px) scale(1.5) translate(-350px, -679.41px); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  86%, 100% { transform: translate(0px, 0px) translate(350px, 679.41px) scale(1) translate(-350px, -679.41px); }
+}
+@keyframes lm-split {
+  0%, 34% { transform: translate(-32px, 32px); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  46%, 64% { transform: translate(0px, 0px); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  74%, 100% { transform: translate(-32px, 32px); }
+}
+@keyframes lm-seam {
+  0% { opacity: 1; animation-timing-function: steps(1, end); }
+  34% { opacity: 0; animation-timing-function: steps(1, end); }
+  74%, 100% { opacity: 1; }
+}
+/* Green pulse as the square lands: two rings, the second a beat behind. */
+@keyframes lm-ring {
+  0%, 43% { opacity: 0; transform: scale(1); }
+  44% { opacity: 1; transform: scale(1); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  60%, 100% { opacity: 0; transform: scale(2.6); }
+}
+@keyframes lm-ring-2 {
+  0%, 47% { opacity: 0; transform: scale(1); }
+  48% { opacity: 0.7; transform: scale(1); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+  66%, 100% { opacity: 0; transform: scale(3.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lm .lm-anim { animation: none; }
+}

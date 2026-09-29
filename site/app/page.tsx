@@ -34,7 +34,7 @@ export default function Home() {
           <div>
             <HeroTitle />
             <p className="rise mt-5 max-w-[44ch] text-lg text-muted" style={{ "--d": "0.12s" } as React.CSSProperties}>
-              Enter your TikTok or Instagram handle. We read your recent videos and show you what is working, free.
+              Enter your TikTok or Instagram handle. We read your latest 18 videos and show you what is working, free.
             </p>
             <PreviewFlow />
           </div>

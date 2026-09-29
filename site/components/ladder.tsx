@@ -13,7 +13,7 @@ const RUNGS = [
   {
     name: "Mini-diagnosis",
     price: "Free with your name and email",
-    body: "Every content type ranked, what worked, what sank, and the one fix to start with. On screen right away, with a copy in your email.",
+    body: "Your latest 18 videos: every content type ranked, what worked, what sank, and the one fix to start with. On screen right away, with a copy in your email.",
     h: "md:h-[380px]",
   },
   {
