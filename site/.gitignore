@@ -5,3 +5,4 @@ tsconfig.tsbuildinfo
 # private planning notes, like OFFER.md at the repo root
 BRIEF.md
 TASKS.md
+.vercel
