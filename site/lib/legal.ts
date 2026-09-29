@@ -5,10 +5,10 @@
 export const NOTICE_VERSION = "2026-09-30";
 
 // Shown on the privacy notice and in the footer (Consumer Protection (Electronic Trade Transactions) Regulations).
-// Fill `registration` with the SSM number before the funnel goes live; the footer hides it while it is empty.
+// `registration` is the SSM business registration number.
 export const BUSINESS = {
   name: "RUANGKOTAK",
-  registration: "",
+  registration: "003713495-X",
   email: "hello@ruangkotak.com",
   site: "ruangkotak.com",
 };
