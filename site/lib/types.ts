@@ -1,3 +1,5 @@
+import type { ConsentRecord } from "./legal";
+
 export type Platform = "tiktok" | "instagram";
 
 export type Video = {
@@ -37,13 +39,11 @@ export type Report = AccountData & {
   mock: boolean;
 };
 
-export type Teaser = {
-  reportId: string;
-  handle: string;
-  platform: string;
-  fitRecent: Report["fitRecent"];
-  best: Video & { multiple: number };
-  worst: Video & { multiple: number };
-  finding: { h: string; b: string };
-  mock: boolean;
+// Who asked for a mini-diagnosis. Taken before any scraping, so every report we pay for comes with a lead.
+export type Lead = {
+  name: string;
+  email: string;
+  whatsapp: string;
+  marketing: boolean; // opted in to follow-ups (PDPA s43); without it we only send the report itself
+  consent: ConsentRecord;
 };

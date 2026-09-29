@@ -1,3 +1,4 @@
+import { BUSINESS } from "@/lib/legal";
 import { Logo } from "./logo";
 
 export function Footer() {
@@ -7,11 +8,19 @@ export function Footer() {
         <div>
           <Logo className="h-[17px] w-auto" />
           <p className="mt-4 max-w-[40ch] text-sm text-muted">Account diagnosis for TikTok and Instagram creators in Malaysia.</p>
+          <p className="mt-3 text-sm text-muted">
+            {BUSINESS.name}
+            {BUSINESS.registration && ` (${BUSINESS.registration})`} ·{" "}
+            <a href={`mailto:${BUSINESS.email}`} className="hover:text-ink">
+              {BUSINESS.email}
+            </a>
+          </p>
         </div>
         <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted md:self-end">
           <li><a href="/#how" className="hover:text-ink">How it works</a></li>
           <li><a href="/#monthly" className="hover:text-ink">Monthly</a></li>
-          <li>© 2026 RUANGKOTAK</li>
+          <li><a href="/privacy" className="hover:text-ink">Privacy / Privasi</a></li>
+          <li>© 2026 {BUSINESS.name}</li>
         </ul>
       </div>
     </footer>

@@ -1,14 +1,16 @@
 "use client";
 
-import { ArrowRight, InstagramLogo, LockSimple, TiktokLogo, X } from "@phosphor-icons/react";
+import { ArrowRight, InstagramLogo, TiktokLogo, X } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { FUNNEL_LIVE } from "@/lib/funnel";
-import type { Platform, Teaser } from "@/lib/types";
+import { CONSENT } from "@/lib/legal";
+import { ConsentBox } from "./consent-box";
+import type { Platform } from "@/lib/types";
 
-const fmt = (n: number) => Math.round(n).toLocaleString("en-US");
-const fmtX = (n: number) => `${n >= 10 ? Math.round(n) : n.toFixed(n >= 1 ? 1 : 2)}x`;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE = /^\+?[0-9\s-]{9,15}$/;
 function deviceId() {
   try {
     let id = localStorage.getItem("rk_id");
@@ -19,16 +21,28 @@ function deviceId() {
   }
 }
 
-type View = { k: "closed" } | { k: "loading"; handle: string } | { k: "teaser"; t: Teaser } | { k: "unavailable" };
+type View = { k: "closed" } | { k: "details"; handle: string } | { k: "loading"; handle: string } | { k: "unavailable" };
+type Details = { name: string; email: string; whatsapp: string; consentNotice: boolean; consentOwner: boolean; consentMarketing: boolean };
+type DetailError = "name" | "email" | "whatsapp" | "consent";
+const EMPTY: Details = { name: "", email: "", whatsapp: "", consentNotice: false, consentOwner: false, consentMarketing: false };
+const DETAIL_ERRORS: Record<DetailError, string> = {
+  name: "Add your name so we know who to send it to.",
+  email: "Check the email address and try again.",
+  whatsapp: "Check the WhatsApp number, or leave it empty.",
+  consent: "Tick both required boxes to continue. / Tandakan kedua-dua kotak wajib untuk teruskan.",
+};
 
 export function PreviewFlow() {
+  const router = useRouter();
   const [platform, setPlatform] = useState<Platform>("tiktok");
   const [handle, setHandle] = useState("");
   const [error, setError] = useState("");
   const [soon, setSoon] = useState(false);
   const [view, setView] = useState<View>({ k: "closed" });
+  const [details, setDetails] = useState<Details>(EMPTY);
+  const [detailError, setDetailError] = useState<DetailError | null>(null);
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     const clean = handle.trim().replace(/^@/, "");
     if (!/^[A-Za-z0-9._]{2,30}$/.test(clean)) {
@@ -37,18 +51,40 @@ export function PreviewFlow() {
     }
     setError("");
     if (!FUNNEL_LIVE) return setSoon(true);
+    setDetailError(null);
+    setView({ k: "details", handle: clean });
+  }
+
+  // Contact details go with the handle in one request; the server scrapes only after they check out.
+  async function run(clean: string) {
+    const d = { ...details, name: details.name.trim(), email: details.email.trim(), whatsapp: details.whatsapp.trim() };
+    const bad: DetailError | null = !d.name
+      ? "name"
+      : !EMAIL.test(d.email)
+        ? "email"
+        : d.whatsapp && !PHONE.test(d.whatsapp)
+          ? "whatsapp"
+          : !d.consentNotice || !d.consentOwner
+            ? "consent"
+            : null;
+    if (bad) return setDetailError(bad);
+    setDetailError(null);
     setView({ k: "loading", handle: clean });
     try {
       const res = await fetch("/api/preview", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ platform, handle: clean, deviceId: deviceId() }),
+        body: JSON.stringify({ platform, handle: clean, deviceId: deviceId(), ...d }),
       });
       const data = await res.json();
-      if (data.invalid) {
+      if (data.invalid === "handle") {
         setView({ k: "closed" });
         setError("That handle doesn't look right. Check the spelling.");
-      } else setView(data.ok ? { k: "teaser", t: data.teaser } : { k: "unavailable" });
+      } else if (data.invalid) {
+        setDetailError(data.invalid);
+        setView({ k: "details", handle: clean });
+      } else if (data.ok) router.push(data.url);
+      else setView({ k: "unavailable" });
     } catch {
       setView({ k: "unavailable" });
     }
@@ -121,7 +157,20 @@ export function PreviewFlow() {
           <Sheet onClose={() => setView({ k: "closed" })} busy={view.k === "loading"}>
             <AnimatePresence mode="wait" initial={false}>
               {view.k === "loading" && <Loading key="l" handle={view.handle} platform={label} />}
-              {view.k === "teaser" && <TeaserView key="t" t={view.t} />}
+              {view.k === "details" && (
+                <DetailsForm
+                  key="d"
+                  handle={view.handle}
+                  platform={label}
+                  value={details}
+                  onChange={(d) => {
+                    setDetails(d);
+                    setDetailError(null);
+                  }}
+                  error={detailError}
+                  onSubmit={() => run(view.handle)}
+                />
+              )}
               {view.k === "unavailable" && <Unavailable key="u" onClose={() => setView({ k: "closed" })} />}
             </AnimatePresence>
           </Sheet>
@@ -156,7 +205,7 @@ function Sheet({ children, onClose, busy }: { children: React.ReactNode; onClose
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Your account preview"
+        aria-label="Your mini-diagnosis"
         className="relative max-h-[92dvh] w-full max-w-[760px] overflow-y-auto border border-line bg-bg p-5 outline-none md:p-8"
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -174,7 +223,7 @@ function Sheet({ children, onClose, busy }: { children: React.ReactNode; onClose
   );
 }
 
-const STEPS = ["Finding the account", "Reading recent videos", "Sorting by content type", "Comparing best and weakest"];
+const STEPS = ["Finding the account", "Reading recent videos", "Sorting by content type", "Comparing best and weakest", "Writing your mini-diagnosis"];
 
 function Loading({ handle, platform }: { handle: string; platform: string }) {
   const [step, setStep] = useState(0);
@@ -204,98 +253,103 @@ function Loading({ handle, platform }: { handle: string; platform: string }) {
           />
         ))}
       </div>
-      <p className="mt-4 text-sm text-muted">This takes a few seconds.</p>
+      <p className="mt-4 text-sm text-muted">This can take up to a minute. Keep this page open.</p>
     </motion.div>
   );
 }
 
-function Clip({ v, good }: { v: Teaser["best"]; good: boolean }) {
-  return (
-    <div className="flex gap-3">
-      {v.cover ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={v.cover} alt="" className="aspect-[9/16] w-14 shrink-0 object-cover" />
-      ) : (
-        <div className={`aspect-[9/16] w-14 shrink-0 ${good ? "bg-good-soft" : "bg-bad-soft"}`} />
-      )}
-      <div className="min-w-0">
-        <p className={`text-sm font-semibold ${good ? "text-good" : "text-bad"}`}>{good ? "Your best video" : "Your weakest video"}</p>
-        <p className="mt-1 line-clamp-2 font-medium leading-snug">{v.title}</p>
-        <p className="mt-1 text-sm text-muted">
-          <span className="num">{fmt(v.views)}</span> views, <span className={`num ${good ? "text-good" : "text-bad"}`}>{fmtX(v.multiple)}</span> your usual
-        </p>
-      </div>
+function DetailsForm({
+  handle,
+  platform,
+  value,
+  onChange,
+  error,
+  onSubmit,
+}: {
+  handle: string;
+  platform: string;
+  value: Details;
+  onChange: (d: Details) => void;
+  error: DetailError | null;
+  onSubmit: () => void;
+}) {
+  const field = (k: "name" | "email" | "whatsapp", label: string, props: React.InputHTMLAttributes<HTMLInputElement>) => (
+    <div>
+      <label htmlFor={`lead-${k}`} className="mb-2 block text-sm font-medium">
+        {label}
+      </label>
+      <input
+        id={`lead-${k}`}
+        name={k}
+        value={value[k]}
+        onChange={(e) => onChange({ ...value, [k]: e.target.value })}
+        aria-invalid={error === k}
+        aria-describedby={error === k ? "lead-error" : undefined}
+        className="field w-full"
+        {...props}
+      />
     </div>
   );
-}
-
-const item = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
-
-function TeaserView({ t }: { t: Teaser }) {
-  const router = useRouter();
-  const [contact, setContact] = useState("");
-  const [state, setState] = useState<"idle" | "busy" | "error">("idle");
-
-  async function unlock(e: React.FormEvent) {
-    e.preventDefault();
-    setState("busy");
-    const res = await fetch("/api/unlock", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ reportId: t.reportId, contact }),
-    }).catch(() => null);
-    const data = await res?.json().catch(() => null);
-    if (data?.ok) router.push(data.url);
-    else setState("error");
-  }
 
   return (
-    <motion.div initial="hidden" animate="show" exit={{ opacity: 0 }} transition={{ staggerChildren: 0.09 }}>
-      <motion.p variants={item} className="text-sm text-muted">
-        {t.handle} on {t.platform}
-      </motion.p>
-      <motion.h2 variants={item} className="mt-1 max-w-[26ch] text-2xl font-semibold leading-tight tracking-tight md:text-3xl">
-        <span className="num text-good">{t.fitRecent.hits}</span> of your last {t.fitRecent.of} videos are in content types that beat your
-        usual views.
-      </motion.h2>
+    <motion.form
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+      noValidate
+    >
+      <p className="text-sm text-muted">
+        @{handle} on {platform}
+      </p>
+      <h2 className="mt-1 max-w-[26ch] text-2xl font-semibold leading-tight tracking-tight md:text-3xl">Where should we send your <span className="whitespace-nowrap">mini-diagnosis?</span></h2>
+      <p className="mt-2 text-muted">It opens on screen right away, and a copy goes to your email.</p>
 
-      <motion.div variants={item} className="mt-6 grid gap-5 border-t border-line pt-5 sm:grid-cols-2">
-        <Clip v={t.best} good />
-        <Clip v={t.worst} good={false} />
-      </motion.div>
-
-      <motion.div variants={item} className="mt-5 border-t border-line pt-5">
-        <p className="font-semibold">{t.finding.h}</p>
-        <p className="mt-1 text-muted">{t.finding.b}</p>
-      </motion.div>
-
-      <motion.form variants={item} onSubmit={unlock} className="mt-6 bg-surface p-4 outline outline-1 outline-line md:p-5" noValidate>
-        <p className="flex items-center gap-2 font-semibold">
-          <LockSimple size={18} weight="bold" /> Your full mini-diagnosis is ready
-        </p>
-        <p className="mt-1 text-sm text-muted">Every content type ranked, what worked, what sank, and the one fix to start with.</p>
-        <label htmlFor="contact" className="mt-4 mb-2 block text-sm font-medium">
-          WhatsApp number or email
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            id="contact"
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
-            placeholder="012 345 6789"
-            autoComplete="email"
-            className="field flex-1"
-            aria-describedby="contact-help"
-          />
-          <button className="btn-primary" disabled={state === "busy"}>
-            Unlock my report
-          </button>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        {field("name", "Your name", { autoComplete: "name", placeholder: "e.g. Aina" })}
+        {field("email", "Email", { type: "email", autoComplete: "email", inputMode: "email", autoCapitalize: "none", spellCheck: false, placeholder: "you@email.com" })}
+        <div className="sm:col-span-2">
+          {field("whatsapp", "WhatsApp (optional)", { type: "tel", autoComplete: "tel", inputMode: "tel", placeholder: "012 345 6789" })}
         </div>
-        <p id="contact-help" className={`mt-2 text-sm ${state === "error" ? "text-bad" : "text-muted"}`} role={state === "error" ? "alert" : undefined}>
-          {state === "error" ? "Check the number or email and try again." : "Used to send your report and follow up once. No spam."}
+      </div>
+
+      <fieldset className="mt-6 grid gap-4 border-t border-line pt-5">
+        <legend className="sr-only">Consent / Persetujuan</legend>
+        <ConsentBox
+          id="consent-notice"
+          text={CONSENT.notice}
+          checked={value.consentNotice}
+          onChange={(v) => onChange({ ...value, consentNotice: v })}
+          invalid={error === "consent" && !value.consentNotice}
+        />
+        <ConsentBox
+          id="consent-owner"
+          text={CONSENT.owner}
+          checked={value.consentOwner}
+          onChange={(v) => onChange({ ...value, consentOwner: v })}
+          invalid={error === "consent" && !value.consentOwner}
+        />
+        <ConsentBox
+          id="consent-marketing"
+          text={CONSENT.marketing}
+          checked={value.consentMarketing}
+          onChange={(v) => onChange({ ...value, consentMarketing: v })}
+        />
+      </fieldset>
+
+      {error && (
+        <p id="lead-error" role="alert" className="mt-3 text-sm text-bad">
+          {DETAIL_ERRORS[error]}
         </p>
-      </motion.form>
-    </motion.div>
+      )}
+
+      <button type="submit" className="btn-primary mt-6 w-full sm:w-auto">
+        Show my mini-diagnosis <ArrowRight size={18} weight="bold" />
+      </button>
+    </motion.form>
   );
 }
 

@@ -5,15 +5,15 @@ import { focusPreview } from "./focus-preview";
 
 const RUNGS = [
   {
-    name: "Preview",
-    price: "Free, instant",
-    body: "Your best and weakest video, how many recent posts fit what works, and one finding.",
+    name: "Your handle",
+    price: "Free, no login",
+    body: "Type your TikTok or Instagram handle. We only read public videos, so no password is needed.",
     h: "md:h-[300px]",
   },
   {
     name: "Mini-diagnosis",
-    price: "Free with WhatsApp or email",
-    body: "Every content type ranked, what worked, what sank, and the one fix to start with.",
+    price: "Free with your name and email",
+    body: "Every content type ranked, what worked, what sank, and the one fix to start with. On screen right away, with a copy in your email.",
     h: "md:h-[380px]",
   },
   {

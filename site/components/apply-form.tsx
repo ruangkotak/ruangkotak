@@ -4,19 +4,23 @@ import { CheckCircle } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { FUNNEL_LIVE } from "@/lib/funnel";
+import { APPLY_CONSENT } from "@/lib/legal";
+import { ConsentBox } from "./consent-box";
 
 export function ApplyForm() {
-  const [state, setState] = useState<"idle" | "busy" | "sent" | "error">("idle");
+  const [state, setState] = useState<"idle" | "busy" | "sent" | "error" | "consent">("idle");
+  const [consent, setConsent] = useState(false);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(e.currentTarget));
     if (!String(data.handle).trim() || !String(data.contact).trim()) return setState("error");
+    if (!consent) return setState("consent");
     setState("busy");
     const res = await fetch("/api/apply", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, consent }),
     }).catch(() => null);
     setState(res?.ok ? "sent" : "error");
   }
@@ -89,10 +93,27 @@ export function ApplyForm() {
               <div className="sm:col-span-2">
                 <Field label="WhatsApp number or email" name="contact" required />
               </div>
+              <div className="sm:col-span-2">
+                <ConsentBox
+                  id="apply-consent"
+                  text={APPLY_CONSENT}
+                  checked={consent}
+                  onChange={(v) => {
+                    setConsent(v);
+                    if (state === "consent") setState("idle");
+                  }}
+                  invalid={state === "consent"}
+                />
+              </div>
               <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
                 <button className="btn-primary" disabled={!FUNNEL_LIVE || state === "busy"}>
                   {FUNNEL_LIVE ? "Send application" : "Work in progress"}
                 </button>
+                {state === "consent" && (
+                  <p className="text-sm text-bad" role="alert">
+                    Tick the consent box to send. / Tandakan kotak persetujuan untuk hantar.
+                  </p>
+                )}
                 {state === "error" && (
                   <p className="text-sm text-bad" role="alert">
                     Add your handle and a WhatsApp number or email.

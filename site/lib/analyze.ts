@@ -1,4 +1,4 @@
-import type { AccountData, PillarStat, Report, Teaser } from "./types";
+import type { AccountData, PillarStat, Report } from "./types";
 
 export const median = (arr: number[]) => {
   const s = [...arr].sort((a, b) => a - b);
@@ -32,21 +32,6 @@ export function analyze(id: string, data: AccountData, mock: boolean): Report {
     bottom: order.slice(-3).reverse(),
     fitRecent: { hits: recent.filter((v) => winning.has(v.pillar)).length, of: recent.length },
     mock,
-  };
-}
-
-export function toTeaser(r: Report): Teaser {
-  const [b] = r.top;
-  const [w] = r.bottom;
-  return {
-    reportId: r.id,
-    handle: r.handle,
-    platform: r.platform,
-    fitRecent: r.fitRecent,
-    best: { ...r.videos[b], multiple: r.multiples[b] },
-    worst: { ...r.videos[w], multiple: r.multiples[w] },
-    finding: r.findings[0],
-    mock: r.mock,
   };
 }
 
