@@ -150,7 +150,7 @@ function frame(i: number, p: number) {
 }
 
 const CAPTIONS = [
-  { n: "01", h: "Your last 100 videos.", b: "From the inside, a feed looks like noise. Some hit, most don't, and the app never says why." },
+  { n: "01", h: "Picture 100 videos.", b: "From the inside, a feed looks like noise. Some hit, most don't, and the app never says why." },
   { n: "02", h: "We read every one.", b: "Views, captions and dates, each measured against your usual. Green beat it. Red fell below." },
   { n: "03", h: "Sorted by content type.", b: "Reviews are what this account posts most. Twenty-eight of a hundred." },
   {

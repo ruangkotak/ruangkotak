@@ -19,9 +19,20 @@ import { analyze } from "@/lib/analyze";
 import { MOCK } from "@/lib/source";
 import type { AccountData } from "@/lib/types";
 
+// Showcase copy only: brands the sample account worked with are named in captions and in "weak" findings,
+// so their names and tags are masked here, along with a nickname that points to the account owner.
+const SCRUB: [RegExp, string][] = [
+  [/\s*@\w+/g, ""],
+  [/PROTON e\.MAS/g, "the brand's EV"],
+  [/\b(TRAPO|Trapo|PROTON)\b/g, "[brand]"],
+  [/\s*Okay cite dia macam ni\.\..*$/, "…"],
+];
+const scrub = <T,>(value: T): T =>
+  JSON.parse(JSON.stringify(value), (_k, v) => (typeof v === "string" ? SCRUB.reduce((s, [re, to]) => s.replace(re, to), v) : v));
+
 export default function Home() {
   // Showcase copy: the handle and post links never leave the server, so the username can't be read from the page.
-  const full = analyze("sample", fixture as AccountData, MOCK);
+  const full = scrub(analyze("sample", fixture as AccountData, MOCK));
   const sample = { ...full, handle: "", videos: full.videos.map(({ url: _url, ...v }) => v) };
   return (
     <>
