@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -17,12 +18,13 @@ export const viewport: Viewport = {
   ],
 };
 
-// Headings only. Body text is SF Pro via the system stack in globals.css: Apple's licence doesn't allow serving SF Pro as a web font.
-const playfair = Playfair_Display({ weight: "700", style: "italic", subsets: ["latin"], variable: "--font-playfair" });
+// Headings: Playfair Display Italic. Body: Satoshi Regular (Fontshare, self-hosted).
+const playfair = Playfair_Display({ weight: "400", style: "italic", subsets: ["latin"], variable: "--font-playfair" });
+const satoshi = localFont({ src: "./fonts/Satoshi-Regular.woff2", weight: "400", style: "normal", variable: "--font-satoshi" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={playfair.variable}>
+    <html lang="en" suppressHydrationWarning className={`${playfair.variable} ${satoshi.variable}`}>
       <body className="font-sans text-[15px] leading-relaxed">
         <Providers>{children}</Providers>
       </body>
