@@ -8,6 +8,7 @@ import { fmt, fmtX } from "./analyze";
 import { BUSINESS } from "./legal";
 import { cleanCaption } from "./tagger";
 import type { Report } from "./types";
+import { store } from "./store";
 
 const W = 595.28;
 const H = 841.89;
@@ -226,4 +227,17 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   });
 
   return doc.save();
+}
+
+// Bump when the PDF layout or fonts change, so stored PDFs are re-rendered instead of served stale.
+const PDF_VERSION = "v1";
+
+// Rendering embeds the full Inter font and takes a few seconds, so each report's PDF is made once and stored.
+// A store failure never blocks the PDF: it is rendered and returned anyway.
+export async function reportPdf(r: Report): Promise<Uint8Array> {
+  const cached = await store.getPdf(r.id, PDF_VERSION).catch(() => null);
+  if (cached) return cached;
+  const pdf = await renderPdf(r);
+  await store.savePdf(r.id, PDF_VERSION, pdf).catch((err) => console.error("[pdf-cache]", err));
+  return pdf;
 }
