@@ -10,6 +10,14 @@ import type { Lead, Platform } from "@/lib/types";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE = /^\+?[0-9\s-]{9,15}$/;
 
+// A live scrape plus tagging can take a minute or two (Vercel Hobby allows up to 300s).
+export const maxDuration = 180;
+
+// Cost caps on fresh scrapes. Per IP is loose because Malaysian mobile networks share IPs (CGNAT);
+// the daily cap stops a flood from running up the Apify bill.
+const PER_IP_PER_HOUR = 10;
+const SCRAPES_PER_DAY = 10;
+
 // The same body goes back for a blocked device and for a real failure, so the reason never leaks.
 const unavailable = () => Response.json({ ok: false }, { status: 200 });
 
@@ -68,7 +76,20 @@ export async function POST(req: Request) {
 
   try {
     const id = await reportIdFor(platform, handle);
-    const report = (await store.getReport(id)) ?? analyze(id, await fetchAccount(platform, handle), MOCK);
+    let report = await store.getReport(id);
+    if (!report) {
+      const ipHits = await store.hit(`ip:${ip}`, 3600);
+      const dayHits = await store.hit(`day:${new Date().toISOString().slice(0, 10)}`, 86400);
+      if (ipHits > PER_IP_PER_HOUR || dayHits > SCRAPES_PER_DAY) {
+        await notifyOwner("Preview held: scrape limit reached", [
+          `Account: ${platform}:${handle}`,
+          `Contact: ${who}`,
+          `IP: ${ip} (${country}), ${ipHits} this hour; ${dayHits} scrapes today`,
+        ]);
+        return unavailable();
+      }
+      report = analyze(id, await fetchAccount(platform, handle), MOCK);
+    }
     await store.saveReport(report);
     await store.addLead(id, lead);
     for (const k of keys) await store.setDeviceHandle(k, `${platform}:${handle}`);

@@ -357,7 +357,7 @@ function Unavailable({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alert">
       <h2 className="text-2xl font-semibold tracking-tight">Preview unavailable right now</h2>
-      <p className="mt-2 text-muted">Please try again later.</p>
+      <p className="mt-2 text-muted">We couldn't finish it just now. We have your details and will email you once it's ready.</p>
       <button onClick={onClose} className="btn-ghost mt-6">
         Close
       </button>
