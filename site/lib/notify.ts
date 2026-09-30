@@ -39,9 +39,13 @@ export async function notifyOwner(subject: string, lines: string[]) {
   }
   const results = await Promise.allSettled(jobs);
   // fetch only rejects on network errors, so a 401 from Resend or a 400 from Telegram has to be caught by status.
+  // Both services say why in the body (Resend: which address or domain is refused; Telegram: "Not Found" vs "chat not found").
   for (const r of results) {
     if (r.status === "rejected") console.error("[notify] failed", r.reason);
-    else if (r.value instanceof Response && !r.value.ok) console.error("[notify] failed", r.value.url.split("/bot")[0], r.value.status);
+    else if (r.value instanceof Response && !r.value.ok) {
+      const why = (await r.value.text().catch(() => "")).slice(0, 300);
+      console.error("[notify] failed", r.value.url.split("/bot")[0], r.value.status, why);
+    }
   }
 }
 
