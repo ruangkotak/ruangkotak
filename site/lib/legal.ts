@@ -10,6 +10,7 @@ export const BUSINESS = {
   name: "RUANGKOTAK",
   registration: "003713495-X",
   site: "ruangkotak.com",
+  email: "hello@ruangkotak.com",
 };
 
 export const CONSENT: Record<"notice" | "owner" | "marketing", string> = {

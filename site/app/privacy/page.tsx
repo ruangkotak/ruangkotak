@@ -93,7 +93,7 @@ const EN: Section[] = [
         "Withdraw consent, or ask us to stop processing or delete your data.",
         "Stop follow-ups and tips at any time. We will stop direct marketing as soon as you ask.",
       ],
-      "Reply to any email from us, from the address you gave us. There is no charge.",
+      `Email ${BUSINESS.email}, or reply to any email from us, from the address you gave us. There is no charge.`,
     ],
   },
   {
@@ -105,7 +105,7 @@ const EN: Section[] = [
   {
     h: "Questions and complaints",
     p: [
-      `Reply to any email from us. If you are not satisfied with our reply, you may complain to the Personal Data Protection Department (Jabatan Perlindungan Data Peribadi) at pdp.gov.my.`,
+      `Email ${BUSINESS.email}, or reply to any email from us. If you are not satisfied with our reply, you may complain to the Personal Data Protection Department (Jabatan Perlindungan Data Peribadi) at pdp.gov.my.`,
     ],
   },
   {
@@ -193,7 +193,7 @@ const MS: Section[] = [
         "Menarik balik persetujuan, atau meminta kami berhenti memproses atau memadam data anda.",
         "Menghentikan susulan dan tip pada bila-bila masa. Kami akan berhenti pemasaran langsung sebaik sahaja anda meminta.",
       ],
-      "Balas mana-mana e-mel daripada kami, daripada alamat yang anda berikan. Tiada caj.",
+      `E-mel ${BUSINESS.email}, atau balas mana-mana e-mel daripada kami, daripada alamat yang anda berikan. Tiada caj.`,
     ],
   },
   {
@@ -205,7 +205,7 @@ const MS: Section[] = [
   {
     h: "Pertanyaan dan aduan",
     p: [
-      `Balas mana-mana e-mel daripada kami. Jika anda tidak berpuas hati dengan jawapan kami, anda boleh membuat aduan kepada Jabatan Perlindungan Data Peribadi di pdp.gov.my.`,
+      `E-mel ${BUSINESS.email}, atau balas mana-mana e-mel daripada kami. Jika anda tidak berpuas hati dengan jawapan kami, anda boleh membuat aduan kepada Jabatan Perlindungan Data Peribadi di pdp.gov.my.`,
     ],
   },
   {

@@ -16,6 +16,7 @@ export function Footer() {
           <li><a href="/#how" className="hover:text-ink">How it works</a></li>
           <li><a href="/#monthly" className="hover:text-ink">Monthly</a></li>
           <li><a href="/privacy" className="hover:text-ink">Privacy</a></li>
+          <li><a href={`mailto:${BUSINESS.email}`} className="hover:text-ink">{BUSINESS.email}</a></li>
           <li>© 2026 {BUSINESS.name}</li>
         </ul>
       </div>
