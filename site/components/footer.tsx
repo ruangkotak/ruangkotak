@@ -4,15 +4,15 @@ import { LogoMotion } from "./logo-motion";
 export function Footer() {
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto grid max-w-[1240px] gap-8 px-4 py-12 md:grid-cols-[1fr_auto] md:px-8">
-        <div>
-          <p className="max-w-[40ch] text-sm text-muted">Account diagnosis for TikTok and Instagram creators in Malaysia.</p>
-          <p className="mt-3 text-sm text-muted">
+      <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 py-12 text-sm text-muted md:flex-row md:items-baseline md:justify-between md:gap-8 md:px-8">
+        <p>
+          Account diagnosis for TikTok and Instagram creators in Malaysia.
+          <span className="ml-3">
             {BUSINESS.name}
             {BUSINESS.registration && ` (${BUSINESS.registration})`}
-          </p>
-        </div>
-        <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted md:self-end">
+          </span>
+        </p>
+        <ul className="flex flex-wrap gap-x-8 gap-y-2">
           <li><a href="/#how" className="hover:text-ink">How it works</a></li>
           <li><a href="/#monthly" className="hover:text-ink">Monthly</a></li>
           <li><a href="/privacy" className="hover:text-ink">Privacy</a></li>
