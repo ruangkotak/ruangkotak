@@ -193,7 +193,8 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
       score: gap >= 60 ? 4 : 1.6,
       h: `No new video in ${gap} days`,
       b: `Your newest video is from ${day(newest)}. Reach drops while an account is quiet, and comes back slowly.`,
-      verdict: `You have not posted in ${gap} days.`,
+      // Only videos are scraped (reels on Instagram), so photo and carousel posts are invisible here: say "a video".
+      verdict: `You have not posted a video in ${gap} days.`,
       fix: `Post again this week${standout ? ", starting with a follow-up to your best video" : best ? `, starting with ${noun(best.label)}` : ""}.`,
     });
 
