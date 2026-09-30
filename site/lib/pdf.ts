@@ -1,6 +1,9 @@
 // The mini-diagnosis as a clean A4 PDF. Same numbers as the web report (lib/analyze.ts), laid out with pdf-lib so it
 // runs on Vercel without a headless browser. Server only.
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import fontkit from "@pdf-lib/fontkit";
+import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { fmt, fmtX } from "./analyze";
 import { BUSINESS } from "./legal";
 import { cleanCaption } from "./tagger";
@@ -20,26 +23,36 @@ const C = {
   white: rgb(1, 1, 1),
 };
 
-// Standard PDF fonts only cover WinAnsi: map the common typographic characters and drop the rest.
+// Keep Latin-1 plus the typographic quotes, dashes and ellipsis both embedded fonts carry; drop anything else
+// (emoji, other scripts) rather than print empty boxes.
 const safe = (s: string) =>
   s
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u2026/g, "...")
-    .replace(/[\u2013\u2014]/g, "-")
     .replace(/\u2192/g, "->")
     .replace(/[\s\u2028\u2029]+/g, " ")
-    .replace(/[^\x20-\x7E\u00A0-\u00FF]/g, "")
+    .replace(/[^\x20-\x7E\u00A0-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\u2026]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
+// Same pairing as the site: Playfair Display Bold Italic for headings, and Inter Regular for everything else as the
+// open-licence stand-in for SF Pro (Apple's licence doesn't allow embedding SF Pro in a distributed PDF).
+// Files and OFL licences live in lib/fonts; next.config.ts traces them into the routes that render PDFs.
+let fontFiles: Promise<[Buffer, Buffer]> | undefined;
+const loadFonts = () =>
+  (fontFiles ??= Promise.all([
+    readFile(join(process.cwd(), "lib/fonts/Inter-Regular.ttf")),
+    readFile(join(process.cwd(), "lib/fonts/PlayfairDisplay-BoldItalic.ttf")),
+  ]));
+
 export async function renderPdf(r: Report): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
   doc.setTitle(`Mini-diagnosis for ${safe(r.handle)}`);
   doc.setAuthor(BUSINESS.name);
   doc.setCreator(BUSINESS.name);
-  const reg = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const [interBytes, playfairBytes] = await loadFonts();
+  // Inter is embedded whole: pdf-lib's subsetter drops most of its glyphs.
+  const reg = await doc.embedFont(interBytes);
+  const display = await doc.embedFont(playfairBytes, { subset: true });
 
   let page: PDFPage = doc.addPage([W, H]);
   let y = H - M;
@@ -81,15 +94,16 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
     page.drawLine({ start: { x: M, y }, end: { x: W - M, y }, thickness: weight, color });
   };
   const heading = (t: string, color = C.ink) => {
-    need(50);
+    // Room for the heading plus its first item, so a heading never sits alone at the foot of a page.
+    need(100);
     y -= 18;
     rule();
     y -= 6;
-    text(t, { size: 12.5, font: bold, color, gap: 6 });
+    text(t, { size: 13.5, font: display, color, gap: 6 });
   };
 
   // Header
-  page.drawText(BUSINESS.name, { x: M, y: y - 10, size: 11, font: bold, color: C.ink });
+  page.drawText(BUSINESS.name, { x: M, y: y - 10, size: 11, font: reg, color: C.ink });
   const meta = safe(`Mini-diagnosis | ${r.handle} on ${r.platform} | ${fmt(r.followers)} followers | ${r.date}`);
   page.drawText(meta, { x: W - M - reg.widthOfTextAtSize(meta, 8.5), y: y - 9, size: 8.5, font: reg, color: C.muted });
   y -= 22;
@@ -97,7 +111,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   y -= 10;
 
   // Verdict + headline numbers
-  text(r.verdict, { size: 20, font: bold, gap: 10, lead: 1.22 });
+  text(r.verdict, { size: 22, font: display, gap: 10, lead: 1.22 });
   const stats: [string, string][] = [
     ["Latest videos", String(r.videos.length)],
     ["Usual views", fmt(r.median)],
@@ -107,7 +121,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   stats.forEach(([k, v], i) => {
     const x = M + i * 130;
     page.drawText(k, { x, y: y - 8, size: 8, font: reg, color: C.muted });
-    page.drawText(v, { x, y: y - 27, size: 17, font: bold, color: C.ink });
+    page.drawText(v, { x, y: y - 27, size: 17, font: reg, color: C.ink });
   });
   y -= 40;
 
@@ -125,7 +139,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
     const worst = r.bottom.includes(i);
     page.drawRectangle({ x, y: top - cell, width: cell, height: cell, color: best ? C.good : worst ? C.bad : C.cell });
     const label = fmtX(r.multiples[i]);
-    const f = best || worst ? bold : reg;
+    const f = reg;
     page.drawText(label, { x: x + (cell - f.widthOfTextAtSize(label, 8.5)) / 2, y: top - cell / 2 - 3, size: 8.5, font: f, color: best || worst ? C.white : C.ink });
   });
   y -= rows * (cell + gap) + 2;
@@ -139,7 +153,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   for (const p of r.pillars) {
     need(20);
     y -= 15;
-    page.drawText(safe(`${p.name} (${p.count})`), { x: M, y, size: 9.5, font: bold, color: C.ink });
+    page.drawText(safe(`${p.name} (${p.count})`), { x: M, y, size: 9.5, font: reg, color: C.ink });
     const good = p.multiple >= 1;
     page.drawRectangle({ x: barX, y: y - 1, width: Math.max(2, (p.multiple / max) * barW), height: 9, color: good ? C.good : C.bad });
     page.drawLine({ start: { x: barX + (1 / max) * barW, y: y - 4 }, end: { x: barX + (1 / max) * barW, y: y + 11 }, thickness: 0.9, color: C.ink, dashArray: [2, 2] });
@@ -154,7 +168,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
     const v = r.videos[i];
     const t = cleanCaption(v.title) || "(no caption)";
     need(48);
-    text(t.length > 130 ? `${t.slice(0, 129).trimEnd()}...` : t, { font: bold, size: 9.5, gap: 1 });
+    text(t.length > 130 ? `${t.slice(0, 129).trimEnd()}...` : t, { font: reg, size: 9.5, gap: 1 });
     text(`${fmt(v.views)} views, ${fmtX(r.multiples[i])}${v.date ? `, posted ${v.date}` : ""}`, { size: 9, color: good ? C.good : C.bad, gap: v.why ? 1 : 7 });
     if (v.why) text(v.why, { size: 9, color: C.muted, gap: 7 });
   };
@@ -181,15 +195,15 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   heading("What the pattern says");
   r.findings.forEach((f, i) => {
     need(50);
-    const base = text(f.h, { x: M + 16, w: CW - 16, font: bold, size: 10.5, gap: 1 });
-    page.drawText(`${i + 1}.`, { x: M, y: base, size: 10.5, font: bold, color: C.muted });
+    const base = text(f.h, { x: M + 16, w: CW - 16, font: display, size: 11.5, gap: 1 });
+    page.drawText(`${i + 1}.`, { x: M, y: base, size: 11.5, font: display, color: C.muted });
     text(f.b, { x: M + 16, w: CW - 16, size: 9.5, color: C.muted, gap: 8 });
   });
 
   heading("Fix this first");
   need(70);
   const start = y;
-  text(r.fixFirst, { x: M + 12, w: CW - 12, font: bold, size: 12.5, gap: 4, lead: 1.3 });
+  text(r.fixFirst, { x: M + 12, w: CW - 12, font: reg, size: 12.5, gap: 4, lead: 1.3 });
   page.drawRectangle({ x: M, y, width: 3.5, height: start - y, color: C.good });
   y -= 4;
   r.fixThen.forEach((f) => text(`-  ${f}`, { x: M + 8, w: CW - 8, size: 9.5, color: C.muted, gap: 2 }));
@@ -198,7 +212,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   const boxH = tl.length * 14 + 26;
   need(boxH + 10);
   page.drawRectangle({ x: M, y: y - boxH, width: CW, height: boxH, borderColor: C.ink, borderWidth: 1.2 });
-  page.drawText("30-DAY TARGET", { x: M + 10, y: y - 15, size: 7.5, font: bold, color: C.muted });
+  page.drawText("30-DAY TARGET", { x: M + 10, y: y - 15, size: 7.5, font: reg, color: C.muted });
   tl.forEach((l, i) => page.drawText(l, { x: M + 10, y: y - 30 - i * 14, size: 10, font: reg, color: C.ink }));
   y -= boxH + 6;
 
