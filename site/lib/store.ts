@@ -50,19 +50,28 @@ const memStore = {
   },
 };
 
-// Keys: dev:<device> first handle, rep:<id> report, lead:<id> leads for that report, leads / apps all-time lists, rl:<bucket> counters.
+// The privacy notice promises deletion 12 months after creation, so every personal-data key expires then.
+// A key's expiry is set once, when it is created; later writes keep it (KEEPTTL) instead of restarting the clock.
+const RETAIN = 365 * 24 * 60 * 60;
+
+async function setOnce(key: string, value: string) {
+  if ((await redis<string | null>("SET", key, value, "EX", RETAIN, "NX")) === null) await redis("SET", key, value, "KEEPTTL");
+}
+
+// Keys: dev:<device> first handle, rep:<id> report, lead:<id> leads for that report, app:<time>:<rand> one application,
+// rl:<bucket> counters. No all-time lists: list items can't expire one by one; find leads and applications with SCAN.
 const redisStore: typeof memStore = {
   deviceHandle: async (key) => parse<{ handle: string }>(await redis<string | null>("GET", `dev:${key}`))?.handle ?? null,
-  setDeviceHandle: async (key, handle) => void (await redis("SET", `dev:${key}`, JSON.stringify({ handle, at: at() }))),
-  saveReport: async (r) => void (await redis("SET", `rep:${r.id}`, JSON.stringify(r))),
+  setDeviceHandle: async (key, handle) => void (await setOnce(`dev:${key}`, JSON.stringify({ handle, at: at() }))),
+  saveReport: async (r) => void (await setOnce(`rep:${r.id}`, JSON.stringify(r))),
   getReport: async (id) => parse<Report>(await redis<string | null>("GET", `rep:${id}`)),
   isUnlocked: async (reportId) => (await redis<number>("EXISTS", `lead:${reportId}`)) === 1,
   addLead: async (reportId, lead) => {
-    const row = JSON.stringify({ ...lead, reportId, at: at() });
-    await redis("RPUSH", `lead:${reportId}`, row);
-    await redis("RPUSH", "leads", row);
+    const n = await redis<number>("RPUSH", `lead:${reportId}`, JSON.stringify({ ...lead, reportId, at: at() }));
+    if (n === 1) await redis("EXPIRE", `lead:${reportId}`, RETAIN);
   },
-  addApplication: async (a) => void (await redis("RPUSH", "apps", JSON.stringify({ ...a, at: at() }))),
+  addApplication: async (a) =>
+    void (await redis("SET", `app:${at()}:${crypto.randomUUID().slice(0, 8)}`, JSON.stringify({ ...a, at: at() }), "EX", RETAIN)),
   hit: async (key, ttlSeconds) => {
     const n = await redis<number>("INCR", `rl:${key}`);
     if (n === 1) await redis("EXPIRE", `rl:${key}`, ttlSeconds);
