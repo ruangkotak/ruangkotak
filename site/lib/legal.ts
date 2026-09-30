@@ -9,7 +9,6 @@ export const NOTICE_VERSION = "2026-09-30";
 export const BUSINESS = {
   name: "RUANGKOTAK",
   registration: "003713495-X",
-  email: "storagebox100percent@gmail.com",
   site: "ruangkotak.com",
 };
 

@@ -18,7 +18,7 @@ const EN: Section[] = [
   {
     h: "Who we are",
     p: [
-      `${who} runs ${BUSINESS.site}, an account diagnosis service for TikTok and Instagram creators in Malaysia. We are the data user responsible for your personal data under the Personal Data Protection Act 2010 (PDPA). Contact: ${BUSINESS.email}.`,
+      `${who} runs ${BUSINESS.site}, an account diagnosis service for TikTok and Instagram creators in Malaysia. We are the data user responsible for your personal data under the Personal Data Protection Act 2010 (PDPA).`,
     ],
   },
   {
@@ -93,7 +93,7 @@ const EN: Section[] = [
         "Withdraw consent, or ask us to stop processing or delete your data.",
         "Stop follow-ups and tips at any time. We will stop direct marketing as soon as you ask.",
       ],
-      `Email ${BUSINESS.email} from the address you gave us, or reply to any email from us. There is no charge.`,
+      "Reply to any email from us, from the address you gave us. There is no charge.",
     ],
   },
   {
@@ -105,7 +105,7 @@ const EN: Section[] = [
   {
     h: "Questions and complaints",
     p: [
-      `Write to ${BUSINESS.email}. If you are not satisfied with our reply, you may complain to the Personal Data Protection Department (Jabatan Perlindungan Data Peribadi) at pdp.gov.my.`,
+      `Reply to any email from us. If you are not satisfied with our reply, you may complain to the Personal Data Protection Department (Jabatan Perlindungan Data Peribadi) at pdp.gov.my.`,
     ],
   },
   {
@@ -118,7 +118,7 @@ const MS: Section[] = [
   {
     h: "Siapa kami",
     p: [
-      `${who} mengendalikan ${BUSINESS.site}, perkhidmatan diagnosis akaun untuk pencipta kandungan TikTok dan Instagram di Malaysia. Kami ialah pengguna data yang bertanggungjawab ke atas data peribadi anda di bawah Akta Perlindungan Data Peribadi 2010 (APDP). Hubungi: ${BUSINESS.email}.`,
+      `${who} mengendalikan ${BUSINESS.site}, perkhidmatan diagnosis akaun untuk pencipta kandungan TikTok dan Instagram di Malaysia. Kami ialah pengguna data yang bertanggungjawab ke atas data peribadi anda di bawah Akta Perlindungan Data Peribadi 2010 (APDP).`,
     ],
   },
   {
@@ -193,7 +193,7 @@ const MS: Section[] = [
         "Menarik balik persetujuan, atau meminta kami berhenti memproses atau memadam data anda.",
         "Menghentikan susulan dan tip pada bila-bila masa. Kami akan berhenti pemasaran langsung sebaik sahaja anda meminta.",
       ],
-      `E-mel ${BUSINESS.email} daripada alamat yang anda berikan, atau balas mana-mana e-mel daripada kami. Tiada caj.`,
+      "Balas mana-mana e-mel daripada kami, daripada alamat yang anda berikan. Tiada caj.",
     ],
   },
   {
@@ -205,7 +205,7 @@ const MS: Section[] = [
   {
     h: "Pertanyaan dan aduan",
     p: [
-      `Tulis kepada ${BUSINESS.email}. Jika anda tidak berpuas hati dengan jawapan kami, anda boleh membuat aduan kepada Jabatan Perlindungan Data Peribadi di pdp.gov.my.`,
+      `Balas mana-mana e-mel daripada kami. Jika anda tidak berpuas hati dengan jawapan kami, anda boleh membuat aduan kepada Jabatan Perlindungan Data Peribadi di pdp.gov.my.`,
     ],
   },
   {

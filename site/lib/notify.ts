@@ -59,7 +59,7 @@ export async function sendReportLink(to: { name: string; email: string }, handle
     "",
     "--",
     `You got this email because you asked for a mini-diagnosis at ${BUSINESS.site}.`,
-    `${BUSINESS.name}${BUSINESS.registration ? ` (${BUSINESS.registration})` : ""}, ${BUSINESS.email}`,
+    `${BUSINESS.name}${BUSINESS.registration ? ` (${BUSINESS.registration})` : ""}`,
     `Privacy Notice: https://${BUSINESS.site}/privacy`,
     `To see, correct or delete your data, or withdraw consent, reply to this email.`,
   ].join("\n");
@@ -71,7 +71,7 @@ export async function sendReportLink(to: { name: string; email: string }, handle
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json" },
-    body: JSON.stringify({ from: REPORT_FROM, to: to.email, reply_to: BUSINESS.email, subject: `Your mini-diagnosis for ${handle}`, text }),
+    body: JSON.stringify({ from: REPORT_FROM, to: to.email, subject: `Your mini-diagnosis for ${handle}`, text }),
   }).catch((err) => err);
   if (!(res instanceof Response) || !res.ok) console.error("[report-email] failed", res instanceof Response ? res.status : res);
 }

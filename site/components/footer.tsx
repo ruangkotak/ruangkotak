@@ -9,10 +9,7 @@ export function Footer() {
           <p className="max-w-[40ch] text-sm text-muted">Account diagnosis for TikTok and Instagram creators in Malaysia.</p>
           <p className="mt-3 text-sm text-muted">
             {BUSINESS.name}
-            {BUSINESS.registration && ` (${BUSINESS.registration})`} ·{" "}
-            <a href={`mailto:${BUSINESS.email}`} className="hover:text-ink">
-              {BUSINESS.email}
-            </a>
+            {BUSINESS.registration && ` (${BUSINESS.registration})`}
           </p>
         </div>
         <ul className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted md:self-end">
