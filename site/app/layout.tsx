@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+import { Playfair_Display } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -18,9 +17,12 @@ export const viewport: Viewport = {
   ],
 };
 
+// Headings only. Body text is SF Pro via the system stack in globals.css: Apple's licence doesn't allow serving SF Pro as a web font.
+const playfair = Playfair_Display({ weight: "700", style: "italic", subsets: ["latin"], variable: "--font-playfair" });
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={playfair.variable}>
       <body className="font-sans text-[15px] leading-relaxed">
         <Providers>{children}</Providers>
       </body>

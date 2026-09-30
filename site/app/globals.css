@@ -11,8 +11,21 @@
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
   --color-on-solid: var(--on-solid);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-sans);
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  /* Everything outside headings is Regular. */
+  --font-weight-medium: 400;
+  --font-weight-semibold: 400;
+  --font-weight-bold: 400;
+}
+
+/* Unlayered, so it beats the weight and tracking utilities on heading elements. */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* Same palette as the mini-diagnosis report. Green is the only accent; red only ever means "below your usual". */
@@ -58,7 +71,7 @@ body {
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   white-space: nowrap; padding: 0 1.25rem; min-height: 3rem;
-  background: var(--ink); color: var(--bg); font-weight: 600;
+  background: var(--ink); color: var(--bg); font-weight: 400;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s;
 }
 .btn-primary:hover { transform: translateY(-1px); }
@@ -66,7 +79,7 @@ body {
 .btn-primary:disabled { opacity: 0.6; cursor: progress; }
 .btn-ghost {
   display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
-  padding: 0 1.1rem; min-height: 3rem; border: 1px solid var(--ink); font-weight: 600;
+  padding: 0 1.1rem; min-height: 3rem; border: 1px solid var(--ink); font-weight: 400;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-ghost:hover { transform: translateY(-1px); }
