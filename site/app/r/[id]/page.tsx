@@ -13,9 +13,14 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
 
   return (
     <main className="mx-auto max-w-[940px] px-4 py-8 md:py-12">
-      <a href="/" aria-label="RUANGKOTAK home" className="mb-8 inline-block">
-        <Logo className="h-[16px] w-auto" />
-      </a>
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <a href="/" aria-label="RUANGKOTAK home">
+          <Logo className="h-[16px] w-auto" />
+        </a>
+        <a href={`/r/${id}/pdf`} download className="btn-primary">
+          Download PDF
+        </a>
+      </div>
       <MiniReport report={report} />
     </main>
   );

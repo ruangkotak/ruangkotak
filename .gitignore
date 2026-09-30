@@ -17,3 +17,4 @@ OPEN.md
 
 # client audits: private client data, never committed or deployed
 /public/audits/
+.vercel

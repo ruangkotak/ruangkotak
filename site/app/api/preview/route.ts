@@ -1,6 +1,7 @@
 import { FUNNEL_LIVE, funnelClosed } from "@/lib/funnel";
 import { cookies, headers } from "next/headers";
 import { analyze } from "@/lib/analyze";
+import { renderPdf } from "@/lib/pdf";
 import { notifyOwner, sendReportLink } from "@/lib/notify";
 import { MOCK, fetchAccount, normaliseHandle, reportIdFor } from "@/lib/source";
 import { store } from "@/lib/store";
@@ -95,6 +96,8 @@ export async function POST(req: Request) {
     for (const k of keys) await store.setDeviceHandle(k, `${platform}:${handle}`);
 
     const path = `/r/${id}`;
+    // A failed render must not cost the creator their report: the email still goes out with the link.
+    const pdf = await renderPdf(report).catch((err) => (console.error("[pdf]", err), undefined));
     await Promise.all([
       notifyOwner("New lead: mini-diagnosis", [
         `Account: ${report.handle} (${report.platform})`,
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
         `Follow-ups allowed: ${lead.marketing ? "yes" : "NO, send the report only"}`,
         `Report: ${path}`,
       ]),
-      sendReportLink(lead, report.handle, new URL(path, req.url).toString()),
+      sendReportLink(lead, report.handle, new URL(path, req.url).toString(), pdf),
     ]);
 
     jar.set("rk_dev", cookieId, { httpOnly: true, sameSite: "lax", secure: true, maxAge: 60 * 60 * 24 * 365, path: "/" });
