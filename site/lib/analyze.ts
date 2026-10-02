@@ -6,6 +6,11 @@ export const median = (arr: number[]) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
+// A group's typical value: the lower middle one, so at least half of the group reached it. Unlike the median,
+// an even count never averages the two middle values, so with 2 videos one viral hit can't make the whole group look
+// strong (2 how-to videos at 3,000,000 and 295 views read as 295, not 1,500,147). Odd counts give the median.
+export const typical = (arr: number[]) => [...arr].sort((a, b) => a - b)[(arr.length - 1) >> 1];
+
 // Same maths as the mini-diagnosis HTML report, so the site and the report never disagree.
 export function analyze(id: string, data: AccountData, mock: boolean): Report {
   const views = data.videos.map((v) => v.views);
@@ -15,7 +20,7 @@ export function analyze(id: string, data: AccountData, mock: boolean): Report {
   const groups = new Map<string, number[]>();
   data.videos.forEach((v) => groups.set(v.pillar, [...(groups.get(v.pillar) ?? []), v.views]));
   const pillars: PillarStat[] = [...groups.entries()]
-    .map(([name, vs]) => ({ name, count: vs.length, median: median(vs), multiple: median(vs) / med }))
+    .map(([name, vs]) => ({ name, count: vs.length, median: typical(vs), multiple: typical(vs) / med }))
     .sort((a, b) => b.multiple - a.multiple);
 
   const order = views.map((_, i) => i).sort((a, b) => views[b] - views[a]);

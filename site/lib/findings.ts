@@ -1,7 +1,7 @@
 // Turns tagged videos into the mini-diagnosis text. Select, don't generate: every finding is a fixed template that
 // only fires when the numbers support it, filled with the account's own figures and captions. Candidates are scored
 // by effect size and the three strongest are kept, so the same data always gives the same report.
-import { fmt, fmtX, median } from "./analyze";
+import { fmt, fmtX, median, typical } from "./analyze";
 import { CONTENT_TYPES, cleanCaption } from "./tagger";
 import type { AccountData, Video } from "./types";
 
@@ -47,8 +47,8 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
   const stats = [...groups.entries()].map(([label, is]) => ({
     label,
     n: is.length,
-    m: median(is.map((i) => mult[i])),
-    views: median(is.map((i) => videos[i].views)),
+    m: typical(is.map((i) => mult[i])),
+    views: typical(is.map((i) => videos[i].views)),
   }));
 
   const c: Candidate[] = [];
@@ -59,7 +59,7 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
   if (best) {
     const nn = noun(best.label);
     const goal = Math.round(med * (1 + (Math.min(best.m, 3) - 1) / 2));
-    const b = `Your ${best.n} ${nn} got a median of ${fmt(best.views)} views, ${fmtX(best.m)} your usual ${fmt(med)}.`;
+    const b = `Your ${best.n} ${nn} typically got ${fmt(best.views)} views, ${fmtX(best.m)} your usual ${fmt(med)}.`;
     if (best.n / total <= 0.25)
       c.push({
         key: "best",
@@ -98,7 +98,7 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
       key: "drag",
       score: (1 / drag.m) * (drag.n / total) * 3,
       h: `${cap(nn)} are ${pct(drag.n, total)}% of your videos but sit below your usual`,
-      b: `Your ${drag.n} ${nn} got a median of ${fmt(drag.views)} views, ${fmtX(drag.m)} your usual ${fmt(med)}.`,
+      b: `Your ${drag.n} ${nn} typically got ${fmt(drag.views)} views, ${fmtX(drag.m)} your usual ${fmt(med)}.`,
       verdict: `${pct(drag.n, total)}% of your videos are ${nn}, and they get only ${fmtX(drag.m)} your usual views.`,
       fix: DRAG_FIX[drag.label] ?? `Post fewer ${nn}: cap them at 1 in 5 videos.`,
     });
@@ -108,15 +108,15 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
   const withR = idx.filter((i) => hasCaption(videos[i]) && (videos[i].reason ?? 0) >= 0.5);
   const without = idx.filter((i) => hasCaption(videos[i]) && (videos[i].reason ?? 1) < 0.5);
   if (withR.length >= 3 && without.length >= 3) {
-    const a = median(withR.map((i) => mult[i]));
-    const z = median(without.map((i) => mult[i]));
+    const a = typical(withR.map((i) => mult[i]));
+    const z = typical(without.map((i) => mult[i]));
     const ex = videos[[...withR].sort((p, q) => videos[q].views - videos[p].views)[0]].title;
     if (a / z >= 1.3)
       c.push({
         key: "reason",
         score: a / z,
         h: `Captions with a reason to watch get ${fmtX(a / z)} the views`,
-        b: `Your ${withR.length} videos whose caption promises a benefit, a problem or a claim got a median of ${fmtX(a)} your usual views. The ${without.length} that only name the topic got ${fmtX(z)}. Your best one opened with ${quote(ex)}.`,
+        b: `Your ${withR.length} videos whose caption promises a benefit, a problem or a claim typically got ${fmtX(a)} your usual views. The ${without.length} that only name the topic got ${fmtX(z)}. Your best one opened with ${quote(ex)}.`,
         verdict: `Captions that give a reason to watch get ${fmtX(a / z)} the views of captions that only name the topic.`,
         fix: `Write every caption's first line as a reason to watch, like ${quote(ex, 50)}, not just the product or topic name.`,
       });
@@ -147,7 +147,7 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
       verdict:
         later === 0
           ? `Your newest video pulled ${fmtX(mult[top])} your usual views. Follow it up while it is fresh.`
-          : `Your best video pulled ${fmtX(mult[top])} your usual views, and ${same === 0 ? "you never made another like it" : `only ${same} of the ${later} videos since were ${nn}`}.`,
+          : `Your best video pulled ${fmtX(mult[top])} your usual views, and ${same === 0 ? "you never made another like it" : `only ${same} of the ${later} videos since ${same === 1 ? `was ${aOne(nn)}` : `were ${nn}`}`}.`,
       fix: `Make a follow-up to ${quote(v.title, 45)} this week${(v.series ?? 0) >= 0.5 ? "" : " and call it Part 2"}.`,
       target: `4 follow-ups to your best video in 30 days. Median up from {median} to ${fmt(Math.round(med * 1.5))} views.`,
     });
@@ -157,7 +157,7 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
   const ser = idx.filter((i) => (videos[i].series ?? 0) >= 0.5);
   const one = idx.filter((i) => (videos[i].series ?? 0) < 0.5);
   if (ser.length >= 2 && one.length >= 3) {
-    const r = median(ser.map((i) => mult[i])) / median(one.map((i) => mult[i]));
+    const r = typical(ser.map((i) => mult[i])) / typical(one.map((i) => mult[i]));
     if (r >= 1.3)
       c.push({
         key: "series",
@@ -172,7 +172,7 @@ export function diagnose(videos: Video[], today = new Date()): Diagnosis & { why
   // Videos without a caption.
   const bare = groups.get(CONTENT_TYPES.no_caption.label);
   if (bare?.length) {
-    const m = median(bare.map((i) => mult[i]));
+    const m = typical(bare.map((i) => mult[i]));
     if (m < 1)
       c.push({
         key: "bare",
