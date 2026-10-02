@@ -12,13 +12,14 @@ const MAX_BYTES = 4_000_000;
 async function shrink(url: string): Promise<string | undefined> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(8_000) });
-    if (!res.ok) return undefined;
+    if (!res.ok) return console.warn(`[covers] HTTP ${res.status} for ${new URL(url).host}`), undefined;
     const raw = Buffer.from(await res.arrayBuffer());
-    if (raw.length > MAX_BYTES) return undefined;
+    if (raw.length > MAX_BYTES) return console.warn(`[covers] ${raw.length} bytes is over the limit`), undefined;
     // 9:16 crop to match the report's cover boxes; 240px wide is sharp enough for a 40 to 80pt thumbnail.
     const jpg = await sharp(raw).resize(240, 427, { fit: "cover" }).jpeg({ quality: 72 }).toBuffer();
     return `data:image/jpeg;base64,${jpg.toString("base64")}`;
-  } catch {
+  } catch (err) {
+    console.warn("[covers]", err instanceof Error ? err.message : err);
     return undefined;
   }
 }
