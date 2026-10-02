@@ -61,7 +61,7 @@ async function apify<T>(actor: string, input: object): Promise<T[]> {
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : undefined);
 const byNewest = (a: Video, b: Video) => (b.date ?? "").localeCompare(a.date ?? "");
 
-type TikTokItem = { text?: string; playCount?: number; createTimeISO?: string; webVideoUrl?: string; videoMeta?: { coverUrl?: string }; authorMeta?: { fans?: number } };
+type TikTokItem = { text?: string; playCount?: number; createTimeISO?: string; webVideoUrl?: string; videoMeta?: { coverUrl?: string; originalCoverUrl?: string; dynamicCoverUrl?: string }; authorMeta?: { fans?: number } };
 
 async function scrapeTikTok(handle: string) {
   const items = await apify<TikTokItem>("clockworks~tiktok-scraper", {
@@ -74,12 +74,12 @@ async function scrapeTikTok(handle: string) {
   });
   const videos: Video[] = items
     .filter((i) => typeof i.playCount === "number")
-    .map((i) => ({ title: i.text ?? "", views: i.playCount!, pillar: "", date: day(i.createTimeISO), url: i.webVideoUrl, cover: i.videoMeta?.coverUrl }))
+    .map((i) => ({ title: i.text ?? "", views: i.playCount!, pillar: "", date: day(i.createTimeISO), url: i.webVideoUrl, cover: i.videoMeta?.coverUrl ?? i.videoMeta?.originalCoverUrl ?? i.videoMeta?.dynamicCoverUrl }))
     .sort(byNewest);
   return { followers: items[0]?.authorMeta?.fans ?? 0, videos };
 }
 
-type IgReel = { caption?: string; videoPlayCount?: number; videoViewCount?: number; timestamp?: string; url?: string; displayUrl?: string };
+type IgReel = { caption?: string; videoPlayCount?: number; videoViewCount?: number; timestamp?: string; url?: string; displayUrl?: string; thumbnailUrl?: string; images?: string[] };
 type IgProfile = { followersCount?: number };
 
 async function scrapeInstagram(handle: string) {
@@ -87,8 +87,11 @@ async function scrapeInstagram(handle: string) {
     apify<IgReel>("apify~instagram-reel-scraper", { username: [handle], resultsLimit: TRIAL_VIDEOS }),
     apify<IgProfile>("apify~instagram-profile-scraper", { usernames: [handle] }),
   ]);
+  // Field names only, never values: shows which cover field a reel carries when displayUrl is missing.
+  const bare = reels.filter((r) => !(r.displayUrl ?? r.thumbnailUrl ?? r.images?.[0]));
+  if (bare.length) console.warn(`[covers] ${bare.length} of ${reels.length} reels have no cover link; fields: ${Object.keys(bare[0]).join(",")}`);
   const videos: Video[] = reels
-    .map((r) => ({ title: r.caption ?? "", views: r.videoPlayCount ?? r.videoViewCount ?? -1, pillar: "", date: day(r.timestamp), url: r.url, cover: r.displayUrl }))
+    .map((r) => ({ title: r.caption ?? "", views: r.videoPlayCount ?? r.videoViewCount ?? -1, pillar: "", date: day(r.timestamp), url: r.url, cover: r.displayUrl ?? r.thumbnailUrl ?? r.images?.[0] }))
     .filter((v) => v.views >= 0)
     .sort(byNewest);
   return { followers: profile[0]?.followersCount ?? 0, videos };
