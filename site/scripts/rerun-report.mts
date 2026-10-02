@@ -38,7 +38,7 @@ console.log(`Covers stored for ${stored} of ${report.top.length + report.bottom.
 await store.saveReport(report); // overwrites in place, keeps the existing expiry
 // Drop the cached PDFs so the next download is rebuilt from this report.
 const { UPSTASH_REDIS_REST_URL: url, UPSTASH_REDIS_REST_TOKEN: token } = process.env;
-const del = await fetch(`${url}/del/pdf:v1:${id}/pdf:v2:${id}`, { headers: { authorization: `Bearer ${token}` } });
+const del = await fetch(`${url}/del/pdf:v1:${id}/pdf:v2:${id}/pdf:v3:${id}`, { headers: { authorization: `Bearer ${token}` } });
 console.log(`Cached PDFs cleared (HTTP ${del.status})`);
 
 const out = `rerun-${id}.pdf`;
