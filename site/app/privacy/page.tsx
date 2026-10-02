@@ -217,14 +217,14 @@ const MS: Section[] = [
 function Notice({ id, lang, title, sections, updated }: { id: string; lang: string; title: string; sections: Section[]; updated: string }) {
   return (
     <section id={id} lang={lang} className="scroll-mt-8">
-      <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">{title}</h1>
+      <h1 className="text-4xl md:text-6xl">{title}</h1>
       <p className="mt-3 text-sm text-muted">
         {updated} {NOTICE_VERSION}
       </p>
       <div className="mt-10 grid gap-9">
         {sections.map((s) => (
           <div key={s.h}>
-            <h2 className="text-xl font-semibold tracking-tight">{s.h}</h2>
+            <h2 className="text-2xl">{s.h}</h2>
             {s.p.map((b, i) =>
               Array.isArray(b) ? (
                 <ul key={i} className="mt-3 grid list-disc gap-2 pl-5 text-muted">
@@ -253,7 +253,7 @@ export default function PrivacyPage() {
           <a href="/" aria-label="RUANGKOTAK home">
             <Logo className="h-[16px] w-auto" />
           </a>
-          <nav aria-label="Language" className="flex gap-1 border border-line p-1 text-sm font-medium">
+          <nav aria-label="Language" className="flex gap-1 rounded-sm border border-line p-1 text-sm">
             <a href="#en" className="px-3 py-1.5 hover:bg-surface">English</a>
             <a href="#ms" className="px-3 py-1.5 hover:bg-surface">Bahasa Melayu</a>
           </nav>

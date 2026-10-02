@@ -23,7 +23,7 @@ function ReadVisual({ r }: { r: Report }) {
   return (
     <div>
       <div className="flex items-center gap-3 border-b border-line pb-4">
-        <span className="grid size-10 shrink-0 place-items-center rounded-full border border-line text-muted">
+        <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-line text-muted">
           <InstagramLogo size={20} />
         </span>
         <div className="min-w-0 text-sm">
@@ -137,7 +137,8 @@ export function Method({ report }: { report: Report }) {
   const Visual = VISUALS[active];
   return (
     <section id="how" className="mx-auto max-w-[1240px] px-4 py-24 md:px-8 md:py-32">
-      <h2 className="max-w-[18ch] text-3xl font-semibold tracking-tight md:text-5xl">How the diagnosis works</h2>
+      <p className="eyebrow">Method</p>
+      <h2 className="mt-5 max-w-[16ch] text-4xl md:text-6xl lg:text-7xl">How the diagnosis works</h2>
       <div className="mt-14 grid gap-12 md:grid-cols-[1fr_1.1fr] md:gap-20">
         <ol>
           {STEPS.map((s, i) => {
@@ -160,7 +161,7 @@ export function Method({ report }: { report: Report }) {
           })}
         </ol>
         <div className="hidden md:block">
-          <div className="sticky top-28 border border-line bg-surface p-8">
+          <div className="sticky top-28 rounded-lg border border-line bg-surface p-8">
             <p className="mb-6 text-xs text-muted">From a real diagnosis. Username hidden.</p>
             <AnimatePresence mode="wait">
               <motion.div key={active} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35 }}>

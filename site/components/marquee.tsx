@@ -37,7 +37,7 @@ export function Marquee({ items, baseVelocity = -2 }: { items: string[]; baseVel
             {items.map((t, i) => (
               <div key={t} className="flex items-center">
                 <span
-                  className={`px-6 text-5xl font-semibold tracking-tighter md:px-10 md:text-7xl ${i % 2 ? "text-transparent" : ""}`}
+                  className={`display px-6 text-5xl md:px-10 md:text-8xl ${i % 2 ? "text-transparent" : ""}`}
                   style={i % 2 ? { WebkitTextStroke: "1.5px var(--ink)" } : undefined}
                 >
                   {t}

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display } from "next/font/google";
-import localFont from "next/font/local";
+import { Fraunces, IBM_Plex_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -13,19 +12,19 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f4f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f1215" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f6f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#1c1c18" },
   ],
 };
 
-// Headings: Playfair Display Italic. Body: Satoshi Regular (Fontshare, self-hosted).
-const playfair = Playfair_Display({ weight: "400", style: "italic", subsets: ["latin"], variable: "--font-playfair" });
-const satoshi = localFont({ src: "./fonts/Satoshi-Regular.woff2", weight: "400", style: "normal", variable: "--font-satoshi" });
+// Headings: Fraunces (variable, optical size on) at 300. UI and body: IBM Plex Mono.
+const fraunces = Fraunces({ subsets: ["latin"], axes: ["opsz"], style: ["normal", "italic"], variable: "--font-fraunces" });
+const plexMono = IBM_Plex_Mono({ weight: ["300", "400", "500"], subsets: ["latin"], variable: "--font-plex-mono" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${playfair.variable} ${satoshi.variable}`}>
-      <body className="font-sans text-[15px] leading-relaxed">
+    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${plexMono.variable}`}>
+      <body className="font-sans text-[14px] leading-relaxed">
         <Providers>{children}</Providers>
       </body>
     </html>

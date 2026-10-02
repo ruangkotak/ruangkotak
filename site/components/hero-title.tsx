@@ -11,7 +11,7 @@ export function HeroTitle() {
   return (
     <h1
       aria-label="See why some videos pop and the rest sink."
-      className="max-w-[15ch] text-4xl font-semibold leading-[1.08] tracking-tighter md:text-5xl lg:text-6xl"
+      className="max-w-[14ch] text-5xl md:text-6xl lg:text-[88px]"
     >
       {WORDS.map((w, i) => {
         const pop = w === "pop";

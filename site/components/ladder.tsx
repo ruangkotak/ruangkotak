@@ -28,14 +28,15 @@ const RUNGS = [
 export function Ladder() {
   return (
     <section className="mx-auto max-w-[1240px] px-4 py-24 md:px-8 md:py-32">
-      <h2 className="max-w-[20ch] text-3xl font-semibold tracking-tight md:text-5xl">Start free. Go further when it makes sense.</h2>
+      <p className="eyebrow">Three steps</p>
+      <h2 className="mt-5 max-w-[16ch] text-4xl md:text-6xl lg:text-7xl">Start free. Go further when it makes sense.</h2>
       <div className="mt-14 grid items-end gap-3 md:grid-cols-[1fr_1.15fr_1.35fr]">
         {RUNGS.map((r, i) => {
           const last = i === RUNGS.length - 1;
           return (
             <motion.div
               key={r.name}
-              className={`flex origin-bottom flex-col justify-between p-6 md:p-8 ${r.h} ${last ? "bg-ink text-bg" : i === 1 ? "bg-good-soft" : "border border-line bg-surface"}`}
+              className={`flex origin-bottom flex-col justify-between rounded-lg p-6 md:p-8 ${r.h} ${last ? "border-t-4 border-mark bg-carbon text-on-solid" : i === 1 ? "bg-tag" : "border border-line bg-surface"}`}
               initial={{ opacity: 0, scaleY: 0.4 }}
               whileInView={{ opacity: 1, scaleY: 1 }}
               viewport={{ once: true, amount: 0.4 }}
@@ -43,7 +44,7 @@ export function Ladder() {
             >
               <div>
                 <p className={`text-sm ${last ? "opacity-70" : "text-muted"}`}>{r.price}</p>
-                <h3 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">{r.name}</h3>
+                <h3 className="mt-2 text-3xl md:text-4xl">{r.name}</h3>
               </div>
               <div className="mt-10">
                 <p className={last ? "opacity-80" : "text-muted"}>{r.body}</p>
@@ -53,7 +54,7 @@ export function Ladder() {
                   </a>
                 )}
                 {last && (
-                  <a href="#monthly" className="mt-6 inline-flex min-h-12 items-center bg-bg px-5 font-semibold text-ink transition-transform hover:-translate-y-px active:scale-[0.98]">
+                  <a href="#monthly" className="mt-6 inline-flex min-h-12 items-center rounded-sm bg-bg px-5 text-ink transition-transform hover:-translate-y-px active:scale-[0.98]">
                     Apply for monthly
                   </a>
                 )}

@@ -1,59 +1,87 @@
 @import "tailwindcss";
+/* The landing page carries its own CSS; its class names (ring, …) must not become utilities. */
+@source not "../components/landing";
 
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-ink: var(--ink);
+  --color-carbon: var(--carbon);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-tag: var(--tag);
+  --color-mark: var(--mark);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
   --color-on-solid: var(--on-solid);
-  --font-sans: var(--font-satoshi), -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-mono: var(--font-sans);
-  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
-  /* Everything outside headings is Regular. */
-  --font-weight-medium: 400;
-  --font-weight-semibold: 400;
-  --font-weight-bold: 400;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  /* Mono runs at 300/400/500 only: anything heavier reads as shouting in a monospace. */
+  --font-weight-medium: 500;
+  --font-weight-semibold: 500;
+  --font-weight-bold: 500;
+  --radius-sm: 3px;
+  --radius-lg: 8px;
 }
 
-/* Unlayered, so it beats the weight and tracking utilities on heading elements. */
-h1, h2, h3 {
+/* Unlayered, so it beats the weight and tracking utilities on heading elements.
+   Display copy is a thin poster serif; everything else is mono marginalia. */
+h1, h2, h3, .display {
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: -0.01em;
+  font-style: normal;
+  font-weight: 300;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
 }
+h1, h2 { text-wrap: balance; }
+h3 { letter-spacing: -0.03em; line-height: 1.1; }
+body { letter-spacing: -0.03em; }
 
-/* Same palette as the mini-diagnosis report. Green is the only accent; red only ever means "below your usual". */
+/* Mono eyebrow above a section headline. */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  font-size: 12px; line-height: 1; letter-spacing: 0.02em; text-transform: uppercase; color: var(--muted);
+}
+.eyebrow::before { content: ""; width: 0.55rem; height: 0.55rem; background: var(--ink); }
+
+/* Highlighter stroke: decoration only, never a fill. Kept to a handful per page. */
+.mark-stroke { background: linear-gradient(var(--mark), var(--mark)) no-repeat 0 92% / 100% 0.14em; }
+
+/* Warm paper palette from the reference. Green and red stay as data colours: green "working", red "below your usual". */
 :root {
-  --bg: #f3f4f5;
-  --surface: #fafbfb;
-  --ink: #0f1317;
-  --muted: #525c66;
-  --line: #d3d8dd;
-  --good: #0b7a64;
-  --good-soft: #d2e8e1;
-  --bad: #be2f4a;
-  --bad-soft: #f5d8de;
-  --on-solid: #fafbfb;
+  --bg: #f6f6f4;
+  --surface: #ffffff;
+  --ink: #000000;
+  --carbon: #2c2c26;
+  --muted: #6d6e5e;
+  --line: #d0d0c8;
+  --tag: #e8e7d9;
+  --mark: #fff347;
+  --good: #2f7a4b;
+  --good-soft: #dde8d3;
+  --bad: #b23a2c;
+  --bad-soft: #f2ddd3;
+  --on-solid: #f6f6f4;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1215;
-    --surface: #161a1e;
-    --ink: #e9ecef;
-    --muted: #9aa3ad;
-    --line: #2a3137;
-    --good: #34b597;
-    --good-soft: #143a31;
-    --bad: #e3657d;
-    --bad-soft: #401c25;
-    --on-solid: #0b0e11;
+    --bg: #1c1c18;
+    --surface: #24241f;
+    --ink: #f6f6f4;
+    --carbon: #e8e7d9;
+    --muted: #aaab9c;
+    --line: #3b3b33;
+    --tag: #2f2f28;
+    --mark: #fff347;
+    --good: #7fbf8c;
+    --good-soft: #263a2a;
+    --bad: #e58b7a;
+    --bad-soft: #43271f;
+    --on-solid: #1c1c18;
     color-scheme: dark;
   }
 }
@@ -67,11 +95,11 @@ body {
 }
 .num { font-variant-numeric: tabular-nums; }
 
-/* Buttons: sharp corners everywhere, like the logo boxes. */
+/* Buttons: 3px corners, carbon fill, paired with a ghost outline. */
 .btn-primary {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   white-space: nowrap; padding: 0 1.25rem; min-height: 3rem;
-  background: var(--ink); color: var(--bg); font-weight: 400;
+  background: var(--carbon); color: var(--on-solid); font-weight: 400; border-radius: var(--radius-sm);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s;
 }
 .btn-primary:hover { transform: translateY(-1px); }
@@ -79,23 +107,23 @@ body {
 .btn-primary:disabled { opacity: 0.6; cursor: progress; }
 .btn-ghost {
   display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap;
-  padding: 0 1.1rem; min-height: 3rem; border: 1px solid var(--ink); font-weight: 400;
+  padding: 0 1.1rem; min-height: 3rem; border: 1px solid var(--ink); font-weight: 400; border-radius: var(--radius-sm);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .btn-ghost:hover { transform: translateY(-1px); }
 .btn-ghost:active { transform: translateY(1px) scale(0.98); }
 @layer base {
-  :focus-visible { outline: 2px solid var(--good); outline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
 }
 
 .field {
   width: 100%; min-height: 3rem; padding: 0 0.85rem;
   background: var(--surface); color: var(--ink);
-  border: 1px solid color-mix(in oklab, var(--ink) 30%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ink) 30%, transparent); border-radius: var(--radius-sm);
 }
 textarea.field { padding: 0.75rem 0.85rem; min-height: 6rem; }
 .field::placeholder { color: var(--muted); }
-.field:focus { outline: 2px solid var(--good); outline-offset: 0; border-color: transparent; }
+.field:focus { outline: 2px solid var(--ink); outline-offset: 0; border-color: transparent; }
 
 /* Kotak grid cells: colour arrives after the boxes land, which is the "diagnosis" moment. */
 .kotak-cell { border: 1px solid var(--line); transition: background-color 0.6s ease, border-color 0.6s ease; }

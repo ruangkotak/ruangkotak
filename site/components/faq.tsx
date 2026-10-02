@@ -14,11 +14,14 @@ const QA = [
 export function Faq() {
   return (
     <section className="mx-auto grid max-w-[1240px] gap-10 px-4 pb-24 md:grid-cols-[1fr_1.6fr] md:px-8 md:pb-32">
-      <h2 className="text-3xl font-semibold tracking-tight md:text-4xl">Questions</h2>
+      <div>
+        <p className="eyebrow">FAQ</p>
+        <h2 className="mt-5 text-4xl md:text-6xl">Questions</h2>
+      </div>
       <div className="border-t border-line">
         {QA.map(([q, a]) => (
           <details key={q} className="group border-b border-line">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-lg font-medium [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-5 text-base [&::-webkit-details-marker]:hidden">
               {q}
               <Plus size={20} className="shrink-0 transition-transform duration-300 group-open:rotate-45" />
             </summary>

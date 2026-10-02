@@ -2,7 +2,6 @@
 
 import { ArrowRight, InstagramLogo, TiktokLogo, X } from "@phosphor-icons/react";
 import { AnimatePresence, motion } from "motion/react";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { FUNNEL_LIVE } from "@/lib/funnel";
 import { CONSENT } from "@/lib/legal";
@@ -32,27 +31,26 @@ const DETAIL_ERRORS: Record<DetailError, string> = {
   consent: "Tick both required boxes to continue. / Tandakan kedua-dua kotak wajib untuk teruskan.",
 };
 
-export function PreviewFlow() {
-  const router = useRouter();
+// The sheet half of the funnel: contact details + consent, then /api/preview, then the report.
+// Any handle form can open it with start(); the landing page has two.
+export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: string) => void }) {
   const [platform, setPlatform] = useState<Platform>("tiktok");
-  const [handle, setHandle] = useState("");
-  const [error, setError] = useState("");
-  const [soon, setSoon] = useState(false);
   const [view, setView] = useState<View>({ k: "closed" });
   const [details, setDetails] = useState<Details>(EMPTY);
   const [detailError, setDetailError] = useState<DetailError | null>(null);
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const clean = handle.trim().replace(/^@/, "");
-    if (!/^[A-Za-z0-9._]{2,30}$/.test(clean)) {
-      setError("Enter a handle like yourname, without spaces.");
-      return;
-    }
-    setError("");
-    if (!FUNNEL_LIVE) return setSoon(true);
+  // Tells the landing page to pause smooth scrolling while the sheet is up.
+  const open = view.k !== "closed";
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("rk:sheet", { detail: open }));
+  }, [open]);
+
+  function start(p: Platform, clean: string) {
+    if (!FUNNEL_LIVE) return false;
+    setPlatform(p);
     setDetailError(null);
     setView({ k: "details", handle: clean });
+    return true;
   }
 
   // Contact details go with the handle in one request; the server scrapes only after they check out.
@@ -79,11 +77,13 @@ export function PreviewFlow() {
       const data = await res.json();
       if (data.invalid === "handle") {
         setView({ k: "closed" });
-        setError("That handle doesn't look right. Check the spelling.");
+        onHandleRejected("That handle doesn't look right. Check the spelling.");
       } else if (data.invalid) {
         setDetailError(data.invalid);
         setView({ k: "details", handle: clean });
-      } else if (data.ok) router.push(data.url);
+      }
+      // Full page load: the landing page's global styles must not carry over to the report.
+      else if (data.ok) window.location.assign(data.url);
       else setView({ k: "unavailable" });
     } catch {
       setView({ k: "unavailable" });
@@ -92,10 +92,60 @@ export function PreviewFlow() {
 
   const label = platform === "tiktok" ? "TikTok" : "Instagram";
 
+  const sheet = (
+    <AnimatePresence>
+      {view.k !== "closed" && (
+        <Sheet onClose={() => setView({ k: "closed" })} busy={view.k === "loading"}>
+          <AnimatePresence mode="wait" initial={false}>
+            {view.k === "loading" && <Loading key="l" handle={view.handle} platform={label} />}
+            {view.k === "details" && (
+              <DetailsForm
+                key="d"
+                handle={view.handle}
+                platform={label}
+                value={details}
+                onChange={(d) => {
+                  setDetails(d);
+                  setDetailError(null);
+                }}
+                error={detailError}
+                onSubmit={() => run(view.handle)}
+              />
+            )}
+            {view.k === "unavailable" && <Unavailable key="u" onClose={() => setView({ k: "closed" })} />}
+          </AnimatePresence>
+        </Sheet>
+      )}
+    </AnimatePresence>
+  );
+
+  return { start, sheet, busy: view.k === "loading" };
+}
+
+export function PreviewFlow() {
+  const [platform, setPlatform] = useState<Platform>("tiktok");
+  const [handle, setHandle] = useState("");
+  const [error, setError] = useState("");
+  const [soon, setSoon] = useState(false);
+  const { start, sheet, busy } = usePreviewSheet({ onHandleRejected: setError });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const clean = handle.trim().replace(/^@/, "");
+    if (!/^[A-Za-z0-9._]{2,30}$/.test(clean)) {
+      setError("Enter a handle like yourname, without spaces.");
+      return;
+    }
+    setError("");
+    if (!start(platform, clean)) setSoon(true);
+  }
+
+  const label = platform === "tiktok" ? "TikTok" : "Instagram";
+
   return (
     <>
       <form onSubmit={submit} className="rise mt-8 max-w-[540px]" style={{ "--d": "0.25s" } as React.CSSProperties} noValidate>
-        <fieldset className="flex w-fit border border-line p-1" role="radiogroup" aria-label="Platform">
+        <fieldset className="flex w-fit rounded-sm border border-line p-1" role="radiogroup" aria-label="Platform">
           {(["tiktok", "instagram"] as const).map((p) => (
             <label key={p} className="relative cursor-pointer px-4 py-2 text-sm font-medium">
               <input
@@ -107,7 +157,7 @@ export function PreviewFlow() {
                 className="peer sr-only"
               />
               {platform === p && (
-                <motion.span layoutId="platform-pill" className="absolute inset-0 bg-ink" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
+                <motion.span layoutId="platform-pill" className="absolute inset-0 rounded-[2px] bg-carbon" transition={{ type: "spring", stiffness: 400, damping: 32 }} />
               )}
               <span
                 className={`relative flex items-center gap-2 transition-colors ${platform === p ? "text-bg" : "text-muted"} peer-focus-visible:underline`}
@@ -139,7 +189,7 @@ export function PreviewFlow() {
               className="field !pl-8"
             />
           </div>
-          <button type="submit" className="btn-primary" disabled={view.k === "loading"}>
+          <button type="submit" className="btn-primary" disabled={busy}>
             Check my account <ArrowRight size={18} weight="bold" />
           </button>
         </div>
@@ -152,33 +202,11 @@ export function PreviewFlow() {
         </p>
       </form>
 
-      <AnimatePresence>
-        {view.k !== "closed" && (
-          <Sheet onClose={() => setView({ k: "closed" })} busy={view.k === "loading"}>
-            <AnimatePresence mode="wait" initial={false}>
-              {view.k === "loading" && <Loading key="l" handle={view.handle} platform={label} />}
-              {view.k === "details" && (
-                <DetailsForm
-                  key="d"
-                  handle={view.handle}
-                  platform={label}
-                  value={details}
-                  onChange={(d) => {
-                    setDetails(d);
-                    setDetailError(null);
-                  }}
-                  error={detailError}
-                  onSubmit={() => run(view.handle)}
-                />
-              )}
-              {view.k === "unavailable" && <Unavailable key="u" onClose={() => setView({ k: "closed" })} />}
-            </AnimatePresence>
-          </Sheet>
-        )}
-      </AnimatePresence>
+      {sheet}
     </>
   );
 }
+
 
 function Sheet({ children, onClose, busy }: { children: React.ReactNode; onClose: () => void; busy: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -202,11 +230,12 @@ function Sheet({ children, onClose, busy }: { children: React.ReactNode; onClose
       <div className="absolute inset-0 bg-ink/40" onClick={busy ? undefined : onClose} aria-hidden />
       <motion.div
         ref={ref}
+        data-lenis-prevent
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Your mini-diagnosis"
-        className="relative max-h-[92dvh] w-full max-w-[760px] overflow-y-auto border border-line bg-bg p-5 outline-none md:p-8"
+        className="relative max-h-[92dvh] w-full max-w-[760px] overflow-y-auto rounded-lg border border-line bg-bg p-5 outline-none md:p-8"
         initial={{ y: 40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
@@ -305,7 +334,7 @@ function DetailsForm({
       <p className="text-sm text-muted">
         @{handle} on {platform}
       </p>
-      <h2 className="mt-1 max-w-[26ch] text-2xl font-semibold leading-tight tracking-tight md:text-3xl">Where should we send your <span className="whitespace-nowrap">mini-diagnosis?</span></h2>
+      <h2 className="mt-1 max-w-[26ch] text-3xl md:text-4xl">Where should we send your <span className="whitespace-nowrap">mini-diagnosis?</span></h2>
       <p className="mt-2 text-muted">It opens on screen right away, and a copy goes to your email.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -356,7 +385,7 @@ function DetailsForm({
 function Unavailable({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alert">
-      <h2 className="text-2xl font-semibold tracking-tight">Preview unavailable right now</h2>
+      <h2 className="text-3xl">Preview unavailable right now</h2>
       <p className="mt-2 text-muted">We couldn't finish it just now. We have your details and will email you once it's ready.</p>
       <button onClick={onClose} className="btn-ghost mt-6">
         Close

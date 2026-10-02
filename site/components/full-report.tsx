@@ -58,7 +58,7 @@ function Profile() {
       {items.map(([t, ok], i) => (
         <motion.li
           key={t}
-          className={`flex items-start gap-3 p-4 ${ok ? "bg-good-soft" : "bg-bad-soft"}`}
+          className={`flex items-start gap-3 rounded-lg p-4 ${ok ? "bg-good-soft" : "bg-bad-soft"}`}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.07 }}
@@ -148,7 +148,7 @@ function Strategy() {
       {pillars.map((x, i) => (
         <motion.div
           key={x.p}
-          className={`p-5 ${i === 0 ? "bg-ink text-bg" : "border border-line"}`}
+          className={`rounded-lg p-5 ${i === 0 ? "bg-carbon text-on-solid" : "border border-line"}`}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: i * 0.1 }}
@@ -179,8 +179,9 @@ export function FullReport({ report }: { report: Report }) {
   return (
     <section id="full" className="border-y border-line bg-surface">
       <div className="mx-auto max-w-[1240px] px-4 py-24 md:px-8 md:py-32">
-        <h2 className="max-w-[20ch] text-3xl font-semibold tracking-tight md:text-5xl">The full report, month one of monthly</h2>
-        <p className="mt-4 max-w-[56ch] text-lg text-muted">
+        <p className="eyebrow">Full report</p>
+        <h2 className="mt-5 max-w-[18ch] text-4xl md:text-6xl lg:text-7xl">The full report, month one of monthly</h2>
+        <p className="mt-6 max-w-[56ch] text-base text-muted">
           A private page with five tabs. Each month we re-check your account and update the same page, so you can see what changed.
         </p>
 

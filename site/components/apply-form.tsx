@@ -29,8 +29,9 @@ export function ApplyForm() {
     <section id="monthly" className="mx-auto max-w-[1240px] px-4 py-24 md:px-8 md:py-32">
       <div className="grid gap-12 md:grid-cols-[1fr_1.2fr] md:gap-20">
         <div>
-          <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">Apply for monthly</h2>
-          <p className="mt-4 max-w-[44ch] text-lg text-muted">
+          <p className="eyebrow">Monthly</p>
+          <h2 className="mt-5 text-4xl md:text-6xl lg:text-7xl">Apply for monthly</h2>
+          <p className="mt-6 max-w-[44ch] text-base text-muted">
             Tell us about your account. We read every application and reply with a quote. No obligation.
           </p>
           <ol className="mt-10 grid gap-5">
@@ -59,7 +60,7 @@ export function ApplyForm() {
 
         <AnimatePresence mode="wait">
           {state === "sent" ? (
-            <motion.div key="sent" className="self-start border border-line bg-surface p-8" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} role="status">
+            <motion.div key="sent" className="self-start rounded-lg border border-line bg-surface p-8" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} role="status">
               <CheckCircle size={36} weight="fill" className="text-good" />
               <p className="mt-4 text-2xl font-semibold tracking-tight">Application sent</p>
               <p className="mt-2 text-muted">We will reply on WhatsApp or email with a quote.</p>

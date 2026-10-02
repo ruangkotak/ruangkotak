@@ -177,8 +177,8 @@ function Caption({ i, p }: { i: number; p: MotionValue<number> }) {
   const c = CAPTIONS[i];
   return (
     <motion.div style={{ opacity, y }} className="col-start-1 row-start-1" aria-hidden>
-      <h3 className="text-3xl font-semibold leading-[1.08] tracking-tighter md:text-5xl">{c.h}</h3>
-      <p className="mt-4 max-w-[38ch] text-muted md:text-lg">{c.b}</p>
+      <h3 className="text-4xl md:text-6xl">{c.h}</h3>
+      <p className="mt-4 max-w-[38ch] text-muted">{c.b}</p>
     </motion.div>
   );
 }
@@ -257,7 +257,7 @@ function Stage({ p, still }: { p: MotionValue<number>; still?: number }) {
       </motion.div>
       <motion.div
         aria-hidden
-        className="absolute left-[6%] right-[6%] h-[2px] bg-good shadow-[0_0_24px_4px_color-mix(in_oklab,var(--good)_45%,transparent)]"
+        className="absolute left-[6%] right-[6%] h-[2px] bg-good"
         style={{ top: scanTop, opacity: at(scanO, 0) }}
       />
       {CELLS.map((_, i) => {
