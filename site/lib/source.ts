@@ -46,7 +46,7 @@ export async function fetchAccount(platform: Platform, handle: string): Promise<
   return buildAccount({ handle: `@${handle}`, platform: platform === "tiktok" ? "TikTok" : "Instagram", followers }, videos);
 }
 
-// Runs an Apify actor and returns its dataset. Covers are left out: platform CDN links expire and Instagram blocks hotlinking.
+// Runs an Apify actor and returns its dataset. Cover links are only used once, server-side, by lib/covers.ts: platform CDN links expire and Instagram blocks hotlinking.
 async function apify<T>(actor: string, input: object): Promise<T[]> {
   const res = await fetch(`https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?timeout=120`, {
     method: "POST",
@@ -61,7 +61,7 @@ async function apify<T>(actor: string, input: object): Promise<T[]> {
 const day = (iso?: string) => (iso ? iso.slice(0, 10) : undefined);
 const byNewest = (a: Video, b: Video) => (b.date ?? "").localeCompare(a.date ?? "");
 
-type TikTokItem = { text?: string; playCount?: number; createTimeISO?: string; webVideoUrl?: string; authorMeta?: { fans?: number } };
+type TikTokItem = { text?: string; playCount?: number; createTimeISO?: string; webVideoUrl?: string; videoMeta?: { coverUrl?: string }; authorMeta?: { fans?: number } };
 
 async function scrapeTikTok(handle: string) {
   const items = await apify<TikTokItem>("clockworks~tiktok-scraper", {
@@ -74,12 +74,12 @@ async function scrapeTikTok(handle: string) {
   });
   const videos: Video[] = items
     .filter((i) => typeof i.playCount === "number")
-    .map((i) => ({ title: i.text ?? "", views: i.playCount!, pillar: "", date: day(i.createTimeISO), url: i.webVideoUrl }))
+    .map((i) => ({ title: i.text ?? "", views: i.playCount!, pillar: "", date: day(i.createTimeISO), url: i.webVideoUrl, cover: i.videoMeta?.coverUrl }))
     .sort(byNewest);
   return { followers: items[0]?.authorMeta?.fans ?? 0, videos };
 }
 
-type IgReel = { caption?: string; videoPlayCount?: number; videoViewCount?: number; timestamp?: string; url?: string };
+type IgReel = { caption?: string; videoPlayCount?: number; videoViewCount?: number; timestamp?: string; url?: string; displayUrl?: string };
 type IgProfile = { followersCount?: number };
 
 async function scrapeInstagram(handle: string) {
@@ -88,7 +88,7 @@ async function scrapeInstagram(handle: string) {
     apify<IgProfile>("apify~instagram-profile-scraper", { usernames: [handle] }),
   ]);
   const videos: Video[] = reels
-    .map((r) => ({ title: r.caption ?? "", views: r.videoPlayCount ?? r.videoViewCount ?? -1, pillar: "", date: day(r.timestamp), url: r.url }))
+    .map((r) => ({ title: r.caption ?? "", views: r.videoPlayCount ?? r.videoViewCount ?? -1, pillar: "", date: day(r.timestamp), url: r.url, cover: r.displayUrl }))
     .filter((v) => v.views >= 0)
     .sort(byNewest);
   return { followers: profile[0]?.followersCount ?? 0, videos };

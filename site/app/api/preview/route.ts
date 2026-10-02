@@ -1,6 +1,7 @@
 import { FUNNEL_LIVE, funnelClosed } from "@/lib/funnel";
 import { cookies, headers } from "next/headers";
 import { analyze } from "@/lib/analyze";
+import { attachCovers } from "@/lib/covers";
 import { reportPdf } from "@/lib/pdf";
 import { notifyOwner, sendReportLink } from "@/lib/notify";
 import { MOCK, fetchAccount, normaliseHandle, reportIdFor } from "@/lib/source";
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
         ]);
         return unavailable();
       }
-      report = analyze(id, await fetchAccount(platform, handle), MOCK);
+      report = await attachCovers(analyze(id, await fetchAccount(platform, handle), MOCK));
     }
     await store.saveReport(report);
     await store.addLead(id, lead);

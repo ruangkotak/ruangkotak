@@ -5,6 +5,7 @@ import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { fmt, fmtX } from "./analyze";
+import { coverBytes } from "./covers";
 import { BUSINESS } from "./legal";
 import { cleanCaption } from "./tagger";
 import type { Report } from "./types";
@@ -165,18 +166,32 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   text("The dashed line is your usual views. A bar past the line means that content type beats your usual.", { size: 8, color: C.muted });
 
   // Worked / sank
-  const clip = (i: number, good: boolean) => {
+  // Each clip gets its 9:16 cover on the left (green or red frame), with the caption and numbers beside it.
+  const THUMB_W = 40;
+  const THUMB_H = 71;
+  const clip = async (i: number, good: boolean) => {
     const v = r.videos[i];
+    const bytes = await coverBytes(v.cover);
+    const img = bytes ? await doc.embedJpg(bytes).catch(() => null) : null;
+    const x = img ? M + THUMB_W + 12 : M;
+    const w = img ? CW - THUMB_W - 12 : CW;
     const t = cleanCaption(v.title) || "(no caption)";
-    need(48);
-    text(t.length > 130 ? `${t.slice(0, 129).trimEnd()}...` : t, { font: reg, size: 9.5, gap: 1 });
-    text(`${fmt(v.views)} views, ${fmtX(r.multiples[i])}${v.date ? `, posted ${v.date}` : ""}`, { size: 9, color: good ? C.good : C.bad, gap: v.why ? 1 : 7 });
-    if (v.why) text(v.why, { size: 9, color: C.muted, gap: 7 });
+    need(Math.max(48, img ? THUMB_H + 8 : 0));
+    const top = y;
+    if (img) {
+      page.drawRectangle({ x: M, y: top - THUMB_H, width: THUMB_W, height: THUMB_H, color: good ? C.good : C.bad });
+      page.drawImage(img, { x: M + 1.5, y: top - THUMB_H + 1.5, width: THUMB_W - 3, height: THUMB_H - 3 });
+    }
+    text(t.length > 130 ? `${t.slice(0, 129).trimEnd()}...` : t, { x, w, font: reg, size: 9.5, gap: 1 });
+    text(`${fmt(v.views)} views, ${fmtX(r.multiples[i])}${v.date ? `, posted ${v.date}` : ""}`, { x, w, size: 9, color: good ? C.good : C.bad, gap: v.why ? 1 : 7 });
+    if (v.why) text(v.why, { x, w, size: 9, color: C.muted, gap: 7 });
+    // Never let the next clip start inside the thumbnail.
+    if (img) y = Math.min(y, top - THUMB_H - 8);
   };
   heading("What worked", C.good);
-  r.top.forEach((i) => clip(i, true));
+  for (const i of r.top) await clip(i, true);
   heading("What sank", C.bad);
-  r.bottom.forEach((i) => clip(i, false));
+  for (const i of r.bottom) await clip(i, false);
 
   // Caption signals read by TypeSafe (live reports only; hand-written ones carry none)
   const read = r.videos.filter((v) => v.reason !== undefined);
@@ -230,7 +245,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
 }
 
 // Bump when the PDF layout or fonts change, so stored PDFs are re-rendered instead of served stale.
-const PDF_VERSION = "v1";
+const PDF_VERSION = "v2";
 
 // Rendering embeds the full Inter font and takes a few seconds, so each report's PDF is made once and stored.
 // A store failure never blocks the PDF: it is rendered and returned anyway.
