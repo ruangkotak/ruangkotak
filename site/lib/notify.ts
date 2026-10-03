@@ -52,12 +52,12 @@ export async function notifyOwner(subject: string, lines: string[]) {
 // Emails the creator their mini-diagnosis link. Needs REPORT_FROM on a domain verified in Resend,
 // because Resend's shared test sender only delivers to the account owner.
 // It is a transactional message the person asked for, so it carries no offers; follow-ups need their marketing opt-in.
-export async function sendReportLink(to: { name: string; email: string }, handle: string, url: string, pdf?: Uint8Array) {
+export async function sendReportLink(to: { name: string; email: string }, handle: string, url: string) {
   const { RESEND_API_KEY, REPORT_FROM } = process.env;
   const text = [
     `Hi ${to.name},`,
     "",
-    `Your mini-diagnosis for ${handle} is ready${pdf ? ", attached as a PDF" : ""}. You can also open it online:`,
+    `Your mini-diagnosis for ${handle} is ready. Open it online, where you can also download it as an HTML file:`,
     url,
     "",
     "It ranks your content types against your usual views and names the one fix to start with.",
@@ -81,7 +81,6 @@ export async function sendReportLink(to: { name: string; email: string }, handle
     headers: { authorization: `Bearer ${RESEND_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({ from: REPORT_FROM, to: to.email, subject: `Your mini-diagnosis for ${handle}`,
       text,
-      ...(pdf && { attachments: [{ filename: `ruangkotak-diagnosis-${handle.replace(/[^a-z0-9._-]/gi, "")}.pdf`, content: Buffer.from(pdf).toString("base64") }] }),
     }),
   }).catch((err) => err);
   if (!(res instanceof Response) || !res.ok) console.error("[report-email] failed", res instanceof Response ? res.status : res);
