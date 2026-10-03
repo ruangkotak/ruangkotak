@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { Playfair_Display, Quicksand } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -17,13 +17,13 @@ export const viewport: Viewport = {
   ],
 };
 
-// Headings: Fraunces (variable, optical size on) at 300. UI and body: IBM Plex Mono.
-const fraunces = Fraunces({ subsets: ["latin"], axes: ["opsz"], style: ["normal", "italic"], variable: "--font-fraunces" });
-const plexMono = IBM_Plex_Mono({ weight: ["300", "400", "500"], subsets: ["latin"], variable: "--font-plex-mono" });
+// Headings: Playfair Display (variable, 400 and up). UI and body: Quicksand (variable, 300-700).
+const playfair = Playfair_Display({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-playfair" });
+const quicksand = Quicksand({ subsets: ["latin"], variable: "--font-quicksand" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${plexMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${playfair.variable} ${quicksand.variable}`}>
       <body className="font-sans text-[14px] leading-relaxed">
         <Providers>{children}</Providers>
       </body>

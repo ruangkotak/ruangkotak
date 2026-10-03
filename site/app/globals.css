@@ -16,10 +16,10 @@
   --color-bad: var(--bad);
   --color-bad-soft: var(--bad-soft);
   --color-on-solid: var(--on-solid);
-  --font-sans: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-sans: var(--font-quicksand), ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-sans);
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
-  /* Mono runs at 300/400/500 only: anything heavier reads as shouting in a monospace. */
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  /* Body weights stay capped at 500 so the UI keeps its light, airy tone. */
   --font-weight-medium: 500;
   --font-weight-semibold: 500;
   --font-weight-bold: 500;
@@ -28,17 +28,17 @@
 }
 
 /* Unlayered, so it beats the weight and tracking utilities on heading elements.
-   Display copy is a thin poster serif; everything else is mono marginalia. */
+   Display copy is Playfair Display (400 is its lightest weight); everything else is Quicksand. */
 h1, h2, h3, .display {
   font-family: var(--font-display);
   font-style: normal;
-  font-weight: 300;
-  letter-spacing: -0.045em;
-  line-height: 1.02;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
 }
 h1, h2 { text-wrap: balance; }
-h3 { letter-spacing: -0.03em; line-height: 1.1; }
-body { letter-spacing: -0.03em; }
+h3 { letter-spacing: -0.01em; line-height: 1.15; }
+body { letter-spacing: 0; }
 
 /* Mono eyebrow above a section headline. */
 .eyebrow {
