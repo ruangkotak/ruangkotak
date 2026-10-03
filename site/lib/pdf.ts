@@ -35,15 +35,11 @@ const safe = (s: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-// Same pairing as the site: Playfair Display Bold Italic for headings, and Inter Regular for everything else as the
-// open-licence stand-in for SF Pro (Apple's licence doesn't allow embedding SF Pro in a distributed PDF).
-// Files and OFL licences live in lib/fonts; next.config.ts traces them into the routes that render PDFs.
-let fontFiles: Promise<[Buffer, Buffer]> | undefined;
-const loadFonts = () =>
-  (fontFiles ??= Promise.all([
-    readFile(join(process.cwd(), "lib/fonts/Inter-Regular.ttf")),
-    readFile(join(process.cwd(), "lib/fonts/PlayfairDisplay-BoldItalic.ttf")),
-  ]));
+// Same as the site: Inter Regular for headings and body, as the open-licence stand-in for SF Pro
+// (Apple's licence doesn't allow embedding SF Pro in a distributed PDF).
+// The file and its OFL licence live in lib/fonts; next.config.ts traces them into the routes that render PDFs.
+let fontFile: Promise<Buffer> | undefined;
+const loadFont = () => (fontFile ??= readFile(join(process.cwd(), "lib/fonts/Inter-Regular.ttf")));
 
 export async function renderPdf(r: Report): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -51,10 +47,9 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
   doc.setTitle(`Mini-diagnosis for ${safe(r.handle)}`);
   doc.setAuthor(BUSINESS.name);
   doc.setCreator(BUSINESS.name);
-  const [interBytes, playfairBytes] = await loadFonts();
   // Inter is embedded whole: pdf-lib's subsetter drops most of its glyphs.
-  const reg = await doc.embedFont(interBytes);
-  const display = await doc.embedFont(playfairBytes, { subset: true });
+  const reg = await doc.embedFont(await loadFont());
+  const display = reg;
 
   let page: PDFPage = doc.addPage([W, H]);
   let y = H - M;
@@ -245,7 +240,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
 }
 
 // Bump when the PDF layout or fonts change, so stored PDFs are re-rendered instead of served stale.
-const PDF_VERSION = "v2";
+const PDF_VERSION = "v3";
 
 // Rendering embeds the full Inter font and takes a few seconds, so each report's PDF is made once and stored.
 // A store failure never blocks the PDF: it is rendered and returned anyway.
