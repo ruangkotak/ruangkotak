@@ -1,6 +1,7 @@
 // The full report as one self-contained HTML file: inline CSS, covers embedded as data URIs, no external requests.
 // Tabs work with a few lines of inline script; without script every tab shows one after another. Server only.
 import { fmt, fmtX } from "./analyze";
+import { WORDMARK_D } from "../components/logo-paths";
 import { BUSINESS } from "./legal";
 import { cleanCaption } from "./tagger";
 import type { Report } from "./types";
@@ -8,56 +9,69 @@ import type { Report } from "./types";
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const CSS = `
-:root{--bg:#f6f6f4;--surface:#fff;--ink:#000;--muted:#6d6e5e;--line:#d0d0c8;--good:#2f7a4b;--good-soft:#dde8d3;--bad:#b23a2c;--bad-soft:#f2ddd3;--cell:#e8e7d9}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
-main{max-width:940px;margin:0 auto;padding:32px 16px 48px}
-h1{font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:0}
-h2{font-size:15px;margin:0 0 12px}
-h3{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
-.head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);padding-bottom:12px}
-.head b{color:var(--ink)}
-.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-top:8px}
-.tabs button{font:inherit;font-size:14px;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;padding:12px 16px;color:var(--muted);cursor:pointer;white-space:nowrap}
+:root{--bg:#f6f6f4;--paper:#fff;--ink:#000;--carbon:#2c2c26;--line:#d0d0c8;--muted:#8d8e7c;--olive:#4a5a26;--brick:#9e3a22;--bone:#e8e7d9;--hi:#fff347}
+*{box-sizing:border-box;margin:0}
+html{background:var(--bg);-webkit-font-smoothing:antialiased}
+body{font:400 13px/1.55 "IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;color:var(--ink);padding:0 16px}
+.sheet{max-width:760px;margin:0 auto;padding:44px 0 28px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;padding-bottom:16px;border-bottom:1px solid var(--ink)}
+.logo{height:28px;width:auto;color:var(--ink);display:block}
+.tag,.eyebrow,.label,.foot{text-transform:uppercase;letter-spacing:.02em;font-size:10.5px;color:var(--muted)}
+.eyebrow{margin-top:34px}
+h1,h2,h3,.big,.n,.head2{font-family:Fraunces,Georgia,"Times New Roman",serif;font-weight:300}
+h1{font-size:clamp(34px,6.4vw,52px);line-height:1.04;letter-spacing:-.025em;margin-top:16px}
+.rule{width:134px;height:6px;background:var(--hi);margin:30px 0 36px}
+.tabs{display:flex;gap:4px;overflow-x:auto;border-bottom:1px solid var(--line);margin-top:20px}
+.tabs button{font:inherit;font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;color:var(--muted);cursor:pointer;white-space:nowrap}
 .tabs button:hover{color:var(--ink)}
-.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--good)}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--hi)}
 .tabs button:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
 .js .panel[hidden]{display:none}
-.panel{padding:24px 0}
 .nojs-title{display:none}
-html:not(.js) .nojs-title{display:block;font-size:20px;font-weight:700;margin:32px 0 0;border-top:2px solid var(--ink);padding-top:16px}
+html:not(.js) .nojs-title{display:block;margin-top:44px;border-top:1px solid var(--ink);padding-top:14px;font-size:11px;text-transform:uppercase;color:var(--muted)}
 html:not(.js) .tabs{display:none}
-section{border-top:1px solid var(--line);padding:24px 0}
-.panel>section:first-child{border-top:2px solid var(--ink)}
-.two{display:grid;gap:32px;grid-template-columns:1fr}
-@media(min-width:720px){.two{grid-template-columns:1fr 1fr}.hero{grid-template-columns:1.2fr 1fr}}
-dl{display:flex;flex-wrap:wrap;margin:20px 0 0}
-dl div{padding:0 20px}dl div:first-child{padding-left:0}dl div+div{border-left:1px solid var(--line)}
-dt{font-size:12px;color:var(--muted)}dd{margin:0;font-size:20px;font-weight:600}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
-.cell{aspect-ratio:1;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--cell);color:var(--muted)}
-.cell.top{background:var(--good);color:#fff}.cell.bot{background:var(--bad);color:#fff}
-.cell.up{background:var(--good-soft);color:var(--good)}.cell.down{background:var(--bad-soft);color:var(--bad)}
-.note{font-size:12px;color:var(--muted);margin:8px 0 0}
-.bar{display:grid;grid-template-columns:minmax(0,10rem) 1fr 3.5rem;gap:12px;align-items:center;margin-bottom:8px;font-size:13.5px}
-.bar .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}.bar small{font-weight:400;color:var(--muted)}
-.track{position:relative;height:12px}.fill{position:absolute;inset:0 auto 0 0}.mid{position:absolute;top:-6px;bottom:-6px;border-left:1.5px dashed var(--ink)}
-.g{color:var(--good)}.r{color:var(--bad)}.bar .v{text-align:right}
-ul.clips,ol.f{list-style:none;margin:0;padding:0;display:grid;gap:14px}
-.clip{display:grid;grid-template-columns:44px 1fr;gap:12px}
-.cov{width:44px;aspect-ratio:9/16;background:var(--cell);border:2px solid var(--line);object-fit:cover;display:block}
-.cov.g{border-color:var(--good)}.cov.r{border-color:var(--bad)}
-.clip p{margin:0}.cap{font-size:14px;font-weight:600;line-height:1.35}.meta{font-size:13px;color:var(--muted);margin-top:2px!important}.why{font-size:13px;margin-top:4px!important}
-ol.f{counter-reset:n;gap:12px}ol.f li{counter-increment:n;padding-left:22px;position:relative}ol.f li::before{content:counter(n)".";position:absolute;left:0;color:var(--muted)}
-ol.f b{display:block;line-height:1.3}ol.f span{font-size:13.5px;color:var(--muted)}
-.fix{border-left:4px solid var(--good);padding:6px 0 6px 12px;font-size:17px;font-weight:700;line-height:1.35;margin:0}
-ul.then{margin:12px 0 0;padding-left:20px;font-size:13.5px;color:var(--muted)}
-.target{border:1.5px solid var(--ink);padding:12px;margin-top:16px;font-size:13.5px}.target b{display:block;font-size:12px;color:var(--muted);font-weight:600}
-.pending{border:1px dashed var(--line);background:var(--surface);padding:20px;color:var(--muted)}
-.pending p{margin:6px 0 0}
-footer .tip{margin:0 0 6px}
-footer{border-top:1px solid var(--line);margin-top:32px;padding-top:12px;font-size:12px;color:var(--muted)}
-@media print{.tip{display:none}body{background:#fff}.tabs{display:none}.js .panel[hidden]{display:block}.nojs-title{display:block!important;font-size:20px;font-weight:700;margin:24px 0 0}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px 16px}
+.stat .big{font-size:38px;line-height:1.1;margin-top:12px;letter-spacing:-.02em}
+section{margin-top:56px}
+section>.label{display:block}
+h2{font-size:clamp(26px,4.4vw,34px);letter-spacing:-.025em;line-height:1.1;margin:6px 0 24px}
+h2.k{color:var(--olive)}h2.b{color:var(--brick)}
+.grid{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+.cell{aspect-ratio:1;border-radius:8px;background:var(--bone);display:grid;place-items:center;font-size:12px;min-width:0}
+.cell.k{background:var(--olive);color:#fff}.cell.b{background:var(--brick);color:#fff}
+.note{color:var(--muted);font-size:11px;margin-top:14px}
+.brow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2.4fr) 52px;align-items:center;gap:14px;padding:5px 0}
+.track{height:10px;background:var(--bone);position:relative;display:block}
+.track i{position:absolute;left:0;top:0;bottom:0;display:block}
+.track i.k{background:var(--olive)}.track i.b{background:var(--brick)}
+.track u{position:absolute;top:-8px;bottom:-8px;border-left:1px dashed var(--ink)}
+.brow b{font-weight:400;text-align:right}b.k{color:var(--olive)}b.b{color:var(--brick)}
+.vid{display:grid;grid-template-columns:60px 1fr;gap:22px;padding:18px 0;border-bottom:1px solid var(--line)}
+.vid:last-child{border-bottom:0}
+.thumb{width:60px;aspect-ratio:9/16;object-fit:cover;display:block;border:1.5px solid;background:var(--bone)}
+.thumb.k{border-color:var(--olive)}.thumb.b{border-color:var(--brick)}
+.meta{font-size:11.5px}.meta.k{color:var(--olive)}.meta.b{color:var(--brick)}
+.cap{margin-top:3px}.why{color:var(--muted);font-size:12px;margin-top:3px}
+ol{list-style:none;padding:0}
+ol li{display:grid;grid-template-columns:62px 1fr;gap:0 4px;padding:16px 0;border-bottom:1px solid var(--line)}
+ol li:last-child{border-bottom:0}
+.n{font-size:34px;color:#b9baa9;line-height:1}
+ol h3{font-size:20px;letter-spacing:-.02em;line-height:1.2}
+ol p{color:var(--muted);font-size:12px;margin-top:10px}
+.fix{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:26px 28px 22px}
+.fix .bar{width:88px;height:5px;background:var(--hi);margin-bottom:20px}
+.fix .head2{font-size:24px;line-height:1.25;letter-spacing:-.02em}
+.fix ul{margin:18px 0 0;padding:0;list-style:none;color:var(--muted);font-size:12px}
+.fix li{display:grid;grid-template-columns:24px 1fr;margin-top:6px}
+.target{background:var(--carbon);color:#f6f6f4;border-radius:14px;padding:22px 28px;margin-top:12px}
+.target .label{color:#a9a999;margin-bottom:10px;display:block}
+.pending{background:var(--paper);border:1px dashed var(--line);border-radius:14px;padding:26px 28px;margin-top:44px}
+.pending h2{margin:6px 0 12px}.pending p{color:var(--muted);font-size:12px;margin-top:8px}
+.tip{color:var(--muted);font-size:10.5px;margin-top:40px}
+.foot{display:flex;justify-content:space-between;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:10px}
+@media(max-width:560px){.stats{grid-template-columns:1fr}.grid{gap:4px}.cell{font-size:9.5px;border-radius:5px}.brow{grid-template-columns:1fr 52px}.brow .track{grid-column:1/-1;grid-row:2}.vid{grid-template-columns:48px 1fr;gap:14px}.thumb{width:48px}ol li{grid-template-columns:48px 1fr}header{flex-wrap:wrap}}
+@media print{@page{size:A4;margin:14mm}html,body{background:var(--bg);-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{padding-top:0}section,.vid,ol li{break-inside:avoid}.tabs,.tip{display:none}.js .panel[hidden]{display:block}.nojs-title{display:block;margin-top:44px;border-top:1px solid var(--ink);padding-top:14px;font-size:11px;text-transform:uppercase;color:var(--muted)}}
 `;
 
 const SCRIPT = `
@@ -86,57 +100,69 @@ const PENDING: Record<string, string> = {
 
 export function renderReportHtml(r: Report): string {
   const max = Math.max(...r.pillars.map((p) => p.multiple), 1.5);
-  const tone = (i: number) =>
-    r.top.includes(i) ? "top" : r.bottom.includes(i) ? "bot" : r.multiples[i] >= 1.25 ? "up" : r.multiples[i] <= 0.75 ? "down" : "";
+  const tone = (i: number) => (r.top.includes(i) ? "k" : r.bottom.includes(i) ? "b" : "");
 
   const clip = (i: number, good: boolean) => {
     const v = r.videos[i];
-    const title = esc(cleanCaption(v.title) || "(no caption)");
-    const cover = v.cover?.startsWith("data:image/") ? `<img class="cov ${good ? "g" : "r"}" src="${esc(v.cover)}" alt="">` : `<span class="cov ${good ? "g" : "r"}"></span>`;
-    return `<li class="clip">${cover}<div><p class="cap">${title}</p><p class="meta">${fmt(v.views)} views, <b class="${good ? "g" : "r"}">${fmtX(r.multiples[i])}</b>${v.date ? `, posted ${esc(v.date)}` : ""}</p>${v.why ? `<p class="why">${esc(v.why)}</p>` : ""}</div></li>`;
+    const t = good ? "k" : "b";
+    const cap = cleanCaption(v.title) || "(no caption)";
+    const img = v.cover?.startsWith("data:image/") ? `<img class="thumb ${t}" alt="" src="${esc(v.cover)}">` : `<span class="thumb ${t}"></span>`;
+    return `<article class="vid">${img}<div><p class="meta ${t}">${fmt(v.views)} views / ${fmtX(r.multiples[i])}${v.date ? ` / posted ${esc(v.date)}` : ""}</p><p class="cap">${esc(cap.length > 130 ? `${cap.slice(0, 129).trimEnd()}...` : cap)}</p>${v.why ? `<p class="why">${esc(v.why)}</p>` : ""}</div></article>`;
   };
 
   const diagnosis = `
-<section class="two hero">
-  <div>
-    <h1>${esc(r.verdict)}</h1>
-    <dl>
-      <div><dt>Latest videos</dt><dd>${r.videos.length}</dd></div>
-      <div><dt>Usual views</dt><dd>${fmt(r.median)}</dd></div>
-      <div><dt>Best video</dt><dd>${fmtX(r.multiples[r.top[0]])}</dd></div>
-    </dl>
-  </div>
-  <figure style="margin:0">
-    <div class="grid">${r.videos.map((_, i) => `<div class="cell ${tone(i)}">${fmtX(r.multiples[i])}</div>`).join("")}</div>
-    <figcaption class="note">One box, one video, newest at top left. Each number is views as a multiple of your usual. Solid boxes: the ${r.top.length} best and ${r.bottom.length} weakest.</figcaption>
-  </figure>
+<p class="eyebrow">${esc(r.handle)} / ${esc(r.platform)} / ${fmt(r.followers)} followers</p>
+<h1>${esc(r.verdict)}</h1>
+<div class="rule"></div>
+<div class="stats">
+  <div class="stat"><span class="label">Latest videos</span><div class="big">${r.videos.length}</div></div>
+  <div class="stat"><span class="label">Usual views</span><div class="big">${fmt(r.median)}</div></div>
+  <div class="stat"><span class="label">Best video</span><div class="big">${fmtX(r.multiples[r.top[0]])}</div></div>
+</div>
+<section>
+  <span class="label">01 - The grid</span>
+  <h2>Every video against your usual views</h2>
+  <div class="grid">${r.videos.map((_, i) => `<div class="cell ${tone(i)}">${fmtX(r.multiples[i])}</div>`).join("")}</div>
+  <p class="note">One box per video, newest at top left. Each number is views as a multiple of your usual. Olive: the ${r.top.length} best. Brick: the ${r.bottom.length} weakest.</p>
 </section>
 <section>
+  <span class="label">02 - Content types</span>
   <h2>By content type</h2>
   ${r.pillars
-    .map(
-      (p) =>
-        `<div class="bar"><span class="t">${esc(p.name)} <small>(${p.count})</small></span><div class="track"><div class="fill" style="width:${((p.multiple / max) * 100).toFixed(1)}%;background:var(${p.multiple >= 1 ? "--good" : "--bad"})"></div><div class="mid" style="left:${((1 / max) * 100).toFixed(1)}%"></div></div><span class="v ${p.multiple >= 1 ? "g" : "r"}">${fmtX(p.multiple)}</span></div>`,
-    )
+    .map((p) => {
+      const t = p.multiple >= 1 ? "k" : "b";
+      return `<div class="brow"><span>${esc(p.name)} (${p.count})</span><span class="track"><i class="${t}" style="width:${((p.multiple / max) * 100).toFixed(1)}%"></i><u style="left:${((1 / max) * 100).toFixed(1)}%"></u></span><b class="${t}">${fmtX(p.multiple)}</b></div>`;
+    })
     .join("")}
-  <p class="note">The dashed line is your usual views. A bar past the line means that type beats your usual.</p>
+  <p class="note">The dashed line is your usual views. A bar past the line means that content type beats your usual.</p>
 </section>
-<section class="two">
-  <div><h2 class="g">What worked</h2><ul class="clips">${r.top.map((i) => clip(i, true)).join("")}</ul></div>
-  <div><h2 class="r">What sank</h2><ul class="clips">${r.bottom.map((i) => clip(i, false)).join("")}</ul></div>
+<section>
+  <span class="label">03 - What worked</span>
+  <h2 class="k">What worked</h2>
+  ${r.top.map((i) => clip(i, true)).join("")}
 </section>
-<section class="two">
-  <div><h2>What the pattern says</h2><ol class="f">${r.findings.map((f) => `<li><b>${esc(f.h)}</b><span>${esc(f.b)}</span></li>`).join("")}</ol></div>
-  <div>
-    <h2>Fix this first</h2>
-    <p class="fix">${esc(r.fixFirst)}</p>
-    <ul class="then">${r.fixThen.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
-    <p class="target"><b>30-day target</b>${esc(r.target.replace("{median}", fmt(r.median)))}</p>
+<section>
+  <span class="label">04 - What sank</span>
+  <h2 class="b">What sank</h2>
+  ${r.bottom.map((i) => clip(i, false)).join("")}
+</section>
+<section>
+  <span class="label">05 - Diagnosis</span>
+  <h2>What the pattern says</h2>
+  <ol>${r.findings.map((f, i) => `<li><span class="n">${String(i + 1).padStart(2, "0")}</span><div><h3>${esc(f.h)}</h3><p>${esc(f.b)}</p></div></li>`).join("")}</ol>
+</section>
+<section>
+  <span class="label">06 - Next</span>
+  <h2>Fix this first</h2>
+  <div class="fix"><div class="bar"></div>
+    <p class="head2">${esc(r.fixFirst)}</p>
+    <ul>${r.fixThen.map((f) => `<li><span>-</span><span>${esc(f)}</span></li>`).join("")}</ul>
   </div>
+  <div class="target"><span class="label">30-day target</span>${esc(r.target.replace("{median}", fmt(r.median)))}</div>
 </section>`;
 
   const pending = (k: string, name: string) =>
-    `<section><div class="pending"><h3>${name}</h3><p>${esc(PENDING[k])}</p><p>This section is prepared for your account in month one of monthly and is not in this copy yet.</p></div></section>`;
+    `<div class="pending"><span class="label">${name}</span><h2>Prepared in month one of monthly</h2><p>${esc(PENDING[k])}</p><p>This section is built for your account in month one of monthly and is not in this copy yet.</p></div>`;
 
   const panels = TABS.map(
     ([name, k]) =>
@@ -153,13 +179,17 @@ export function renderReportHtml(r: Report): string {
 <style>${CSS}</style>
 </head>
 <body>
-<main>
-  <header class="head"><b>${BUSINESS.name} diagnosis</b><span>${esc(r.handle)} on ${esc(r.platform)}, ${fmt(r.followers)} followers, ${esc(r.date)}</span></header>
+<main class="sheet">
+  <header>
+    <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 -300 8378.41 1629.41" role="img" aria-label="RUANGKOTAK"><g transform="scale(10.29)"><path fill="currentColor" d="M0 32H44V56H68V100H0Z"/><rect fill="currentColor" x="76" y="0" width="24" height="24"/></g><g transform="translate(1276.41 1029.41)"><path fill="currentColor" d="${WORDMARK_D}"/></g></svg>
+    <span class="tag">Diagnosis / ${esc(r.date)}</span>
+  </header>
   <div class="tabs" role="tablist" aria-label="Report sections">
     ${TABS.map(([name, k]) => `<button role="tab" id="t-${k}" data-k="${k}" aria-controls="p-${k}" aria-selected="false">${name}</button>`).join("")}
   </div>
   ${panels}
-  <footer><p class="tip">Need a PDF? Print this page and choose Save as PDF.</p>${BUSINESS.name} | ${BUSINESS.site} | ${BUSINESS.email}</footer>
+  <p class="tip">Need a PDF? Print this page and choose Save as PDF.</p>
+  <footer class="foot"><span>${BUSINESS.name} / ${BUSINESS.site} / ${BUSINESS.email}</span></footer>
 </main>
 <script>${SCRIPT}</script>
 </body>
