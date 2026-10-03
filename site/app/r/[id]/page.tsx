@@ -17,9 +17,14 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         <a href="/" aria-label="RUANGKOTAK home">
           <Logo className="h-[16px] w-auto" />
         </a>
-        <a href={`/r/${id}/pdf`} download className="btn-primary">
-          Download PDF
-        </a>
+        <div className="flex gap-2">
+          <a href={`/r/${id}/html`} download className="btn-primary">
+            Download HTML
+          </a>
+          <a href={`/r/${id}/pdf`} download className="btn-primary">
+            Download PDF
+          </a>
+        </div>
       </div>
       <MiniReport report={report} />
     </main>
