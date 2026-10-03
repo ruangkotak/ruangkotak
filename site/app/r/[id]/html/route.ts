@@ -7,7 +7,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const report = (await store.isUnlocked(id)) ? await store.getReport(id) : null;
   if (!report) return new Response("Not found", { status: 404 });
   const name = `ruangkotak-diagnosis-${report.handle.replace(/[^a-z0-9._-]/gi, "")}.html`;
-  return new Response(renderReportHtml(report), {
+  return new Response(await renderReportHtml(report), {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "content-disposition": `attachment; filename="${name}"`,

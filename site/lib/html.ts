@@ -1,6 +1,7 @@
 // The full report as one self-contained HTML file: inline CSS, covers embedded as data URIs, no external requests.
 // Tabs work with a few lines of inline script; without script every tab shows one after another. Server only.
 import { fmt, fmtX } from "./analyze";
+import { coverBytes } from "./covers";
 import { WORDMARK_D } from "../components/logo-paths";
 import { BUSINESS } from "./legal";
 import { cleanCaption } from "./tagger";
@@ -98,7 +99,15 @@ const PENDING: Record<string, string> = {
   strategy: "Your content restructured into clear pillars and named series you can repeat every week.",
 };
 
-export function renderReportHtml(r: Report): string {
+// Covers are stored in the report as data URIs; mock reports point at bundled /sample files instead. Both end up inline.
+async function inlineCover(src?: string): Promise<string | undefined> {
+  if (src?.startsWith("data:image/")) return src;
+  const bytes = await coverBytes(src);
+  return bytes ? `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}` : undefined;
+}
+
+export async function renderReportHtml(r: Report): Promise<string> {
+  const covers = await Promise.all(r.videos.map((v) => inlineCover(v.cover)));
   const max = Math.max(...r.pillars.map((p) => p.multiple), 1.5);
   const tone = (i: number) => (r.top.includes(i) ? "k" : r.bottom.includes(i) ? "b" : "");
 
@@ -106,7 +115,7 @@ export function renderReportHtml(r: Report): string {
     const v = r.videos[i];
     const t = good ? "k" : "b";
     const cap = cleanCaption(v.title) || "(no caption)";
-    const img = v.cover?.startsWith("data:image/") ? `<img class="thumb ${t}" alt="" src="${esc(v.cover)}">` : `<span class="thumb ${t}"></span>`;
+    const img = covers[i] ? `<img class="thumb ${t}" alt="" src="${esc(covers[i])}">` : `<span class="thumb ${t}"></span>`;
     return `<article class="vid">${img}<div><p class="meta ${t}">${fmt(v.views)} views / ${fmtX(r.multiples[i])}${v.date ? ` / posted ${esc(v.date)}` : ""}</p><p class="cap">${esc(cap.length > 130 ? `${cap.slice(0, 129).trimEnd()}...` : cap)}</p>${v.why ? `<p class="why">${esc(v.why)}</p>` : ""}</div></article>`;
   };
 
