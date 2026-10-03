@@ -21,6 +21,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           Download HTML
         </a>
       </div>
+      <p className="mb-6 text-[13px] text-muted">
+        Your report downloads as an HTML file, which opens in any browser. Need a PDF? Open the file, print it, and choose Save as PDF.
+      </p>
       <MiniReport report={report} />
     </main>
   );

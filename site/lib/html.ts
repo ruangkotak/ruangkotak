@@ -55,8 +55,9 @@ ul.then{margin:12px 0 0;padding-left:20px;font-size:13.5px;color:var(--muted)}
 .target{border:1.5px solid var(--ink);padding:12px;margin-top:16px;font-size:13.5px}.target b{display:block;font-size:12px;color:var(--muted);font-weight:600}
 .pending{border:1px dashed var(--line);background:var(--surface);padding:20px;color:var(--muted)}
 .pending p{margin:6px 0 0}
+footer .tip{margin:0 0 6px}
 footer{border-top:1px solid var(--line);margin-top:32px;padding-top:12px;font-size:12px;color:var(--muted)}
-@media print{body{background:#fff}.tabs{display:none}.js .panel[hidden]{display:block}.nojs-title{display:block!important;font-size:20px;font-weight:700;margin:24px 0 0}}
+@media print{.tip{display:none}body{background:#fff}.tabs{display:none}.js .panel[hidden]{display:block}.nojs-title{display:block!important;font-size:20px;font-weight:700;margin:24px 0 0}}
 `;
 
 const SCRIPT = `
@@ -158,7 +159,7 @@ export function renderReportHtml(r: Report): string {
     ${TABS.map(([name, k]) => `<button role="tab" id="t-${k}" data-k="${k}" aria-controls="p-${k}" aria-selected="false">${name}</button>`).join("")}
   </div>
   ${panels}
-  <footer>${BUSINESS.name} | ${BUSINESS.site} | ${BUSINESS.email}</footer>
+  <footer><p class="tip">Need a PDF? Print this page and choose Save as PDF.</p>${BUSINESS.name} | ${BUSINESS.site} | ${BUSINESS.email}</footer>
 </main>
 <script>${SCRIPT}</script>
 </body>
