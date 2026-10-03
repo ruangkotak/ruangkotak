@@ -17,7 +17,7 @@ const quote = (title: string, max = 70) => {
 };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const day = (iso?: string) => (iso ? `${Number(iso.slice(8, 10))} ${MONTHS[Number(iso.slice(5, 7)) - 1]}` : "");
-// 18 videos is a small sample: below this many supporting videos, a fix is framed as a test, not a rule.
+// 15 videos is a small sample: below this many supporting videos, a fix is framed as a test, not a rule.
 const SOLID = 5;
 const aOne = (plural: string) => {
   const s = plural.replace(/s$/, "");

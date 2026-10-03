@@ -8,8 +8,8 @@ import type { AccountData, Platform, Video } from "./types";
 
 export const MOCK = !process.env.APIFY_TOKEN;
 
-// The free mini-diagnosis reads only the newest 18 videos. Scrape no more than this, so the trial stays cheap and fast.
-export const TRIAL_VIDEOS = 18;
+// The free mini-diagnosis reads only the newest 15 videos. Scrape no more than this, so the trial stays cheap and fast.
+export const TRIAL_VIDEOS = 15;
 
 // Scraped videos (newest first) -> TypeSafe tags -> findings picked and filled by code.
 export async function buildAccount(meta: { handle: string; platform: string; followers: number }, scraped: Video[]): Promise<AccountData> {

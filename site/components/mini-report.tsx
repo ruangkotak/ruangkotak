@@ -77,7 +77,7 @@ export function MiniReport({ report: r, compact = false }: { report: Report; com
             ))}
           </div>
           <figcaption className="mt-2 text-xs text-muted">
-            One box, one video, newest at top left. Each number is views as a multiple of your usual. Solid boxes: the 3 best and 3 weakest.
+            One box, one video, newest at top left. Each number is views as a multiple of your usual. Solid boxes: the {r.top.length} best and {r.bottom.length} weakest.
           </figcaption>
         </figure>
       </section>

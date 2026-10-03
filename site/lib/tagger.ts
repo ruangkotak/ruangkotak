@@ -34,7 +34,7 @@ export type Tag = { type: ContentType; confidence: number; reason: number; serie
 
 const URL = "https://api.typesafe.ai/v1/systemone";
 // One request holds up to 20 captions (3 questions each), which stays inside the request token limit; the free trial's
-// 18 videos fit in one. Longer lists (full reports) are split and the chunks run in parallel.
+// 15 videos fit in one. Longer lists (full reports) are split and the chunks run in parallel.
 const CHUNK = 20;
 
 const CONTEXT =

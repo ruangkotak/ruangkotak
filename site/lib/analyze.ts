@@ -12,6 +12,9 @@ export const median = (arr: number[]) => {
 export const typical = (arr: number[]) => [...arr].sort((a, b) => a - b)[(arr.length - 1) >> 1];
 
 // Same maths as the mini-diagnosis HTML report, so the site and the report never disagree.
+// How many best and weakest videos the report shows. Capped at half the videos so the two lists never overlap.
+export const PICK = 6;
+
 export function analyze(id: string, data: AccountData, mock: boolean): Report {
   const views = data.videos.map((v) => v.views);
   const med = median(views);
@@ -26,6 +29,7 @@ export function analyze(id: string, data: AccountData, mock: boolean): Report {
   const order = views.map((_, i) => i).sort((a, b) => views[b] - views[a]);
   const winning = new Set(pillars.filter((p) => p.multiple >= 1).map((p) => p.name));
   const recent = data.videos.slice(0, 10);
+  const k = Math.min(PICK, Math.floor(views.length / 2));
 
   return {
     ...data,
@@ -33,8 +37,8 @@ export function analyze(id: string, data: AccountData, mock: boolean): Report {
     median: med,
     multiples,
     pillars,
-    top: order.slice(0, 3),
-    bottom: order.slice(-3).reverse(),
+    top: order.slice(0, k),
+    bottom: order.slice(-k).reverse(),
     fitRecent: { hits: recent.filter((v) => winning.has(v.pillar)).length, of: recent.length },
     mock,
   };

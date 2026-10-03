@@ -1,5 +1,5 @@
 // Cover thumbnails for the report and its PDF. Platform CDN links expire and Instagram blocks hotlinking, so the covers
-// the report shows (best and weakest 3) are downloaded once, right after the scrape, shrunk, and stored inside the report
+// the report shows (best and weakest 6) are downloaded once, right after the scrape, shrunk, and stored inside the report
 // as data URIs. Every other video drops its remote link. Best effort: a cover that fails to load just leaves a tinted box.
 // Server only.
 import { readFile } from "node:fs/promises";

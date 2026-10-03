@@ -140,7 +140,7 @@ export async function renderPdf(r: Report): Promise<Uint8Array> {
     page.drawText(label, { x: x + (cell - f.widthOfTextAtSize(label, 8.5)) / 2, y: top - cell / 2 - 3, size: 8.5, font: f, color: best || worst ? C.white : C.ink });
   });
   y -= rows * (cell + gap) + 2;
-  text("One box per video, newest at top left. Each number is views as a multiple of your usual. Green: the 3 best. Red: the 3 weakest.", { size: 8, color: C.muted });
+  text(`One box per video, newest at top left. Each number is views as a multiple of your usual. Green: the ${r.top.length} best. Red: the ${r.bottom.length} weakest.`, { size: 8, color: C.muted });
 
   // Content types
   heading("By content type");
