@@ -1,14 +1,11 @@
 # RUANGKOTAK
 
-RUANGKOTAK is a new marketing agency. This repo is a fresh start — what gets
-built here is still being decided.
+RUANGKOTAK is a marketing agency for creators. The website is the Next.js app
+in `site/`, hosted on Vercel at **https://ruangkotak.com**. Pushing to `main`
+deploys to production (Vercel Root Directory is `site`).
 
 ## Run
 
+    cd site
     npm install
-    npm start          # http://localhost:8123
-
-## Layout
-
-    server.mjs        static file server
-    public/index.html placeholder front end
+    npm run dev        # http://localhost:3100
