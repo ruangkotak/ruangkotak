@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Quicksand } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -17,13 +17,12 @@ export const viewport: Viewport = {
   ],
 };
 
-// Headings: Playfair Display (variable, 400 and up). UI and body: Quicksand (variable, 300-700).
-const playfair = Playfair_Display({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-playfair" });
-const quicksand = Quicksand({ subsets: ["latin"], variable: "--font-quicksand" });
+// One family everywhere: Inter (variable), the open-licence stand-in for SF Pro Display. Apple devices fall back to the real thing.
+const inter = Inter({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-inter" });
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${playfair.variable} ${quicksand.variable}`}>
+    <html lang="en" suppressHydrationWarning className={inter.variable}>
       <body className="font-sans text-[14px] leading-relaxed">
         <Providers>{children}</Providers>
       </body>
