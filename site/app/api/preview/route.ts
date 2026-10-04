@@ -19,6 +19,11 @@ export const maxDuration = 180;
 const PER_IP_PER_HOUR = 10;
 const SCRAPES_PER_DAY = 10;
 
+// The report email goes to whatever address was typed, so cap sends to stop the sender being used on strangers.
+// The creator still gets the on-page link when a send is skipped.
+const EMAILS_PER_ADDRESS_PER_DAY = 2;
+const EMAILS_PER_IP_PER_HOUR = 10;
+
 // The same body goes back for a blocked device and for a real failure, so the reason never leaks.
 const unavailable = () => Response.json({ ok: false }, { status: 200 });
 
@@ -96,14 +101,18 @@ export async function POST(req: Request) {
     for (const k of keys) await store.setDeviceHandle(k, `${platform}:${handle}`);
 
     const path = `/r/${id}`;
+    const addressHits = await store.hit(`mail:to:${lead.email}`, 86400);
+    const mailIpHits = await store.hit(`mail:ip:${ip}`, 3600);
+    const mailAllowed = addressHits <= EMAILS_PER_ADDRESS_PER_DAY && mailIpHits <= EMAILS_PER_IP_PER_HOUR;
     await Promise.all([
       notifyOwner("New lead: mini-diagnosis", [
         `Account: ${report.handle} (${report.platform})`,
         `Contact: ${who}`,
         `Follow-ups allowed: ${lead.marketing ? "yes" : "NO, send the report only"}`,
         `Report: ${path}`,
+        ...(mailAllowed ? [] : ["Report email skipped: send limit reached"]),
       ]),
-      sendReportLink(lead, report.handle, new URL(path, req.url).toString()),
+      mailAllowed ? sendReportLink(lead, report.handle, new URL(path, req.url).toString()) : Promise.resolve(),
     ]);
 
     jar.set("rk_dev", cookieId, { httpOnly: true, sameSite: "lax", secure: true, maxAge: 60 * 60 * 24 * 365, path: "/" });
