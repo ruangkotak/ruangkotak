@@ -68,14 +68,17 @@ export async function POST(req: Request) {
   for (const k of keys) {
     const prev = await store.deviceHandle(k);
     if (prev && prev !== `${platform}:${handle}`) {
-      await notifyOwner("Preview blocked: second account on one device", [
-        `First: ${prev}`,
-        `Tried: ${platform}:${handle}`,
-        `Contact: ${who}`,
-        `Device: ${k}`,
-        `IP: ${ip} (${country})`,
-        `Time: ${new Date().toISOString()}`,
-      ]);
+      // Retries would otherwise alert on every click, so tell the owner once per device per hour.
+      if ((await store.hit(`blocked:${k}`, 3600)) === 1) {
+        await notifyOwner("Preview blocked: second account on one device", [
+          `First: ${prev}`,
+          `Tried: ${platform}:${handle}`,
+          `Contact: ${who}`,
+          `Device: ${k}`,
+          `IP: ${ip} (${country})`,
+          `Time: ${new Date().toISOString()}`,
+        ]);
+      }
       return unavailable();
     }
   }
