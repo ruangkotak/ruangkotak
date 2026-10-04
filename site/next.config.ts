@@ -9,12 +9,30 @@ const config: NextConfig = {
     "/r/\\[id\\]/pdf": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
     "/api/preview": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
   },
-  // No page is meant to be framed. No CSP yet: Next and the theme provider inject inline scripts, so it needs nonces first.
+  // No page is meant to be framed.
   async headers() {
+    // Everything is first-party: next/font self-hosts Inter, report covers are data: URIs, the browser only calls /api.
+    // 'unsafe-inline' scripts are needed by Next's own inline bootstrap and the theme provider; a nonce would force every page
+    // to render per request, so it is left out. This still blocks other origins, framing, plugins, and form posts elsewhere.
+    const dev = process.env.NODE_ENV === "development";
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${dev ? " 'unsafe-eval'" : ""}`,
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self'",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      ...(dev ? [] : ["upgrade-insecure-requests"]),
+    ].join("; ");
     return [
       {
         source: "/:path*",
         headers: [
+          { key: "Content-Security-Policy", value: csp },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
