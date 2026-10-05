@@ -198,7 +198,7 @@ export function PreviewFlow() {
           className={`mt-2 text-sm ${error ? "text-bad" : soon ? "font-medium text-good" : "text-muted"}`}
           role={error ? "alert" : soon ? "status" : undefined}
         >
-          {error || (soon ? "Work in progress: free previews open soon." : "Public videos only. No password, no login.")}
+          {error || (soon ? "Work in progress: the free diagnosis opens soon." : "Public videos only. No password, no login.")}
         </p>
       </form>
 
@@ -385,7 +385,7 @@ function DetailsForm({
 function Unavailable({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alert">
-      <h2 className="text-3xl">Preview unavailable right now</h2>
+      <h2 className="text-3xl">Diagnosis unavailable right now</h2>
       <p className="mt-2 text-muted">We couldn't finish it just now. We have your details and will email you once it's ready.</p>
       <button onClick={onClose} className="btn-ghost mt-6">
         Close

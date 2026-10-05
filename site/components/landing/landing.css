@@ -109,7 +109,7 @@ nav .btn{height:34px;padding:0 14px;font-size:13px}
 @media (max-width:820px){.cap{left:16px;right:16px;bottom:22px;width:auto;opacity:0}html.rm .cap{opacity:1}.cap p{font-size:21px}.tally,.scrollhint{display:none}}
 
 /* ---------- sections ---------- */
-section.blk{padding:140px 0}
+section.blk{padding:clamp(72px,8vw,112px) 0}
 .head{max-width:760px}
 .head h2{font-size:clamp(40px,6.2vw,80px);line-height:.98;margin-top:20px}
 .head p{color:var(--lichen);max-width:52ch;margin-top:20px}
@@ -126,7 +126,7 @@ section.blk{padding:140px 0}
 .scap{position:relative;height:84px;width:min(380px,44vw)}
 .scap p{position:absolute;inset:0;color:var(--lichen);opacity:0;font-size:14px}
 .scap p b{color:var(--ink);font-weight:500}
-#field{position:absolute;left:50%;transform:translateX(-50%);top:240px;bottom:64px}
+#field{position:absolute;left:50%;transform:translateX(-50%);top:200px;bottom:56px}
 .bx{position:absolute;left:0;top:0;border:1px solid var(--olive);background:var(--paper);will-change:transform}
 .collab{position:absolute;font-size:12px;text-align:center;opacity:0;white-space:nowrap}
 .collab small{display:block;color:var(--sage);font-size:11px}
@@ -255,7 +255,7 @@ section.blk{padding:140px 0}
 }
 
 /* ladder */
-.ladder{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:84px;position:relative}
+.ladder{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;margin-top:64px;position:relative}
 .rung{border:1px solid var(--ash);border-radius:8px;background:var(--paper);padding:26px;display:flex;flex-direction:column;gap:18px;min-height:380px;position:relative;transition:border-color .4s}
 .rung:hover{border-color:var(--ink)}
 .rung .n{font:400 80px/.8 var(--serif);letter-spacing:-.03em}
@@ -289,7 +289,7 @@ section.blk{padding:140px 0}
 .q .a p{padding:0 0 26px;max-width:60ch;color:var(--lichen)}
 
 /* cta */
-#start{padding:160px 0 140px;text-align:center;position:relative;overflow:hidden}
+#start{padding:clamp(88px,10vw,136px) 0 clamp(80px,9vw,120px);text-align:center;position:relative;overflow:hidden}
 #start h2{font-size:clamp(56px,11vw,168px);line-height:.88}
 #start p{color:var(--lichen);max-width:44ch;margin:26px auto 0}
 #start .hero-cta{margin-top:34px}
@@ -332,3 +332,26 @@ html.lenis{scroll-behavior:auto}
 
 /* monthly application (components/apply-form.tsx) sits between the offer and the FAQ */
 #monthly{border-top:1px solid var(--ash)}
+
+/* caption check (components/caption-check.tsx): live TypeSafe read of one caption, sits after the sort scene */
+#try{border-top:1px solid var(--ash)}
+.try{display:grid;grid-template-columns:1fr 1.15fr;gap:clamp(32px,6vw,88px);align-items:start}
+.try h2{font-size:clamp(36px,5vw,64px);line-height:.98;margin-top:18px}
+.try>div>p{color:var(--lichen);max-width:46ch;margin-top:18px}
+.try-card{border:1px solid var(--ash);border-radius:8px;background:var(--paper);padding:22px;display:flex;flex-direction:column;gap:14px}
+.try-lbl{font:500 12px var(--mono);text-transform:uppercase;color:var(--lichen)}
+.try-card textarea{width:100%;resize:none;border:1px solid var(--ink);border-radius:3px;padding:12px;background:var(--vellum);font:400 16px/1.4 var(--mono);outline:0}
+.try-card textarea:focus{outline:2px solid var(--ink);outline-offset:2px}
+.try-ex{display:flex;flex-wrap:wrap;gap:6px}
+.try-ex button{border:1px solid var(--ash);background:var(--vellum);border-radius:3px;padding:5px 9px;font-size:12px;color:var(--olive);cursor:pointer;text-align:left;transition:border-color .3s}
+.try-ex button:hover:not(:disabled){border-color:var(--ink)}
+.try-card .btn{align-self:flex-start}
+.try-card .btn:disabled,.try-ex button:disabled{opacity:.55;cursor:default}
+.try-out{min-height:212px;border-top:1px solid var(--ash);padding-top:16px;display:grid;gap:16px;align-content:start}
+.try-row small{display:block;font-size:12px;color:var(--lichen)}
+.try-row b{display:block;font-size:34px;line-height:1.05;margin-top:4px}
+.try-row p,.try-hint{font-size:13px;color:var(--lichen);margin-top:6px}
+.try-meter{height:8px;border:1px solid var(--ash);margin-top:8px;position:relative}
+.try-meter i{position:absolute;left:0;top:0;bottom:0;background:var(--ash);transition:width .8s var(--ease)}
+.try-meter i.y{background:var(--carbon)}
+@media (max-width:820px){.try{grid-template-columns:1fr}.try-out{min-height:252px}}

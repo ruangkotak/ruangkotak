@@ -158,9 +158,9 @@ function placeCube() {
 function unboxScroll() {
   placeCube();
   if (RM) return;
-  const net = Math.min((innerWidth * .9) / (4 * S()), (innerHeight * .6) / (3 * S()), 1.4);
+  const net = Math.min((innerWidth * .9) / (4 * S()), (innerHeight * .64) / (3 * S()), 1.6);
   const caps = $$('.cap p'), up = mobile() ? -innerHeight * .08 : -innerHeight * .03;
-  const tl = gsap.timeline({ scrollTrigger: { trigger: '#unbox', start: 'top top', end: '+=260%', pin: true, scrub: 1 } });
+  const tl = gsap.timeline({ scrollTrigger: { trigger: '#unbox', start: 'top top', end: '+=180%', pin: true, scrub: 1 } });
   tl.to('.hero-txt', { y: -140, opacity: 0, duration: .5, ease: 'power2.in' }, 0)
     .to('.hero-bars, .hero-meta', { opacity: 0, duration: .3 }, 0)
     .to(C, { y: up, sc: 1.15, duration: .7, ease: 'power2.inOut' }, 0)
@@ -178,7 +178,8 @@ function unboxScroll() {
 }
 
 /* ---------- sort field: 100 boxes, scatter → timeline → content-type columns ---------- */
-const TYPES = [['How-to', 19, 14], ['Review', 28, 7], ['Vlog', 22, 6], ['Unboxing', 17, 5], ['Talking head', 14, 4]];
+// Labels match the content types the TypeSafe tagger assigns in real reports (lib/tagger.ts).
+const TYPES = [['How-to', 19, 14], ['Verdicts', 28, 7], ['Vlogs', 22, 6], ['First looks', 17, 5], ['Lists', 14, 4]];
 const field = $('#field'), boxes = [];
 const seq = [];
 TYPES.forEach(([, c, b], ti) => { for (let i = 0; i < c; i++) seq.push({ ti, beat: i < b }); });
@@ -188,7 +189,7 @@ const labels = TYPES.map(([n, c]) => { const l = document.createElement('div'); 
 function buildSort() {
   const sec = $('#sort'), topB = $('#sort .top').getBoundingClientRect().bottom - sec.getBoundingClientRect().top;
   field.style.top = (topB + (mobile() ? 20 : 36)) + 'px';
-  const W = Math.min(innerWidth - 32, mobile() ? 1100 : innerWidth - 420, 1000), H = field.clientHeight;
+  const W = Math.min(innerWidth - (mobile() ? 32 : 96), 1240), H = field.clientHeight;
   field.style.width = W + 'px';
   const g = mobile() ? 3 : 5, cols = mobile() ? 10 : 20, rows = 100 / cols;
   const sub = mobile() ? 3 : 4, cg = mobile() ? 8 : 36, colW = (W - cg * 4) / 5;
@@ -214,7 +215,7 @@ function buildSort() {
   }
   boxes.forEach(el => gsap.set(el, { ...el.S, background: '#fff', borderColor: '#57584b', opacity: 1 }));
   gsap.set(scaps, { opacity: 0 }); gsap.set(scaps[0], { opacity: 1 });
-  gsap.timeline({ scrollTrigger: { trigger: '#sort', start: 'top top', end: '+=420%', pin: true, scrub: 1 } })
+  gsap.timeline({ scrollTrigger: { trigger: '#sort', start: 'top top', end: '+=280%', pin: true, scrub: 1 } })
     .to(boxes, { x: (i, el) => el.S.x + (el._x - .5) * 60, y: (i, el) => el.S.y + (el._y - .5) * 60, rotation: (i, el) => el.S.rotation * 1.4, duration: 1, ease: 'none' })
     .to(boxes, { x: (i, el) => el.G.x, y: (i, el) => el.G.y, rotation: 0, scale: 1, duration: 1.4, ease: 'power3.inOut', stagger: { each: .008, from: 'random' } })
     .to(scaps[0], { opacity: 0, duration: .2 }, '<').to(scaps[1], { opacity: 1, duration: .3 }, '<+.1')
@@ -369,7 +370,7 @@ $$('[data-form]').forEach(f => f.addEventListener('submit', e => {
     say(lastMsg, 'Enter a handle like yourname, without spaces.', true); return;
   }
   say(lastMsg, '');
-  if (!hooks.start(p, v)) say(lastMsg, 'Work in progress: free previews open soon.');
+  if (!hooks.start(p, v)) say(lastMsg, 'Work in progress: the free diagnosis opens soon.');
 }));
 
 /* ---------- footer wordmark ---------- */
