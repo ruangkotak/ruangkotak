@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { ApplyForm } from "@/components/apply-form";
+import { CaptionCheck } from "@/components/caption-check";
 import { usePreviewSheet } from "@/components/preview-flow";
 import { initLanding, type LandingHooks } from "./init";
-import { FOOT, MAIN_A, MAIN_B, TOP } from "./markup";
+import { FOOT, MAIN_A, MAIN_B, MAIN_M, TOP } from "./markup";
 import "./landing.css";
 
-const CHUNKS = [TOP, MAIN_A, MAIN_B, FOOT];
+const CHUNKS = [TOP, MAIN_A, MAIN_M, MAIN_B, FOOT];
 
 export function Landing() {
   const root = useRef<HTMLDivElement>(null);
@@ -35,10 +36,12 @@ export function Landing() {
       {chunk(0)}
       <main id="top">
         {chunk(1)}
-        <ApplyForm />
+        <CaptionCheck />
         {chunk(2)}
+        <ApplyForm />
+        {chunk(3)}
       </main>
-      {chunk(3)}
+      {chunk(4)}
       {sheet}
     </div>
   );

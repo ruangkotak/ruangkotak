@@ -26,7 +26,7 @@ export function ApplyForm() {
   }
 
   return (
-    <section id="monthly" className="mx-auto max-w-[1240px] px-4 py-24 md:px-8 md:py-32">
+    <section id="monthly" className="mx-auto max-w-[1240px] px-4 py-16 md:px-8 md:py-24">
       <div className="grid gap-12 md:grid-cols-[1fr_1.2fr] md:gap-20">
         <div>
           <p className="eyebrow">Monthly</p>
