@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>SPACE STACK | RUANGKOTAK</title>
 <style>
   :root { --bg:#111; --fg:#f4f1ea; --muted:#8b8780; --accent:#ffd23f; --panel:#1b1b1b; }
@@ -25,6 +25,17 @@
   .back { color:var(--muted); font-size:13px; }
   .back:hover { color:var(--fg); }
   .help { font-size:12px; color:var(--muted); text-align:center; }
+  .pad { display:none; grid-template-columns:repeat(5,1fr); gap:8px; width:100%; max-width:380px; }
+  .pad button { padding:0; height:56px; font-size:22px; font-weight:700; touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+  .pad button[data-act=drop] { font-size:12px; letter-spacing:.06em; }
+  .pad button:active { background:var(--accent); color:#111; }
+  @media (pointer:coarse), (max-width:520px) {
+    .pad { display:grid; }
+    .help { display:none; }
+    html, body { touch-action:manipulation; overscroll-behavior:none; }
+    body { gap:10px; padding:10px; justify-content:flex-start; }
+    #board { height:50vh; width:auto; }
+  }
   @media (max-width:520px){ .game{flex-direction:column;align-items:center;} .side{width:auto;flex-direction:row;flex-wrap:wrap;justify-content:center;} }
 </style>
 </head>
@@ -41,6 +52,13 @@
     <div class="box"><div class="label">Next</div><canvas id="next" width="120" height="80"></canvas></div>
     <button id="restart">Restart</button>
   </div>
+</div>
+<div class="pad" id="pad" aria-label="Touch controls">
+  <button data-act="left" aria-label="Move left">←</button>
+  <button data-act="rotate" aria-label="Rotate">↻</button>
+  <button data-act="right" aria-label="Move right">→</button>
+  <button data-act="down" aria-label="Soft drop">↓</button>
+  <button data-act="drop" aria-label="Hard drop">DROP</button>
 </div>
 <div class="help">← → move · ↑ rotate · ↓ soft drop · Space hard drop · P pause</div>
 
@@ -133,7 +151,7 @@ function draw() {
     ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.fillStyle = '#f4f1ea'; ctx.textAlign = 'center'; ctx.font = '700 24px system-ui';
     ctx.fillText(over ? 'Game over' : 'Paused', cv.width / 2, cv.height / 2 - 4);
-    ctx.font = '14px system-ui'; ctx.fillText(over ? 'Press Restart or Enter' : 'Press P to continue', cv.width / 2, cv.height / 2 + 22);
+    ctx.font = '14px system-ui'; ctx.fillText(over ? 'Tap or press Enter to restart' : 'Press P to continue', cv.width / 2, cv.height / 2 + 22);
   }
   document.getElementById('score').textContent = score;
   document.getElementById('lines').textContent = lines;
@@ -155,18 +173,35 @@ function reset() {
   document.getElementById('banner').textContent = TIERS[0].msg;
   spawn();
 }
+function act(a) {
+  if (over || paused) return;
+  if (a === 'left' && !collide(cur.m, cur.x - 1, cur.y)) cur.x--;
+  else if (a === 'right' && !collide(cur.m, cur.x + 1, cur.y)) cur.x++;
+  else if (a === 'down') { drop(); score += 1; }
+  else if (a === 'rotate') tryRotate();
+  else if (a === 'drop') hardDrop();
+}
+const KEYS = { ArrowLeft:'left', ArrowRight:'right', ArrowDown:'down', ArrowUp:'rotate', ' ':'drop' };
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && over) return reset();
   if (e.key === 'p' || e.key === 'P') { paused = !paused; return; }
-  if (over || paused) return;
-  const k = e.key;
-  if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(k)) e.preventDefault();
-  if (k === 'ArrowLeft' && !collide(cur.m, cur.x - 1, cur.y)) cur.x--;
-  else if (k === 'ArrowRight' && !collide(cur.m, cur.x + 1, cur.y)) cur.x++;
-  else if (k === 'ArrowDown') { drop(); score += 1; }
-  else if (k === 'ArrowUp') tryRotate();
-  else if (k === ' ') hardDrop();
+  if (KEYS[e.key]) { e.preventDefault(); act(KEYS[e.key]); }
 });
+// Touch pad: tap acts once; holding left, right or down repeats.
+let holdDelay, holdTick;
+function stopHold() { clearTimeout(holdDelay); clearInterval(holdTick); }
+document.querySelectorAll('#pad button').forEach(b => {
+  const a = b.dataset.act;
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (over) return reset();
+    act(a); stopHold();
+    if (a === 'left' || a === 'right' || a === 'down') holdDelay = setTimeout(() => { holdTick = setInterval(() => act(a), 90); }, 250);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, stopHold));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+document.getElementById('board').addEventListener('pointerdown', () => { if (over) reset(); });
 document.getElementById('restart').addEventListener('click', reset);
 reset(); last = performance.now(); requestAnimationFrame(loop);
 </script>
