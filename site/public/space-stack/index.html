@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPACE STACK | RUANGKOTAK</title>
+<meta name="robots" content="noindex">
+<style>
+  :root { --bg:#111; --fg:#f4f1ea; --muted:#8b8780; --accent:#ffd23f; --panel:#1b1b1b; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui,sans-serif; }
+  h1 { margin:0; font-size:20px; letter-spacing:.12em; text-transform:uppercase; }
+  h1 span { color:var(--accent); }
+  .game { display:flex; gap:16px; align-items:flex-start; }
+  canvas { background:var(--panel); border:2px solid #333; border-radius:6px; }
+  .side { width:150px; display:flex; flex-direction:column; gap:12px; }
+  .box { background:var(--panel); border:1px solid #333; border-radius:6px; padding:10px; }
+  .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.1em; }
+  .val { font-size:22px; font-weight:700; }
+  .tier { color:var(--accent); }
+  #banner { min-height:44px; max-width:420px; text-align:center; padding:10px 14px; border-radius:6px; background:var(--panel); border:1px solid #333; font-size:14px; transition:border-color .3s; }
+  #banner.up { border-color:var(--accent); }
+  button { font:inherit; padding:8px 14px; border-radius:6px; border:1px solid #444; background:#222; color:var(--fg); cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .notice { max-width:420px; text-align:center; font-size:13px; color:var(--accent); }
+  .back { color:var(--muted); font-size:13px; }
+  .back:hover { color:var(--fg); }
+  .help { font-size:12px; color:var(--muted); text-align:center; }
+  @media (max-width:520px){ .game{flex-direction:column;align-items:center;} .side{width:auto;flex-direction:row;flex-wrap:wrap;justify-content:center;} }
+</style>
+</head>
+<body>
+<h1>Space <span>Stack</span></h1>
+<div class="notice">RUANGKOTAK is in the middle of an upgrade. While we finish, play SPACE STACK.</div>
+<div id="banner">Clear lines to level up and unlock upgrades.</div>
+<div class="game">
+  <canvas id="board" width="240" height="480"></canvas>
+  <div class="side">
+    <div class="box"><div class="label">Score</div><div class="val" id="score">0</div></div>
+    <div class="box"><div class="label">Lines</div><div class="val" id="lines">0</div></div>
+    <div class="box"><div class="label">Level</div><div class="val tier" id="tier">1</div></div>
+    <div class="box"><div class="label">Next</div><canvas id="next" width="120" height="80"></canvas></div>
+    <button id="restart">Restart</button>
+  </div>
+</div>
+<a class="back" href="/">← Back to ruangkotak.com</a>
+<div class="help">← → move · ↑ rotate · ↓ soft drop · Space hard drop · P pause</div>
+
+<script>
+const COLS = 10, ROWS = 20, S = 24;
+const cv = document.getElementById('board'), ctx = cv.getContext('2d');
+const nx = document.getElementById('next'), nctx = nx.getContext('2d');
+const COLORS = { I:'#4cc9f0', O:'#ffd23f', T:'#b388eb', S:'#80ed99', Z:'#ef476f', J:'#4895ef', L:'#ff9f1c' };
+const SHAPES = {
+  I:[[1,1,1,1]], O:[[1,1],[1,1]], T:[[0,1,0],[1,1,1]],
+  S:[[0,1,1],[1,1,0]], Z:[[1,1,0],[0,1,1]], J:[[1,0,0],[1,1,1]], L:[[0,0,1],[1,1,1]]
+};
+// Each level is an upgrade: more lines cleared unlocks the next one and speeds the game up.
+const TIERS = [
+  { name:'1', at:0,  msg:'Level 1: clear 5 lines to upgrade.' },
+  { name:'2', at:5,  msg:'Upgrade! Level 2: ghost piece on, so you can plan ahead.' },
+  { name:'3', at:12, msg:'Upgrade! Level 3: faster drops and triple points.' }
+];
+
+let grid, cur, nextType, score, lines, tierIdx, dropMs, last, acc, over, paused, bag = [];
+
+function nextFromBag() {
+  if (!bag.length) { bag = Object.keys(SHAPES); for (let i = bag.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; } }
+  return bag.pop();
+}
+function spawn() {
+  const t = nextType || nextFromBag();
+  nextType = nextFromBag();
+  const m = SHAPES[t].map(r => r.slice());
+  cur = { t, m, x: (COLS - m[0].length) / 2 | 0, y: 0 };
+  if (collide(cur.m, cur.x, cur.y)) over = true;
+  drawNext();
+}
+function collide(m, x, y) {
+  for (let r = 0; r < m.length; r++) for (let c = 0; c < m[r].length; c++) {
+    if (!m[r][c]) continue;
+    const gx = x + c, gy = y + r;
+    if (gx < 0 || gx >= COLS || gy >= ROWS) return true;
+    if (gy >= 0 && grid[gy][gx]) return true;
+  }
+  return false;
+}
+function rotate(m) { return m[0].map((_, c) => m.map(r => r[c]).reverse()); }
+function tryRotate() {
+  const m = rotate(cur.m);
+  for (const k of [0, -1, 1, -2, 2]) if (!collide(m, cur.x + k, cur.y)) { cur.m = m; cur.x += k; return; }
+}
+function lock() {
+  cur.m.forEach((row, r) => row.forEach((v, c) => { if (v && cur.y + r >= 0) grid[cur.y + r][cur.x + c] = cur.t; }));
+  let cleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) if (grid[r].every(Boolean)) { grid.splice(r, 1); grid.unshift(Array(COLS).fill(null)); cleared++; r++; }
+  if (cleared) {
+    lines += cleared;
+    score += [0, 100, 300, 500, 800][cleared] * (tierIdx + 1);
+    checkUpgrade();
+  }
+  spawn();
+}
+function checkUpgrade() {
+  let idx = 0;
+  TIERS.forEach((t, i) => { if (lines >= t.at) idx = i; });
+  if (idx > tierIdx) {
+    tierIdx = idx;
+    dropMs = Math.max(120, 700 - idx * 220);
+    const b = document.getElementById('banner');
+    b.textContent = TIERS[idx].msg; b.classList.add('up');
+    setTimeout(() => b.classList.remove('up'), 2500);
+  }
+}
+function drop() { if (!collide(cur.m, cur.x, cur.y + 1)) cur.y++; else lock(); }
+function hardDrop() { while (!collide(cur.m, cur.x, cur.y + 1)) { cur.y++; score += 2; } lock(); }
+
+function cell(g, x, y, color, a = 1) {
+  g.globalAlpha = a; g.fillStyle = color; g.fillRect(x * S + 1, y * S + 1, S - 2, S - 2); g.globalAlpha = 1;
+}
+function draw() {
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.strokeStyle = '#242424'; ctx.lineWidth = 1;
+  for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(x * S, 0); ctx.lineTo(x * S, cv.height); ctx.stroke(); }
+  for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * S); ctx.lineTo(cv.width, y * S); ctx.stroke(); }
+  grid.forEach((row, y) => row.forEach((t, x) => { if (t) cell(ctx, x, y, COLORS[t]); }));
+  if (!over) {
+    if (tierIdx >= 1) { // ghost piece is the level-2 upgrade
+      let gy = cur.y; while (!collide(cur.m, cur.x, gy + 1)) gy++;
+      cur.m.forEach((row, r) => row.forEach((v, c) => { if (v) cell(ctx, cur.x + c, gy + r, COLORS[cur.t], .2); }));
+    }
+    cur.m.forEach((row, r) => row.forEach((v, c) => { if (v) cell(ctx, cur.x + c, cur.y + r, COLORS[cur.t]); }));
+  }
+  if (over || paused) {
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.fillStyle = '#f4f1ea'; ctx.textAlign = 'center'; ctx.font = '700 24px system-ui';
+    ctx.fillText(over ? 'Game over' : 'Paused', cv.width / 2, cv.height / 2 - 4);
+    ctx.font = '14px system-ui'; ctx.fillText(over ? 'Press Restart or Enter' : 'Press P to continue', cv.width / 2, cv.height / 2 + 22);
+  }
+  document.getElementById('score').textContent = score;
+  document.getElementById('lines').textContent = lines;
+  document.getElementById('tier').textContent = TIERS[tierIdx].name;
+}
+function drawNext() {
+  nctx.clearRect(0, 0, nx.width, nx.height);
+  const m = SHAPES[nextType], ox = (nx.width - m[0].length * S) / 2, oy = (nx.height - m.length * S) / 2;
+  m.forEach((row, r) => row.forEach((v, c) => { if (v) { nctx.fillStyle = COLORS[nextType]; nctx.fillRect(ox + c * S + 1, oy + r * S + 1, S - 2, S - 2); } }));
+}
+function loop(t) {
+  const dt = t - last; last = t;
+  if (!over && !paused) { acc += dt; if (acc > dropMs) { acc = 0; drop(); } }
+  draw(); requestAnimationFrame(loop);
+}
+function reset() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  score = 0; lines = 0; tierIdx = 0; dropMs = 700; acc = 0; over = false; paused = false; nextType = null; bag = [];
+  document.getElementById('banner').textContent = TIERS[0].msg;
+  spawn();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && over) return reset();
+  if (e.key === 'p' || e.key === 'P') { paused = !paused; return; }
+  if (over || paused) return;
+  const k = e.key;
+  if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' '].includes(k)) e.preventDefault();
+  if (k === 'ArrowLeft' && !collide(cur.m, cur.x - 1, cur.y)) cur.x--;
+  else if (k === 'ArrowRight' && !collide(cur.m, cur.x + 1, cur.y)) cur.x++;
+  else if (k === 'ArrowDown') { drop(); score += 1; }
+  else if (k === 'ArrowUp') tryRotate();
+  else if (k === ' ') hardDrop();
+});
+document.getElementById('restart').addEventListener('click', reset);
+reset(); last = performance.now(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

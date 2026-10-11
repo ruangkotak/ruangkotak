@@ -9,6 +9,10 @@ const config: NextConfig = {
     "/r/\\[id\\]/pdf": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
     "/api/preview": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
   },
+  // SPACE STACK is a static page in public/space-stack.
+  async rewrites() {
+    return [{ source: "/space-stack", destination: "/space-stack/index.html" }];
+  },
   // No page is meant to be framed.
   async headers() {
     // Everything is first-party: next/font self-hosts Inter, report covers are data: URIs, the browser only calls /api.
