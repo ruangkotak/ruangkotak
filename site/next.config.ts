@@ -9,15 +9,9 @@ const config: NextConfig = {
     "/r/\\[id\\]/pdf": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
     "/api/preview": ["./lib/fonts/*.ttf", "./public/sample/*.jpg"],
   },
-  // SPACE STACK is a static page in public/space-stack. While the main site is hidden for the upgrade, "/" shows it too.
-  // To bring the landing page back, delete the "/" line below; app/page.tsx is untouched.
+  // SPACE STACK is a static page in public/space-stack.
   async rewrites() {
-    return {
-      beforeFiles: [
-        { source: "/", destination: "/space-stack/index.html" },
-        { source: "/space-stack", destination: "/space-stack/index.html" },
-      ],
-    };
+    return [{ source: "/space-stack", destination: "/space-stack/index.html" }];
   },
   // No page is meant to be framed.
   async headers() {
