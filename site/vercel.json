@@ -3,7 +3,11 @@
   "regions": ["sin1"],
   "headers": [
     {
-      "source": "/((?!api/|_next/|r/|space-stack|.*\\..*).*)",
+      "source": "/",
+      "headers": [{ "key": "Vary", "value": "Accept" }]
+    },
+    {
+      "source": "/(about|contact|privacy)",
       "headers": [{ "key": "Vary", "value": "Accept" }]
     }
   ]
