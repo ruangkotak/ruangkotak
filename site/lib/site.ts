@@ -9,6 +9,22 @@ export const SITE_DESCRIPTION =
 
 export type PageSpec = { path: string; title: string; markdown: string };
 
+// Word for word what the home page shows (components/landing/markup.ts); tests/jsonld.test.ts fails if they drift apart.
+export const FAQ: [string, string][] = [
+  ["Do you need my password?", "No. We only read public videos: views, captions and dates. Nothing needs your password, and we never post anything."],
+  ["Will you translate my captions?", "Never. Your captions, titles and series names stay exactly as you wrote them, in Malay or any other language. The report around them is in English."],
+  ["Is it really free?", "Yes. The mini diagnosis is free. We ask for your name and email so we can send you a copy. Monthly is quoted after a short application, based on your account and goals."],
+  ["Who checks the report?", "Software does the reading. A person reviews every full report before it reaches you."],
+  ["Which niches do you cover?", "Any niche. The method compares your videos against your own usual, so it works for food, tech, beauty, comedy or anything else."],
+];
+
+export const STEPS: [string, string][] = [
+  ["Pull", "We pull your recent public videos with their views, captions and dates. Nothing needs your password."],
+  ["Sort", "Each caption is read for what the video does for the viewer, and whether it gives a reason to keep watching. So you see which kinds your audience actually watches."],
+  ["Compare", "Your top and bottom videos side by side, in your own words, so the pattern is plain to see."],
+  ["Fix", "One clear change to start with, and a 30-day target you can check yourself."],
+];
+
 const EMAIL = "hello@ruangkotak.com";
 const REG = "003713495-X";
 
@@ -75,10 +91,7 @@ Every video is a box. We read what's inside. Enter your TikTok or Instagram hand
 
 ## How the diagnosis works
 
-1. **Pull.** We pull your recent public videos with their views, captions and dates. Nothing needs your password.
-2. **Sort.** Each caption is read for what the video does for the viewer, so you see which content types your audience actually watches.
-3. **Compare.** Your top and bottom videos side by side, in your own words, so the pattern is plain to see.
-4. **Fix.** One clear change to start with, and a 30-day target you can check yourself.
+${STEPS.map(([h, t], i) => `${i + 1}. **${h}.** ${t}`).join("\n")}
 
 ## Free and monthly
 
@@ -92,15 +105,7 @@ Starts with the full report, then we re-check your account every month and adjus
 
 ## Questions
 
-**Do you need my password?** No. We only read public videos: views, captions and dates. We never post anything.
-
-**Will you translate my captions?** Never. Captions, titles and series names stay exactly as you wrote them, in Malay or any other language. The report around them is in English.
-
-**Is it really free?** Yes. The mini diagnosis is free. Monthly is quoted after a short application, based on your account and goals.
-
-**Who checks the report?** The numbers are calculated from your data. The mini-diagnosis findings are written with AI. A person reviews every monthly report before it reaches you.
-
-**Which niches do you cover?** Any niche. Your videos are compared against your own usual, so it works for food, tech, beauty, comedy or anything else.
+${FAQ.map(([q, x]) => `**${q}** ${x}`).join("\n\n")}
 
 ## Start
 
@@ -210,6 +215,19 @@ export function homeJsonLd() {
         description: SITE_DESCRIPTION,
         inLanguage: "en",
         publisher: { "@id": ORGANIZATION_ID },
+      },
+      {
+        "@type": "HowTo",
+        "@id": `${SITE}/#how`,
+        name: "How a RUANGKOTAK account diagnosis works",
+        description: "Four steps from a public TikTok or Instagram handle to one clear fix. No password needed.",
+        step: STEPS.map(([name, text], i) => ({ "@type": "HowToStep", position: i + 1, name, text, url: `${SITE}/#method` })),
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${SITE}/#faq`,
+        url: SITE,
+        mainEntity: FAQ.map(([name, text]) => ({ "@type": "Question", name, acceptedAnswer: { "@type": "Answer", text } })),
       },
       {
         "@type": "Service",
