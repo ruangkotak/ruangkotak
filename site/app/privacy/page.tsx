@@ -5,6 +5,7 @@ import { BUSINESS, NOTICE_VERSION } from "@/lib/legal";
 export const metadata = {
   title: "Privacy Notice | Notis Privasi | RUANGKOTAK",
   description: "How RUANGKOTAK collects, uses and protects your personal data under the Personal Data Protection Act 2010.",
+  alternates: { canonical: "/privacy" },
 };
 
 // Written notice under PDPA 2010 s7 (Notice and Choice), in both English and Bahasa Melayu as s7(3) requires.

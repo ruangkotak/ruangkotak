@@ -44,6 +44,8 @@ const config: NextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
         ],
       },
+      // Pages answer Accept: text/markdown with Markdown (see proxy.ts), so caches must key on Accept.
+      { source: "/((?!api/|_next/|r/|space-stack|.*\\..*).*)", headers: [{ key: "Vary", value: "Accept" }] },
     ];
   },
 };

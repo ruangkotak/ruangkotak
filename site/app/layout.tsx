@@ -1,13 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { SITE, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE } from "@/lib/site";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "RUANGKOTAK | Account diagnosis for creators",
-  description:
-    "Enter your TikTok or Instagram handle and see which of your videos work, which sink, and the one thing to fix first.",
+  metadataBase: new URL(SITE),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   icons: { icon: "/brand/icon.svg" },
+  openGraph: { type: "website", siteName: SITE_NAME, title: SITE_TITLE, description: SITE_DESCRIPTION, locale: "en_MY" },
+  twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
 };
 
 export const viewport: Viewport = {
