@@ -2,7 +2,7 @@ import { Plus } from "@phosphor-icons/react/dist/ssr";
 
 const QA = [
   ["Do you need my password?", "No. We only read what is public on your profile: videos, captions, views and dates."],
-  ["Which accounts can you check?", "Public TikTok and Instagram accounts. Private accounts cannot be read."],
+  ["Which accounts can you check?", "Public Instagram and TikTok accounts. Private accounts cannot be read."],
   ["Why are my captions not translated?", "Because they are yours. The report keeps your exact words, so you can find every video it talks about."],
   ["How much is monthly?", "It depends on your account and goals. Apply and you get a quote, with no obligation."],
   [

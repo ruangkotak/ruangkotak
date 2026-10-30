@@ -6,7 +6,7 @@ export function Footer() {
     <footer className="border-t border-line">
       <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 py-12 text-sm text-muted md:flex-row md:items-baseline md:justify-between md:gap-8 md:px-8">
         <p>
-          Account diagnosis for TikTok and Instagram creators in Malaysia.
+          Account diagnosis for Instagram and TikTok creators in Malaysia.
           <span className="ml-3">
             {BUSINESS.name}
             {BUSINESS.registration && ` (${BUSINESS.registration})`}

@@ -7,7 +7,7 @@ const RUNGS = [
   {
     name: "Your handle",
     price: "Free, no login",
-    body: "Type your TikTok or Instagram handle. We only read public videos, so no password is needed.",
+    body: "Type your Instagram or TikTok handle. We only read public videos, so no password is needed.",
     h: "md:h-[300px]",
   },
   {

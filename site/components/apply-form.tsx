@@ -72,8 +72,8 @@ export function ApplyForm() {
               <div className="grid gap-2">
                 <label htmlFor="apply-platform" className="text-sm font-medium">Platform</label>
                 <select id="apply-platform" name="platform" className="field">
-                  <option>TikTok</option>
                   <option>Instagram</option>
+                  <option>TikTok</option>
                   <option>Both</option>
                 </select>
               </div>
