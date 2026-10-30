@@ -34,7 +34,7 @@ const DETAIL_ERRORS: Record<DetailError, string> = {
 // The sheet half of the funnel: contact details + consent, then /api/preview, then the report.
 // Any handle form can open it with start(); the landing page has two.
 export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: string) => void }) {
-  const [platform, setPlatform] = useState<Platform>("tiktok");
+  const [platform, setPlatform] = useState<Platform>("instagram");
   const [view, setView] = useState<View>({ k: "closed" });
   const [details, setDetails] = useState<Details>(EMPTY);
   const [detailError, setDetailError] = useState<DetailError | null>(null);
@@ -123,7 +123,7 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
 }
 
 export function PreviewFlow() {
-  const [platform, setPlatform] = useState<Platform>("tiktok");
+  const [platform, setPlatform] = useState<Platform>("instagram");
   const [handle, setHandle] = useState("");
   const [error, setError] = useState("");
   const [soon, setSoon] = useState(false);
@@ -146,7 +146,7 @@ export function PreviewFlow() {
     <>
       <form onSubmit={submit} className="rise mt-8 max-w-[540px]" style={{ "--d": "0.25s" } as React.CSSProperties} noValidate>
         <fieldset className="flex w-fit rounded-sm border border-line p-1" role="radiogroup" aria-label="Platform">
-          {(["tiktok", "instagram"] as const).map((p) => (
+          {(["instagram", "tiktok"] as const).map((p) => (
             <label key={p} className="relative cursor-pointer px-4 py-2 text-sm font-medium">
               <input
                 type="radio"

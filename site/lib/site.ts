@@ -3,14 +3,15 @@
 
 export const SITE = "https://ruangkotak.com";
 export const SITE_NAME = "RUANGKOTAK";
-export const SITE_TITLE = "RUANGKOTAK | Account diagnosis for TikTok and Instagram creators in Malaysia";
+export const SITE_TITLE = "RUANGKOTAK | Account diagnosis for Instagram and TikTok creators in Malaysia";
 export const SITE_DESCRIPTION =
-  "RUANGKOTAK reads your latest 15 TikTok or Instagram videos and shows which content types work, which sink, and the one thing to fix first. Free mini-diagnosis, no password.";
+  "RUANGKOTAK reads your latest 15 Instagram or TikTok videos and shows which content types work, which sink, and the one thing to fix first. Free mini-diagnosis, no password.";
 
 export type PageSpec = { path: string; title: string; markdown: string };
 
 // Word for word what the home page shows (components/landing/markup.ts); tests/jsonld.test.ts fails if they drift apart.
 export const FAQ: [string, string][] = [
+  ["Who is it for?", "Creators, KOL, KOC and talent on Instagram or TikTok with under 50,000 followers. We work with accounts under 1,000, under 10,000 and under 50,000."],
   ["Do you need my password?", "No. We only read public videos: views, captions and dates. Nothing needs your password, and we never post anything."],
   ["Will you translate my captions?", "Never. Your captions, titles and series names stay exactly as you wrote them, in Malay or any other language. The report around them is in English."],
   ["Is it really free?", "Yes. The mini diagnosis is free. We ask for your name and email so we can send you a copy. Monthly is quoted after a short application, based on your account and goals."],
@@ -32,7 +33,13 @@ export const ABOUT_SECTIONS: { h: string; p: string[] }[] = [
   {
     h: "What RUANGKOTAK is",
     p: [
-      `RUANGKOTAK (SSM ${REG}) is a Malaysian account diagnosis service for TikTok and Instagram creators. You give us your handle; we read your recent public videos and tell you which kinds of video your audience actually watches, which ones sink, and the one change to start with.`,
+      `RUANGKOTAK (SSM ${REG}) is a Malaysian account diagnosis service for Instagram and TikTok creators, KOL, KOC and talent. You give us your handle; we read your recent public videos and tell you which kinds of video your audience actually watches, which ones sink, and the one change to start with.`,
+    ],
+  },
+  {
+    h: "Who we work with",
+    p: [
+      "Accounts under 50,000 followers, in three groups: under 1,000, under 10,000 and under 50,000. The method is the same for all three. What you fix first depends on where your account is today.",
     ],
   },
   {
@@ -61,7 +68,7 @@ export const CONTACT_SECTIONS: { h: string; p: string[] }[] = [
   {
     h: "Email us",
     p: [
-      `The fastest way to reach RUANGKOTAK is by email at ${EMAIL}. Tell us which account you are asking about (your TikTok or Instagram handle) and what you need, and we will reply to the address you write from.`,
+      `The fastest way to reach RUANGKOTAK is by email at ${EMAIL}. Tell us which account you are asking about (your Instagram or TikTok handle) and what you need, and we will reply to the address you write from.`,
     ],
   },
   {
@@ -85,13 +92,17 @@ export const CONTACT_SECTIONS: { h: string; p: string[] }[] = [
 const mdSections = (s: { h: string; p: string[] }[]) => s.map((x) => `## ${x.h}\n\n${x.p.join("\n\n")}`).join("\n\n");
 
 // What an agent gets for `Accept: text/markdown`. The home page text mirrors the landing page copy.
-const HOME_MD = `# RUANGKOTAK: Account diagnosis for TikTok and Instagram creators in Malaysia
+const HOME_MD = `# RUANGKOTAK: Account diagnosis for Instagram and TikTok creators in Malaysia
 
-Every video is a box. We read what's inside. Enter your TikTok or Instagram handle and RUANGKOTAK reads your latest 15 public videos, then shows what is working, what sinks, and the one thing to fix first. The mini-diagnosis is free. No password is needed.
+Every video is a box. We read what's inside. Enter your Instagram or TikTok handle and RUANGKOTAK reads your latest 15 public videos, then shows what is working, what sinks, and the one thing to fix first. The mini-diagnosis is free. No password is needed.
 
 ## How the diagnosis works
 
 ${STEPS.map(([h, t], i) => `${i + 1}. **${h}.** ${t}`).join("\n")}
+
+## Who it is for
+
+Creators, KOL, KOC and talent on Instagram or TikTok, in three groups: under 1,000 followers, under 10,000 and under 50,000. The method is the same at every size. What you fix first changes with where you are.
 
 ## Free and monthly
 
@@ -124,7 +135,7 @@ const ABOUT_MD = `# About RUANGKOTAK\n\n${mdSections(ABOUT_SECTIONS)}\n\n[Home](
 const CONTACT_MD = `# Contact RUANGKOTAK\n\n${mdSections(CONTACT_SECTIONS)}\n\n[Home](${SITE}/) · [About](${SITE}/about) · [Privacy](${SITE}/privacy)\n`;
 const PRIVACY_MD = `# Privacy Notice | RUANGKOTAK
 
-RUANGKOTAK (SSM ${REG}) runs ${SITE}, an account diagnosis service for TikTok and Instagram creators in Malaysia. This is the data user responsible for your personal data under the Personal Data Protection Act 2010 (PDPA).
+RUANGKOTAK (SSM ${REG}) runs ${SITE}, an account diagnosis service for Instagram and TikTok creators in Malaysia. This is the data user responsible for your personal data under the Personal Data Protection Act 2010 (PDPA).
 
 The full Privacy Notice, in English and Bahasa Melayu, is a web page: ${SITE}/privacy. It covers what we collect, why, who we share it with, how long we keep it, and how to ask for access, correction or deletion.
 
@@ -220,7 +231,7 @@ export function homeJsonLd() {
         "@type": "HowTo",
         "@id": `${SITE}/#how`,
         name: "How a RUANGKOTAK account diagnosis works",
-        description: "Four steps from a public TikTok or Instagram handle to one clear fix. No password needed.",
+        description: "Four steps from a public Instagram or TikTok handle to one clear fix. No password needed.",
         step: STEPS.map(([name, text], i) => ({ "@type": "HowToStep", position: i + 1, name, text, url: `${SITE}/#method` })),
       },
       {
@@ -232,7 +243,7 @@ export function homeJsonLd() {
       {
         "@type": "Service",
         "@id": `${SITE}/#service`,
-        name: "Account diagnosis for TikTok and Instagram creators",
+        name: "Account diagnosis for Instagram and TikTok creators",
         serviceType: "Social media account diagnosis",
         description: SITE_DESCRIPTION,
         url: SITE,

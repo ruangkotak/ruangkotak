@@ -222,7 +222,7 @@ section.blk{padding:clamp(72px,8vw,112px) 0}
 .grid9 i{aspect-ratio:4/5;border:1px solid var(--olive);background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(208,208,200,.06) 6px 7px)}
 .grid9 i.k{background:var(--bone);border-color:var(--bone)}
 .p-time{grid-template-columns:1fr;gap:20px;align-content:start}
-.heat{display:grid;grid-template-columns:40px repeat(12,1fr);gap:3px;font-size:10px;color:var(--moss);align-items:center}
+.heat{display:grid;grid-template-columns:40px repeat(12,1fr);gap:3px;font-size:11px;color:var(--moss);align-items:center}
 .heat i{aspect-ratio:2.6;border-radius:2px;background:var(--bone);opacity:0}
 .heat i.pk{background:var(--hi)}
 .p-comp{grid-template-columns:1fr;gap:0;align-content:start}
@@ -355,3 +355,19 @@ html.lenis{scroll-behavior:auto}
 .try-meter i{position:absolute;left:0;top:0;bottom:0;background:var(--ash);transition:width .8s var(--ease)}
 .try-meter i.y{background:var(--carbon)}
 @media (max-width:820px){.try{grid-template-columns:1fr}.try-out{min-height:252px}}
+
+/* Who it's for: three follower tiers */
+.tiers{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:56px}
+.tier{border:1px solid var(--ash);border-radius:8px;background:var(--paper);padding:26px;display:flex;flex-direction:column;gap:16px;transition:border-color .4s}
+.tier:hover{border-color:var(--ink)}
+.tier .n{font:400 56px/.8 var(--serif);letter-spacing:-.03em}
+.tier .tag{align-self:flex-start;border:1px solid var(--khaki);background:var(--bone);font:500 12px var(--mono);padding:4px 8px;border-radius:3px}
+.tier h3{font:400 26px/1.05 var(--serif);letter-spacing:-.02em}
+.tier p{font-size:13px;color:var(--lichen);max-width:38ch}
+.tiers-cta{margin-top:32px}
+@media (max-width:900px){.tiers{grid-template-columns:1fr;margin-top:40px}}
+
+/* Tap targets: grow the hit area without moving the layout */
+.plat label::after{content:"";position:absolute;inset:-4px 0}
+nav .logo{padding:13px 0}
+footer li a{display:inline-block;padding:6px 0}
