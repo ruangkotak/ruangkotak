@@ -1,4 +1,4 @@
-import { FUNNEL_LIVE, funnelClosed } from "@/lib/funnel";
+import { funnelClosed, previewOpen } from "@/lib/funnel";
 import { cookies, headers } from "next/headers";
 import { analyze } from "@/lib/analyze";
 import { attachCovers } from "@/lib/covers";
@@ -45,7 +45,7 @@ function readLead(body: Record<string, unknown> | null, ip: string): { lead: Lea
 
 // One request per creator: contact details first, then the scrape. No valid email, no scrape and no model cost.
 export async function POST(req: Request) {
-  if (!FUNNEL_LIVE) return funnelClosed();
+  if (!previewOpen()) return funnelClosed();
   const body = await req.json().catch(() => null);
   const platform: Platform = body?.platform === "instagram" ? "instagram" : "tiktok";
   const handle = normaliseHandle(String(body?.handle ?? ""));
