@@ -1,7 +1,7 @@
 // Key-value store behind the preview limit, leads and applications.
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
-import type { Lead, Report } from "./types";
+import type { Lead, LeadRecord, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
 
@@ -10,13 +10,15 @@ type Mem = {
   reports: Map<string, Report>;
   pdfs: Map<string, Uint8Array>;
   leads: StoredLead[];
+  inquiries: Map<string, LeadRecord>; // lead id -> mutable record (status, attempts, last error)
   applications: Record<string, string>[];
   counters: Map<string, number>;
 };
 
 const g = globalThis as unknown as { __rk?: Mem };
-const mem: Mem = (g.__rk ??= { devices: new Map(), reports: new Map(), pdfs: new Map(), leads: [], applications: [], counters: new Map() });
+const mem: Mem = (g.__rk ??= { devices: new Map(), reports: new Map(), pdfs: new Map(), leads: [], inquiries: new Map(), applications: [], counters: new Map() });
 mem.pdfs ??= new Map(); // a dev server's store from before pdfs existed
+mem.inquiries ??= new Map();
 
 const { UPSTASH_REDIS_REST_URL: URL, UPSTASH_REDIS_REST_TOKEN: TOKEN } = process.env;
 export const REDIS = !!(URL && TOKEN);
@@ -45,6 +47,22 @@ const memStore = {
   savePdf: async (id: string, version: string, pdf: Uint8Array) => void mem.pdfs.set(`${version}:${id}`, pdf),
   isUnlocked: async (reportId: string) => mem.leads.some((l) => l.reportId === reportId),
   addLead: async (reportId: string, lead: Lead) => void mem.leads.push({ ...lead, reportId, at: at() }),
+  saveLeadRecord: async (r: LeadRecord) => {
+    const copy = structuredClone(r);
+    mem.inquiries.set(r.id, copy);
+    return structuredClone(copy);
+  },
+  getLeadRecord: async (id: string) => {
+    const r = mem.inquiries.get(id);
+    return r ? structuredClone(r) : null;
+  },
+  updateLeadRecord: async (id: string, patch: Partial<LeadRecord>) => {
+    const cur = mem.inquiries.get(id);
+    if (!cur) return null;
+    const next: LeadRecord = { ...cur, ...patch, id: cur.id, createdAt: cur.createdAt, updatedAt: at(), timestamps: patch.timestamps ?? cur.timestamps };
+    mem.inquiries.set(id, next);
+    return structuredClone(next);
+  },
   addApplication: async (a: Record<string, string>) => void mem.applications.push({ ...a, at: at() }),
   // Counts calls per bucket; the TTL only applies in Redis (memory resets on restart anyway).
   hit: async (key: string, _ttlSeconds: number) => {
@@ -62,8 +80,10 @@ async function setOnce(key: string, value: string) {
   if ((await redis<string | null>("SET", key, value, "EX", RETAIN, "NX")) === null) await redis("SET", key, value, "KEEPTTL");
 }
 
-// Keys: dev:<device> first handle, rep:<id> report, pdf:<version>:<id> that report's PDF (base64), lead:<id> leads for that report, app:<time>:<rand> one application,
-// rl:<bucket> counters. No all-time lists: list items can't expire one by one; find leads and applications with SCAN.
+// Keys: dev:<device> first handle, rep:<id> report, pdf:<version>:<id> that report's PDF (base64),
+// lead:<id> contact details that unlock the report, inq:<leadId> the mutable lead (status, attempts, last error),
+// app:<time>:<rand> one application, rl:<bucket> counters.
+// No all-time lists: list items can't expire one by one; find leads with SCAN inq:* and applications with SCAN app:*.
 const redisStore: typeof memStore = {
   deviceHandle: async (key) => parse<{ handle: string }>(await redis<string | null>("GET", `dev:${key}`))?.handle ?? null,
   setDeviceHandle: async (key, handle) => void (await setOnce(`dev:${key}`, JSON.stringify({ handle, at: at() }))),
@@ -83,6 +103,19 @@ const redisStore: typeof memStore = {
     const n = await redis<number>("RPUSH", `lead:${reportId}`, JSON.stringify({ ...lead, reportId, at: at() }));
     if (n === 1) await redis("EXPIRE", `lead:${reportId}`, RETAIN);
   },
+  saveLeadRecord: async (r) => {
+    await redis("SET", `inq:${r.id}`, JSON.stringify(r), "EX", RETAIN);
+    return r;
+  },
+  getLeadRecord: async (id) => parse<LeadRecord>(await redis<string | null>("GET", `inq:${id}`)),
+  updateLeadRecord: async (id, patch) => {
+    const cur = parse<LeadRecord>(await redis<string | null>("GET", `inq:${id}`));
+    if (!cur) return null;
+    const next: LeadRecord = { ...cur, ...patch, id: cur.id, createdAt: cur.createdAt, updatedAt: at(), timestamps: patch.timestamps ?? cur.timestamps };
+    const ttl = await redis<number>("TTL", `inq:${id}`);
+    await redis("SET", `inq:${id}`, JSON.stringify(next), "EX", ttl > 0 ? ttl : RETAIN);
+    return next;
+  },
   addApplication: async (a) =>
     void (await redis("SET", `app:${at()}:${crypto.randomUUID().slice(0, 8)}`, JSON.stringify({ ...a, at: at() }), "EX", RETAIN)),
   hit: async (key, ttlSeconds) => {
@@ -93,3 +126,20 @@ const redisStore: typeof memStore = {
 };
 
 export const store = REDIS ? redisStore : memStore;
+
+// Test isolation for the in-memory store. Refuses to run against Redis so a live database cannot be wiped.
+export function resetStoreForTests() {
+  if (REDIS) throw new Error("refusing to reset a live Redis store");
+  mem.devices.clear();
+  mem.reports.clear();
+  mem.pdfs.clear();
+  mem.leads.length = 0;
+  mem.inquiries.clear();
+  mem.applications.length = 0;
+  mem.counters.clear();
+}
+
+export function listLeadRecordsForTests(): LeadRecord[] {
+  if (REDIS) throw new Error("refusing to list a live Redis store");
+  return [...mem.inquiries.values()].map((r) => structuredClone(r));
+}

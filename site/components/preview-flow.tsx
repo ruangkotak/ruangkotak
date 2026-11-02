@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { FUNNEL_LIVE } from "@/lib/funnel";
 import { CONSENT } from "@/lib/legal";
+import { CONFIRM_BODY, CONFIRM_TITLE, DETAILS_NOTE, SENDING_TITLE, SUBMIT_LABEL } from "@/lib/preview-copy";
 import { ConsentBox } from "./consent-box";
 import type { Platform } from "@/lib/types";
 
@@ -20,7 +21,12 @@ function deviceId() {
   }
 }
 
-type View = { k: "closed" } | { k: "details"; handle: string } | { k: "loading"; handle: string } | { k: "unavailable" };
+type View =
+  | { k: "closed" }
+  | { k: "details"; handle: string }
+  | { k: "sending"; handle: string }
+  | { k: "confirmed"; handle: string; email: string }
+  | { k: "unavailable" };
 type Details = { name: string; email: string; whatsapp: string; consentNotice: boolean; consentOwner: boolean; consentMarketing: boolean };
 type DetailError = "name" | "email" | "whatsapp" | "consent";
 const EMPTY: Details = { name: "", email: "", whatsapp: "", consentNotice: false, consentOwner: false, consentMarketing: false };
@@ -31,7 +37,7 @@ const DETAIL_ERRORS: Record<DetailError, string> = {
   consent: "Tick both required boxes to continue. / Tandakan kedua-dua kotak wajib untuk teruskan.",
 };
 
-// The sheet half of the funnel: contact details + consent, then /api/preview, then the report.
+// The sheet half of the funnel: contact details + consent, then a confirmation. The report arrives by email.
 // Any handle form can open it with start(); the landing page has two.
 export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: string) => void }) {
   const [platform, setPlatform] = useState<Platform>("instagram");
@@ -53,7 +59,8 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
     return true;
   }
 
-  // Contact details go with the handle in one request; the server scrapes only after they check out.
+  // Contact details go with the handle in one request. The server stores the lead and answers
+  // before the scrape, so this returns as soon as the details are saved.
   async function run(clean: string) {
     const d = { ...details, name: details.name.trim(), email: details.email.trim(), whatsapp: details.whatsapp.trim() };
     const bad: DetailError | null = !d.name
@@ -67,7 +74,7 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
             : null;
     if (bad) return setDetailError(bad);
     setDetailError(null);
-    setView({ k: "loading", handle: clean });
+    setView({ k: "sending", handle: clean });
     try {
       const res = await fetch("/api/preview", {
         method: "POST",
@@ -81,9 +88,7 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
       } else if (data.invalid) {
         setDetailError(data.invalid);
         setView({ k: "details", handle: clean });
-      }
-      // Full page load: the landing page's global styles must not carry over to the report.
-      else if (data.ok) window.location.assign(data.url);
+      } else if (data.ok) setView({ k: "confirmed", handle: clean, email: d.email });
       else setView({ k: "unavailable" });
     } catch {
       setView({ k: "unavailable" });
@@ -95,9 +100,10 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
   const sheet = (
     <AnimatePresence>
       {view.k !== "closed" && (
-        <Sheet onClose={() => setView({ k: "closed" })} busy={view.k === "loading"}>
+        <Sheet onClose={() => setView({ k: "closed" })} busy={view.k === "sending"}>
           <AnimatePresence mode="wait" initial={false}>
-            {view.k === "loading" && <Loading key="l" handle={view.handle} platform={label} />}
+            {view.k === "sending" && <Sending key="s" handle={view.handle} platform={label} />}
+            {view.k === "confirmed" && <Confirmed key="c" email={view.email} />}
             {view.k === "details" && (
               <DetailsForm
                 key="d"
@@ -119,7 +125,7 @@ export function usePreviewSheet({ onHandleRejected }: { onHandleRejected: (msg: 
     </AnimatePresence>
   );
 
-  return { start, sheet, busy: view.k === "loading" };
+  return { start, sheet, busy: view.k === "sending" };
 }
 
 export function PreviewFlow() {
@@ -252,37 +258,22 @@ function Sheet({ children, onClose, busy }: { children: React.ReactNode; onClose
   );
 }
 
-const STEPS = ["Finding the account", "Reading recent videos", "Sorting by content type", "Comparing best and weakest", "Writing your mini-diagnosis"];
-
-function Loading({ handle, platform }: { handle: string; platform: string }) {
-  const [step, setStep] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 1100);
-    return () => clearInterval(t);
-  }, []);
+function Sending({ handle, platform }: { handle: string; platform: string }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite">
       <p className="text-sm text-muted">
         @{handle} on {platform}
       </p>
-      <div className="mt-2 h-8 overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.p key={step} className="text-2xl font-semibold tracking-tight" initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -24, opacity: 0 }}>
-            {STEPS[step]}
-          </motion.p>
-        </AnimatePresence>
-      </div>
-      <div className="mt-6 grid grid-cols-20 gap-[3px]" aria-hidden>
-        {Array.from({ length: 40 }, (_, i) => (
-          <motion.div
-            key={i}
-            className="aspect-square bg-line"
-            animate={{ opacity: [0.25, 1, 0.25] }}
-            transition={{ duration: 1.6, repeat: Infinity, delay: ((i % 10) + Math.floor(i / 10)) * 0.07 }}
-          />
-        ))}
-      </div>
-      <p className="mt-4 text-sm text-muted">This can take up to a minute. Keep this page open.</p>
+      <h2 className="mt-1 text-3xl">{SENDING_TITLE}</h2>
+    </motion.div>
+  );
+}
+
+function Confirmed({ email }: { email: string }) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="status">
+      <h2 className="max-w-[22ch] text-3xl">{CONFIRM_TITLE}</h2>
+      <p className="mt-2 text-muted">{CONFIRM_BODY(email)}</p>
     </motion.div>
   );
 }
@@ -335,7 +326,7 @@ function DetailsForm({
         @{handle} on {platform}
       </p>
       <h2 className="mt-1 max-w-[26ch] text-3xl md:text-4xl">Where should we send your <span className="whitespace-nowrap">mini-diagnosis?</span></h2>
-      <p className="mt-2 text-muted">It opens on screen right away, and a copy goes to your email.</p>
+      <p className="mt-2 text-muted">{DETAILS_NOTE}</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {field("name", "Your name", { autoComplete: "name", placeholder: "e.g. Aina" })}
@@ -376,7 +367,7 @@ function DetailsForm({
       )}
 
       <button type="submit" className="btn-primary mt-6 w-full sm:w-auto">
-        Show my mini-diagnosis <ArrowRight size={18} weight="bold" />
+        {SUBMIT_LABEL}
       </button>
     </motion.form>
   );
@@ -386,7 +377,7 @@ function Unavailable({ onClose }: { onClose: () => void }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alert">
       <h2 className="text-3xl">Diagnosis unavailable right now</h2>
-      <p className="mt-2 text-muted">We couldn't finish it just now. We have your details and will email you once it's ready.</p>
+      <p className="mt-2 text-muted">We couldn't start it just now. Please try again later.</p>
       <button onClick={onClose} className="btn-ghost mt-6">
         Close
       </button>

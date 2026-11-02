@@ -51,3 +51,23 @@ export type Lead = {
   marketing: boolean; // opted in to follow-ups (PDPA s43); without it we only send the report itself
   consent: ConsentRecord;
 };
+
+// received, then scraping, report_ready, emailed. failed stops the chain.
+export type LeadStatus = "received" | "scraping" | "report_ready" | "emailed" | "failed";
+
+// One saved request. Written before the scrape so a timeout or a scraper error cannot drop the creator.
+export type LeadRecord = Lead & {
+  id: string;
+  platform: Platform;
+  handle: string;
+  reportId: string | null;
+  status: LeadStatus;
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+  timestamps: Partial<Record<LeadStatus, string>>;
+  lastError?: string;
+  deviceKeys: string[];
+  country: string;
+  origin: string;
+};
