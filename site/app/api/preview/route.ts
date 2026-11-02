@@ -7,8 +7,8 @@ import { after } from "next/server";
 
 // The creator is answered as soon as the lead is stored. Scrape, tagging, the report and the
 // creator email run in after(), which keeps this invocation alive until they finish or maxDuration
-// is hit. On Vercel that budget covers the background work too. A kill at the time limit cannot
-// mark the lead failed; a retry queue is out of scope here.
+// is hit. On Vercel that budget covers the background work too. A kill at the time limit leaves
+// the lead on scraping or report_ready; /api/retries picks that up and tries again later.
 export const maxDuration = 180;
 
 // Production emails always use the public site, so a forged Host cannot put another origin in the link.
