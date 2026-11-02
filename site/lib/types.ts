@@ -52,8 +52,15 @@ export type Lead = {
   consent: ConsentRecord;
 };
 
-// received, then scraping, report_ready, emailed. failed stops the chain.
+// received, then scraping, report_ready, emailed.
+// failed waits for a retry unless retry is "no" (a refusal) or "exhausted" (the owner was told).
 export type LeadStatus = "received" | "scraping" | "report_ready" | "emailed" | "failed";
+
+// One attempt that did not finish. Kept on the lead so a later review can see what happened.
+export type LeadFailure = { at: string; step: string; error: string };
+
+// queued: try again at nextRetryAt. exhausted: owner already alerted. no: do not retry (cap, second device, send limit).
+export type LeadRetry = "queued" | "exhausted" | "no";
 
 // One saved request. Written before the scrape so a timeout or a scraper error cannot drop the creator.
 export type LeadRecord = Lead & {
@@ -67,6 +74,10 @@ export type LeadRecord = Lead & {
   updatedAt: string;
   timestamps: Partial<Record<LeadStatus, string>>;
   lastError?: string;
+  failures?: LeadFailure[];
+  retry?: LeadRetry;
+  nextRetryAt?: string;
+  ownerAlertedAt?: string;
   deviceKeys: string[];
   country: string;
   origin: string;

@@ -11,14 +11,20 @@ type Mem = {
   pdfs: Map<string, Uint8Array>;
   leads: StoredLead[];
   inquiries: Map<string, LeadRecord>; // lead id -> mutable record (status, attempts, last error)
+  open: Set<string>; // lead ids still owed a report or an owner alert
+  due: Map<string, number>; // lead id -> unix ms when a retry may run
+  locks: Map<string, number>; // lead id -> unix ms when the in-flight attempt lock expires
   applications: Record<string, string>[];
   counters: Map<string, number>;
 };
 
 const g = globalThis as unknown as { __rk?: Mem };
-const mem: Mem = (g.__rk ??= { devices: new Map(), reports: new Map(), pdfs: new Map(), leads: [], inquiries: new Map(), applications: [], counters: new Map() });
+const mem: Mem = (g.__rk ??= { devices: new Map(), reports: new Map(), pdfs: new Map(), leads: [], inquiries: new Map(), open: new Set(), due: new Map(), locks: new Map(), applications: [], counters: new Map() });
 mem.pdfs ??= new Map(); // a dev server's store from before pdfs existed
 mem.inquiries ??= new Map();
+mem.open ??= new Set();
+mem.due ??= new Map();
+mem.locks ??= new Map();
 
 const { UPSTASH_REDIS_REST_URL: URL, UPSTASH_REDIS_REST_TOKEN: TOKEN } = process.env;
 export const REDIS = !!(URL && TOKEN);
@@ -41,6 +47,13 @@ const parse = <T>(s: string | null) => (s ? (JSON.parse(s) as T) : null);
 const memStore = {
   deviceHandle: async (key: string) => mem.devices.get(key)?.handle ?? null,
   setDeviceHandle: async (key: string, handle: string) => void mem.devices.set(key, { handle, at: at() }),
+  // Keeps the first account on this device. A later call does not overwrite it.
+  reserveDevice: async (key: string, handle: string) => {
+    const cur = mem.devices.get(key)?.handle;
+    if (cur) return cur;
+    mem.devices.set(key, { handle, at: at() });
+    return handle;
+  },
   saveReport: async (r: Report) => void mem.reports.set(r.id, r),
   getReport: async (id: string) => mem.reports.get(id) ?? null,
   getPdf: async (id: string, version: string) => mem.pdfs.get(`${version}:${id}`) ?? null,
@@ -63,6 +76,24 @@ const memStore = {
     mem.inquiries.set(id, next);
     return structuredClone(next);
   },
+  watchLead: async (id: string) => void mem.open.add(id),
+  unwatchLead: async (id: string) => {
+    mem.open.delete(id);
+    mem.due.delete(id);
+  },
+  scheduleRetryAt: async (id: string, atMs: number) => {
+    mem.open.add(id);
+    mem.due.set(id, atMs);
+  },
+  dueLeadIds: async (nowMs: number) => [...mem.due.entries()].filter(([, due]) => due <= nowMs).sort((a, b) => a[1] - b[1]).map(([id]) => id),
+  openLeadIds: async () => [...mem.open],
+  claimLead: async (id: string, ttlSeconds: number) => {
+    if ((mem.locks.get(id) ?? 0) > Date.now()) return false;
+    mem.locks.set(id, Date.now() + ttlSeconds * 1000);
+    return true;
+  },
+  releaseLead: async (id: string) => void mem.locks.delete(id),
+  leadLocked: async (id: string) => (mem.locks.get(id) ?? 0) > Date.now(),
   addApplication: async (a: Record<string, string>) => void mem.applications.push({ ...a, at: at() }),
   // Counts calls per bucket; the TTL only applies in Redis (memory resets on restart anyway).
   hit: async (key: string, _ttlSeconds: number) => {
@@ -82,11 +113,17 @@ async function setOnce(key: string, value: string) {
 
 // Keys: dev:<device> first handle, rep:<id> report, pdf:<version>:<id> that report's PDF (base64),
 // lead:<id> contact details that unlock the report, inq:<leadId> the mutable lead (status, attempts, last error),
+// inq:open ids still owed a report or an alert, inq:due retry times, lock:inq:<id> one in-flight attempt,
 // app:<time>:<rand> one application, rl:<bucket> counters.
 // No all-time lists: list items can't expire one by one; find leads with SCAN inq:* and applications with SCAN app:*.
 const redisStore: typeof memStore = {
   deviceHandle: async (key) => parse<{ handle: string }>(await redis<string | null>("GET", `dev:${key}`))?.handle ?? null,
   setDeviceHandle: async (key, handle) => void (await setOnce(`dev:${key}`, JSON.stringify({ handle, at: at() }))),
+  reserveDevice: async (key, handle) => {
+    const value = JSON.stringify({ handle, at: at() });
+    if ((await redis<string | null>("SET", `dev:${key}`, value, "EX", RETAIN, "NX")) === "OK") return handle;
+    return parse<{ handle: string }>(await redis<string | null>("GET", `dev:${key}`))?.handle ?? handle;
+  },
   saveReport: async (r) => void (await setOnce(`rep:${r.id}`, JSON.stringify(r))),
   getReport: async (id) => parse<Report>(await redis<string | null>("GET", `rep:${id}`)),
   getPdf: async (id, version) => {
@@ -116,6 +153,27 @@ const redisStore: typeof memStore = {
     await redis("SET", `inq:${id}`, JSON.stringify(next), "EX", ttl > 0 ? ttl : RETAIN);
     return next;
   },
+  // inq:open and inq:due are id indexes, not copies of the personal record. A missing record is removed when seen.
+  watchLead: async (id) => void (await redis("SADD", "inq:open", id)),
+  unwatchLead: async (id) => {
+    await redis("SREM", "inq:open", id);
+    await redis("ZREM", "inq:due", id);
+  },
+  scheduleRetryAt: async (id, atMs) => {
+    await redis("ZADD", "inq:due", atMs, id);
+    await redis("SADD", "inq:open", id);
+  },
+  dueLeadIds: async (nowMs) => {
+    const ids = await redis<string[] | null>("ZRANGEBYSCORE", "inq:due", "-inf", nowMs);
+    return Array.isArray(ids) ? ids.map(String) : [];
+  },
+  openLeadIds: async () => {
+    const ids = await redis<string[] | null>("SMEMBERS", "inq:open");
+    return Array.isArray(ids) ? ids.map(String) : [];
+  },
+  claimLead: async (id, ttlSeconds) => (await redis<string | null>("SET", `lock:inq:${id}`, "1", "EX", ttlSeconds, "NX")) === "OK",
+  releaseLead: async (id) => void (await redis("DEL", `lock:inq:${id}`)),
+  leadLocked: async (id) => (await redis<number>("EXISTS", `lock:inq:${id}`)) === 1,
   addApplication: async (a) =>
     void (await redis("SET", `app:${at()}:${crypto.randomUUID().slice(0, 8)}`, JSON.stringify({ ...a, at: at() }), "EX", RETAIN)),
   hit: async (key, ttlSeconds) => {
@@ -135,6 +193,9 @@ export function resetStoreForTests() {
   mem.pdfs.clear();
   mem.leads.length = 0;
   mem.inquiries.clear();
+  mem.open.clear();
+  mem.due.clear();
+  mem.locks.clear();
   mem.applications.length = 0;
   mem.counters.clear();
 }

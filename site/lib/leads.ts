@@ -6,6 +6,7 @@ import { consentRecord, CONSENT } from "./legal.ts";
 import { notifyOwner, sendReportLink } from "./notify.ts";
 import { publicError } from "./public-error.ts";
 import { normaliseHandle, reportIdFor } from "./report-id.ts";
+import { closeLead, queueLeadFailure, watchForStuck } from "./retries.ts";
 import { REDIS, store } from "./store.ts";
 import type { AccountData, Lead, LeadRecord, LeadStatus, Platform } from "./types.ts";
 
@@ -29,6 +30,7 @@ type Bad = "name" | "email" | "whatsapp" | "consent";
 type Notify = (subject: string, lines: string[]) => Promise<unknown>;
 type FetchAccount = (platform: Platform, handle: string) => Promise<AccountData>;
 type SendLink = (to: { name: string; email: string }, handle: string, url: string) => Promise<boolean>;
+type LeadDeps = { fetchAccount?: FetchAccount; sendReportLink?: SendLink; notifyOwner?: Notify; now?: Date };
 
 export type AcceptInput = {
   body: Record<string, unknown> | null;
@@ -96,7 +98,7 @@ export async function acceptMiniDiagnosis(input: AcceptInput, deps: { notifyOwne
   const handle = normaliseHandle(String(body?.handle ?? ""));
   if (!handle) return { kind: "invalid", field: "handle" };
 
-  const name = String(body?.name ?? "").trim().slice(0, 60);
+  const name = String(body?.name ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 60);
   const email = String(body?.email ?? "").trim().toLowerCase().slice(0, 120);
   const whatsapp = String(body?.whatsapp ?? "").trim();
   const bad: Bad | null = !name ? "name" : !EMAIL.test(email) ? "email" : whatsapp && !PHONE.test(whatsapp) ? "whatsapp" : null;
@@ -134,10 +136,10 @@ export async function acceptMiniDiagnosis(input: AcceptInput, deps: { notifyOwne
   };
 
   for (const key of deviceKeys) {
-    const prev = await store.deviceHandle(key);
-    if (prev && prev !== account) {
+    const prev = await store.reserveDevice(key, account);
+    if (prev !== account) {
       // Same response as a real failure, so the reason never leaks. The record still exists for the owner.
-      const saved = await save(draft(input, { ...lead, platform, handle, reportId: await tryReportId(platform, handle), status: "failed", lastError: "Second account on this device", deviceKeys, country: input.country }));
+      const saved = await save(draft(input, { ...lead, platform, handle, reportId: await tryReportId(platform, handle), status: "failed", retry: "no", lastError: "Second account on this device", deviceKeys, country: input.country }));
       if ((await store.hit(`blocked:${key}`, 3600)) === 1) {
         await tell(deps.notifyOwner, "Preview blocked: second account on one device", [
           `First: ${prev}`,
@@ -161,7 +163,7 @@ export async function acceptMiniDiagnosis(input: AcceptInput, deps: { notifyOwne
     const ipHits = await store.hit(`ip:${input.ip}`, 3600);
     const dayHits = await store.hit(`day:${scrapeDayKey(now)}`, 86400);
     if (ipHits > PER_IP_PER_HOUR || dayHits > SCRAPES_PER_DAY) {
-      const saved = await save(draft(input, { ...lead, platform, handle, reportId, status: "failed", lastError: "Scrape limit reached", deviceKeys, country: input.country }));
+      const saved = await save(draft(input, { ...lead, platform, handle, reportId, status: "failed", retry: "no", lastError: "Scrape limit reached", deviceKeys, country: input.country }));
       await tell(deps.notifyOwner, "Preview held: scrape limit reached", [
         `Account: ${account}`,
         `Contact: ${who}`,
@@ -174,6 +176,11 @@ export async function acceptMiniDiagnosis(input: AcceptInput, deps: { notifyOwne
 
   const saved = await save(draft(input, { ...lead, platform, handle, reportId, status: "received", deviceKeys, country: input.country }));
   if (!saved) return { kind: "unavailable", lead: null };
+  try {
+    await watchForStuck(saved.id, `stuck-${saved.id}-received`);
+  } catch (err) {
+    console.error("[preview] watch lead", publicError(err));
+  }
   await tell(deps.notifyOwner, "New lead: mini-diagnosis", [
     `Account: ${account}`,
     `Contact: ${who}`,
@@ -193,60 +200,96 @@ async function mark(id: string, status: LeadStatus, extra: Partial<LeadRecord> =
   return store.updateLeadRecord(id, { ...extra, status, timestamps: { ...cur.timestamps, [status]: now } });
 }
 
-// Scrape, tag, store the report, email the creator. Safe to call after the response: it records its own outcome.
-export async function processLead(id: string, deps: { fetchAccount?: FetchAccount; sendReportLink?: SendLink; notifyOwner?: Notify } = {}) {
-  const lead = await store.getLeadRecord(id);
-  if (!lead || lead.status === "failed" || lead.status === "emailed") return;
-  const send = deps.sendReportLink ?? sendReportLink;
-  try {
-    let current = lead;
-    if (current.status !== "report_ready") {
-      const started = await mark(id, "scraping", { attempts: current.attempts + 1 });
-      if (!started) return;
-      current = started;
-      const reportId = current.reportId ?? (await reportIdFor(current.platform, current.handle));
-      let report = await store.getReport(reportId);
-      if (!report) {
-        const fetchAccount = deps.fetchAccount ?? (await import("./source.ts")).fetchAccount;
-        const account = await fetchAccount(current.platform, current.handle);
-        const { attachCovers } = await import("./covers.ts");
-        report = await attachCovers(analyze(reportId, account, !process.env.APIFY_TOKEN));
-        await store.saveReport(report);
-      }
-      const contact: Lead = { name: current.name, email: current.email, whatsapp: current.whatsapp, marketing: current.marketing, consent: current.consent };
-      await store.addLead(reportId, contact);
-      for (const key of current.deviceKeys) await store.setDeviceHandle(key, `${current.platform}:${current.handle}`);
-      const ready = await mark(id, "report_ready", { reportId });
-      if (!ready) return;
-      current = ready;
-    }
+function canRun(lead: LeadRecord | null, now?: Date) {
+  if (!lead || lead.status === "emailed") return false;
+  if (lead.retry === "no" || lead.retry === "exhausted") return false;
+  if (lead.status === "failed" && lead.retry !== "queued") return false;
+  if (lead.retry === "queued" && lead.nextRetryAt && Date.parse(lead.nextRetryAt) > (now ?? new Date()).getTime()) return false;
+  return true;
+}
 
-    const reportId = current.reportId;
-    if (!reportId) throw new Error("Report id is missing");
-    const addressHits = await store.hit(`mail:to:${current.email}`, 86400);
-    const mailIpHits = await store.hit(`mail:ip:${current.consent.ip}`, 3600);
-    if (addressHits > EMAILS_PER_ADDRESS_PER_DAY || mailIpHits > EMAILS_PER_IP_PER_HOUR) {
-      const lastError = "Report email skipped: send limit reached";
-      await mark(id, "failed", { lastError });
-      await tell(deps.notifyOwner, "Preview failed", [`Account: ${current.platform}:${current.handle}`, `Contact: ${contactLine(current)}`, `Lead: ${id}`, `Error: ${lastError}`]);
-      return;
-    }
-    const report = await store.getReport(reportId);
-    const sent = await send({ name: current.name, email: current.email }, report?.handle ?? `@${current.handle}`, `${current.origin}/r/${reportId}`);
-    if (!sent) {
-      const lastError = "Report email was not accepted";
-      await mark(id, "failed", { lastError });
-      await tell(deps.notifyOwner, "Preview failed", [`Account: ${current.platform}:${current.handle}`, `Contact: ${contactLine(current)}`, `Lead: ${id}`, `Error: ${lastError}`]);
-      return;
-    }
-    await mark(id, "emailed");
-  } catch (err) {
-    const lastError = publicError(err);
+// Scrape, tag, store the report, email the creator. Safe to call after the response, and again when a retry is due.
+// A retryable failure is queued. The owner is told only when the last attempt fails, or when the email send limit is hit.
+export async function processLead(id: string, deps: LeadDeps = {}) {
+  const lead = await store.getLeadRecord(id);
+  if (!canRun(lead, deps.now)) return;
+  // Released when this call ends. A killed function keeps the lock until it expires, which is before the stuck check.
+  if (!(await store.claimLead(id, 200))) return;
+  try {
+    const loaded = await store.getLeadRecord(id);
+    if (!canRun(loaded, deps.now) || !loaded) return;
+    let current = loaded;
+    const send = deps.sendReportLink ?? sendReportLink;
+    let step = "scraping";
     try {
-      await mark(id, "failed", { lastError });
-    } catch (saveErr) {
-      console.error("[preview] mark failed", publicError(saveErr));
+      const attempt = current.attempts + 1;
+      // Count the attempt before the slow work, so a kill during the scrape is visible to the stuck check.
+      if (current.status !== "report_ready") {
+        const started = await mark(id, "scraping", { attempts: attempt, retry: undefined, nextRetryAt: undefined });
+        if (!started) return;
+        current = started;
+        try {
+          await watchForStuck(id, `stuck-${id}-attempt-${attempt}`);
+        } catch (err) {
+          console.error("[preview] watch lead", publicError(err));
+        }
+        const reportId = current.reportId ?? (await reportIdFor(current.platform, current.handle));
+        let report = await store.getReport(reportId);
+        if (!report) {
+          // A missing scraper key must not fall through to the sample account on a retry.
+          if (process.env.VERCEL_ENV === "production" && !process.env.APIFY_TOKEN) {
+            await closeLead(id, "scraping", "Scraper is not configured", deps);
+            return;
+          }
+          const fetchAccount = deps.fetchAccount ?? (await import("./source.ts")).fetchAccount;
+          const account = await fetchAccount(current.platform, current.handle);
+          const { attachCovers } = await import("./covers.ts");
+          report = await attachCovers(analyze(reportId, account, !process.env.APIFY_TOKEN));
+          await store.saveReport(report);
+        }
+        const contact: Lead = { name: current.name, email: current.email, whatsapp: current.whatsapp, marketing: current.marketing, consent: current.consent };
+        if (!(await store.isUnlocked(reportId))) await store.addLead(reportId, contact);
+        for (const key of current.deviceKeys) await store.setDeviceHandle(key, `${current.platform}:${current.handle}`);
+        const ready = await mark(id, "report_ready", { reportId });
+        if (!ready) return;
+        current = ready;
+      } else {
+        const bumped = await store.updateLeadRecord(id, { attempts: attempt, retry: undefined, nextRetryAt: undefined });
+        if (!bumped) return;
+        current = bumped;
+        try {
+          await watchForStuck(id, `stuck-${id}-attempt-${attempt}`);
+        } catch (err) {
+          console.error("[preview] watch lead", publicError(err));
+        }
+      }
+
+      step = "report";
+      const reportId = current.reportId;
+      if (!reportId) throw new Error("Report id is missing");
+      step = "email";
+      const addressHits = await store.hit(`mail:to:${current.email}`, 86400);
+      const mailIpHits = await store.hit(`mail:ip:${current.consent.ip}`, 3600);
+      if (addressHits > EMAILS_PER_ADDRESS_PER_DAY || mailIpHits > EMAILS_PER_IP_PER_HOUR) {
+        await closeLead(id, "email", "Report email skipped: send limit reached", deps);
+        return;
+      }
+      const report = await store.getReport(reportId);
+      const sent = await send({ name: current.name, email: current.email }, report?.handle ?? `@${current.handle}`, `${current.origin}/r/${reportId}`);
+      if (!sent) {
+        await queueLeadFailure(id, "email", new Error("Report email was not accepted"), deps);
+        return;
+      }
+      const done = await mark(id, "emailed", { retry: undefined, nextRetryAt: undefined, lastError: undefined });
+      if (done) await store.unwatchLead(id);
+    } catch (err) {
+      try {
+        await queueLeadFailure(id, step, err, deps);
+      } catch (saveErr) {
+        console.error("[preview] mark failed", publicError(saveErr));
+      }
     }
-    await tell(deps.notifyOwner, "Preview failed", [`Account: ${lead.platform}:${lead.handle}`, `Contact: ${contactLine(lead)}`, `Lead: ${id}`, `Error: ${lastError}`]);
+  } finally {
+    await store.releaseLead(id);
   }
 }

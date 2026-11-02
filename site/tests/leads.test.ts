@@ -93,12 +93,19 @@ test("a lead is stored as received before the scrape, and still exists when the 
   const after = await store.getLeadRecord(accepted.lead.id);
   assert.ok(after);
   assert.equal(after.status, "failed");
+  assert.equal(after.retry, "queued");
   assert.equal(after.attempts, 1);
   assert.match(after.lastError ?? "", /Apify timeout/);
+  assert.equal(after.failures?.length, 1);
+  assert.equal(after.failures?.[0]?.step, "scraping");
+  assert.match(after.failures?.[0]?.error ?? "", /Apify timeout/);
+  const wait = Date.parse(after.nextRetryAt ?? "") - Date.now();
+  assert.ok(wait > 4 * 60 * 1000 && wait < 6 * 60 * 1000);
   assert.equal(after.timestamps.received?.length, 24);
   assert.ok(after.timestamps.failed);
   assert.equal(scrapes, 1);
-  assert.ok(notes.includes("Preview failed"));
+  assert.equal(notes.includes("Preview failed"), false);
+  assert.equal(notes.includes("Mini-diagnosis needs you"), false);
   assert.equal(await store.isUnlocked(after.reportId ?? ""), false);
 });
 
@@ -123,7 +130,9 @@ test("a thrown error message does not keep a secret", async () => {
   }
   const after = await store.getLeadRecord(accepted.lead.id);
   if (after?.lastError?.includes(sentinel)) throw new Error("lastError kept a secret value");
+  if (after?.failures?.some((f) => f.error.includes(sentinel))) throw new Error("failure log kept a secret value");
   assert.match(after?.lastError ?? "", /\[redacted\]/);
+  assert.match(after?.failures?.[0]?.error ?? "", /\[redacted\]/);
 });
 
 test("the success path saves the report, unlocks it, and reaches emailed", async () => {
@@ -206,6 +215,8 @@ test("the eleventh fresh scrape of the UTC day is held, and the next day is open
   assert.equal(held.kind, "unavailable");
   if (held.kind !== "unavailable") return;
   assert.equal(held.lead?.status, "failed");
+  assert.equal(held.lead?.retry, "no");
+  assert.equal(held.lead?.nextRetryAt, undefined);
   assert.equal(held.lead?.attempts, 0);
   assert.match(held.lead?.lastError ?? "", /limit/i);
   assert.ok(notes.includes("Preview held: scrape limit reached"));
@@ -223,6 +234,7 @@ test("a second account on one device is refused without a scrape", async () => {
   await store.setDeviceHandle("c:cookie-1", "tiktok:firstone");
   let scrapes = 0;
   let blocks = 0;
+  let refusedId = "";
   const refuse = async () => {
     const result = await acceptMiniDiagnosis(input(), {
       notifyOwner: async (subject) => {
@@ -230,11 +242,15 @@ test("a second account on one device is refused without a scrape", async () => {
       },
     });
     assert.equal(result.kind, "unavailable");
-    if (result.kind === "unavailable") assert.equal(result.lead?.status, "failed");
+    if (result.kind === "unavailable") {
+      assert.equal(result.lead?.status, "failed");
+      assert.equal(result.lead?.retry, "no");
+      refusedId = result.lead?.id ?? "";
+    }
   };
   await refuse();
   await refuse();
-  await processLead("missing", {
+  await processLead(refusedId, {
     fetchAccount: async () => {
       scrapes += 1;
       return account;
@@ -244,6 +260,39 @@ test("a second account on one device is refused without a scrape", async () => {
   assert.equal(blocks, 1);
 });
 
+test("a failed scrape keeps the device, so a second account is not scraped", async () => {
+  let scrapes = 0;
+  const notes: string[] = [];
+  const first = await acceptMiniDiagnosis(input({ handle: "first.try", deviceId: "shared-device" }, { cookieId: "cookie-shared" }), {
+    notifyOwner: async () => {},
+  });
+  assert.equal(first.kind, "accepted");
+  if (first.kind !== "accepted") return;
+  await processLead(first.lead.id, {
+    fetchAccount: async () => {
+      scrapes += 1;
+      throw new Error("Apify timeout");
+    },
+    notifyOwner: async () => {},
+  });
+  const second = await acceptMiniDiagnosis(input({ handle: "second.try", deviceId: "shared-device" }, { cookieId: "cookie-shared" }), {
+    notifyOwner: async (subject) => {
+      notes.push(subject);
+    },
+  });
+  assert.equal(second.kind, "unavailable");
+  if (second.kind !== "unavailable" || !second.lead) return;
+  assert.equal(second.lead.retry, "no");
+  await processLead(second.lead.id, {
+    fetchAccount: async () => {
+      scrapes += 1;
+      return account;
+    },
+  });
+  assert.equal(scrapes, 1);
+  assert.equal(notes.includes("Preview blocked: second account on one device"), true);
+});
+
 test("a bad email is not stored", async () => {
   const result = await acceptMiniDiagnosis(input({ email: "not-an-email" }));
   assert.equal(result.kind, "invalid");
@@ -251,7 +300,7 @@ test("a bad email is not stored", async () => {
   assert.equal(listLeadRecordsForTests().length, 0);
 });
 
-test("a refused report email is marked failed and the owner is told", async () => {
+test("a refused report email is queued and the owner is not alerted yet", async () => {
   const notes: string[] = [];
   const accepted = await acceptMiniDiagnosis(input({ handle: "mail.fail", deviceId: "device-mail" }, { cookieId: "cookie-mail" }), {
     notifyOwner: async () => {},
@@ -267,8 +316,11 @@ test("a refused report email is marked failed and the owner is told", async () =
   });
   const after = await store.getLeadRecord(accepted.lead.id);
   assert.equal(after?.status, "failed");
+  assert.equal(after?.retry, "queued");
+  assert.equal(after?.failures?.[0]?.step, "email");
   assert.match(after?.lastError ?? "", /email/i);
-  assert.ok(notes.includes("Preview failed"));
+  assert.equal(notes.includes("Preview failed"), false);
+  assert.equal(notes.includes("Mini-diagnosis needs you"), false);
   assert.equal(await store.isUnlocked(await reportIdFor("instagram", "mail.fail")), true);
 });
 
