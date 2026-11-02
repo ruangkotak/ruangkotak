@@ -108,7 +108,7 @@ Creators, KOL, KOC and talent on Instagram or TikTok, in three groups: under 1,0
 
 ### Mini diagnosis (free)
 
-Your latest 15 videos: every content type ranked, what worked, what sank, and the one fix to start with. Shown on screen right away, with a copy in your email. Needs your name and email.
+Your latest 15 videos: every content type ranked, what worked, what sank, and the one fix to start with. We email it to you when it is ready. Needs your name and email.
 
 ### Monthly (quoted after a short application)
 

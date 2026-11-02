@@ -1,7 +1,8 @@
 // Tells the site owner about blocks, leads and applications on Telegram and by email.
 // Each channel only fires when its env vars are set; otherwise the message goes to the server log.
 
-import { BUSINESS } from "./legal";
+import { BUSINESS } from "./legal.ts";
+import { publicError } from "./public-error.ts";
 
 export async function notifyOwner(subject: string, lines: string[]) {
   const text = [subject, "", ...lines].join("\n");
@@ -41,10 +42,10 @@ export async function notifyOwner(subject: string, lines: string[]) {
   // fetch only rejects on network errors, so a 401 from Resend or a 400 from Telegram has to be caught by status.
   // Both services say why in the body (Resend: which address or domain is refused; Telegram: "Not Found" vs "chat not found").
   for (const r of results) {
-    if (r.status === "rejected") console.error("[notify] failed", r.reason);
+    if (r.status === "rejected") console.error("[notify] failed", publicError(r.reason));
     else if (r.value instanceof Response && !r.value.ok) {
-      const why = (await r.value.text().catch(() => "")).slice(0, 300);
-      console.error("[notify] failed", r.value.url.split("/bot")[0], r.value.status, why);
+      const why = publicError((await r.value.text().catch(() => "")).slice(0, 300));
+      console.error("[notify] failed", r.value.status, why);
     }
   }
 }
@@ -52,7 +53,9 @@ export async function notifyOwner(subject: string, lines: string[]) {
 // Emails the creator their mini-diagnosis link. Needs REPORT_FROM on a domain verified in Resend,
 // because Resend's shared test sender only delivers to the account owner.
 // It is a transactional message the person asked for, so it carries no offers; follow-ups need their marketing opt-in.
-export async function sendReportLink(to: { name: string; email: string }, handle: string, url: string) {
+// True when Resend accepted the message. Outside production, missing keys are logged instead of sent, so local
+// review still counts as delivered. In production, missing keys are a failure: the inbox is the only delivery.
+export async function sendReportLink(to: { name: string; email: string }, handle: string, url: string): Promise<boolean> {
   const { RESEND_API_KEY, REPORT_FROM } = process.env;
   const text = [
     `Hi ${to.name},`,
@@ -73,8 +76,12 @@ export async function sendReportLink(to: { name: string; email: string }, handle
   ].join("\n");
 
   if (!RESEND_API_KEY || !REPORT_FROM) {
+    if (process.env.VERCEL_ENV === "production") {
+      console.error("[report-email] REPORT_FROM or RESEND_API_KEY is not set");
+      return false;
+    }
     console.log(`\n[report-email:mock] to ${to.email}\n${text}\n`);
-    return;
+    return true;
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -83,5 +90,9 @@ export async function sendReportLink(to: { name: string; email: string }, handle
       text,
     }),
   }).catch((err) => err);
-  if (!(res instanceof Response) || !res.ok) console.error("[report-email] failed", res instanceof Response ? res.status : res);
+  if (!(res instanceof Response) || !res.ok) {
+    console.error("[report-email] failed", res instanceof Response ? res.status : publicError(res));
+    return false;
+  }
+  return true;
 }
