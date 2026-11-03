@@ -1,6 +1,7 @@
 // Key-value store behind the preview limit, leads and applications.
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
+import { withoutSample } from "./funnel";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -92,4 +93,6 @@ const redisStore: typeof memStore = {
   },
 };
 
-export const store = REDIS ? redisStore : memStore;
+const base = REDIS ? redisStore : memStore;
+// Every reader (preview route, report page, download) goes through here, so a saved sample report is never served as real.
+export const store: typeof base = { ...base, getReport: async (id) => withoutSample(await base.getReport(id)) };

@@ -9,3 +9,10 @@ export const funnelClosed = () => Response.json({ ok: false, closed: true }, { s
 // Read at call time so the check can be tested.
 export const previewOpen = (env: Record<string, string | undefined> = process.env) =>
   FUNNEL_LIVE && !(env.VERCEL_ENV === "production" && !env.APIFY_TOKEN);
+
+// A report saved in mock mode holds the sample account with someone's handle pasted on. It may open only where there is
+// no scraper (local and preview review). In production, or once a token is set, it counts as missing: the preview route
+// scrapes again and replaces it, and an old link to it shows not found instead of fake data.
+export const sampleReportsOpen = (env: Record<string, string | undefined> = process.env) => env.VERCEL_ENV !== "production" && !env.APIFY_TOKEN;
+export const withoutSample = <T extends { mock?: boolean }>(report: T | null, env: Record<string, string | undefined> = process.env): T | null =>
+  report?.mock && !sampleReportsOpen(env) ? null : report;
