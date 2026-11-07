@@ -7,6 +7,9 @@ export const SITE_TITLE = "RUANGKOTAK | Account diagnosis for Instagram and TikT
 export const SITE_DESCRIPTION =
   "RUANGKOTAK reads your latest 15 Instagram or TikTok videos and shows which content types work, which sink, and the one thing to fix first. Free mini-diagnosis, no password.";
 
+// Product terms for the keywords meta tag and the JSON-LD keywords/knowsAbout. Each one must appear on the home page (tests/jsonld.test.ts checks).
+export const PRODUCT_TERMS = ["account diagnosis", "mini diagnosis", "content types", "Instagram", "TikTok", "creators", "KOL", "Malaysia"];
+
 export type PageSpec = { path: string; title: string; markdown: string };
 
 // Word for word what the home page shows (components/landing/markup.ts); tests/jsonld.test.ts fails if they drift apart.
@@ -205,6 +208,8 @@ export function homeJsonLd() {
         url: SITE,
         logo: `${SITE}/brand/logo-still.svg`,
         description: SITE_DESCRIPTION,
+        keywords: PRODUCT_TERMS.join(", "),
+        knowsAbout: PRODUCT_TERMS,
         email: EMAIL,
         identifier: { "@type": "PropertyValue", propertyID: "SSM", value: REG },
         areaServed: { "@type": "Country", name: "Malaysia" },
@@ -224,6 +229,7 @@ export function homeJsonLd() {
         url: SITE,
         name: SITE_NAME,
         description: SITE_DESCRIPTION,
+        keywords: PRODUCT_TERMS.join(", "),
         inLanguage: "en",
         publisher: { "@id": ORGANIZATION_ID },
       },

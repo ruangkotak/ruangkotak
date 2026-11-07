@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
-import { SITE, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE } from "@/lib/site";
+import { PRODUCT_TERMS, SITE, SITE_DESCRIPTION, SITE_NAME, SITE_TITLE } from "@/lib/site";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
+  keywords: PRODUCT_TERMS,
   icons: { icon: "/brand/icon.svg" },
   openGraph: { type: "website", siteName: SITE_NAME, title: SITE_TITLE, description: SITE_DESCRIPTION, locale: "en_MY" },
   twitter: { card: "summary_large_image", title: SITE_TITLE, description: SITE_DESCRIPTION },
