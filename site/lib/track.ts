@@ -3,7 +3,7 @@
 // Counters never break a request: a Redis hiccup is logged and swallowed.
 import { store } from "./store";
 
-export type Step = "preview_started" | "preview_completed" | "report_viewed" | "apply_submitted";
+export type Step = "home_view" | "preview_started" | "preview_completed" | "report_viewed" | "apply_submitted";
 
 const KEEP = 90 * 24 * 60 * 60;
 export const myDay = (d = new Date()) => new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);

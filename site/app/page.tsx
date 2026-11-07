@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Landing } from "@/components/landing/landing";
+import { ViewPing } from "@/components/view-ping";
 import { homeJsonLd } from "@/lib/site";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
@@ -13,6 +14,7 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeJsonLd()).replace(/</g, "\\u003c") }}
       />
       <Landing />
+      <ViewPing />
     </>
   );
 }
