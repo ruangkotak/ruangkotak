@@ -2,6 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
+import type { GateReading, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -117,3 +118,61 @@ const redisStore: typeof memStore = {
 const base = REDIS ? redisStore : memStore;
 // Every reader (preview route, report page, download) goes through here, so a saved sample report is never served as real.
 export const store: typeof base = { ...base, getReport: async (id) => withoutSample(await base.getReport(id)) };
+
+// ---------- Station (/station): job runs, gate readings, the event log, last-seen sources ----------
+// Operational data only, never personal data (beat messages are trimmed and must not carry handles or contacts).
+// Keys: st:runs:<jobId> JSON list of the last runs, st:log capped list of events (newest first),
+// st:gates hash "<gate>:<account>" -> reading, st:seen hash source -> ISO time. All expire 90 days after the last write.
+
+const ST_KEEP = 90 * 24 * 60 * 60;
+const ST_LOG = 500;
+
+type StationMem = { runs: Map<string, Run[]>; log: StationEvent[]; gates: Map<string, GateReading>; seen: Map<string, string> };
+const gs = globalThis as unknown as { __rkStation?: StationMem };
+const smem: StationMem = (gs.__rkStation ??= { runs: new Map(), log: [], gates: new Map(), seen: new Map() });
+
+const pairs = <T>(flat: string[] | null, read: (v: string) => T) => {
+  const out: Record<string, T> = {};
+  for (let i = 0; flat && i < flat.length; i += 2) out[flat[i]] = read(flat[i + 1]);
+  return out;
+};
+
+export const stationStore = REDIS
+  ? {
+      backend: "redis" as const,
+      ping: async () => (await redis<string>("PING")) === "PONG",
+      runs: async (jobIds: string[]): Promise<Record<string, Run[]>> => {
+        if (!jobIds.length) return {};
+        const vals = await redis<(string | null)[]>("MGET", ...jobIds.map((id) => `st:runs:${id}`));
+        return Object.fromEntries(jobIds.map((id, i) => [id, parse<Run[]>(vals[i]) ?? []]));
+      },
+      setRuns: async (jobId: string, runs: Run[]) => void (await redis("SET", `st:runs:${jobId}`, JSON.stringify(runs), "EX", ST_KEEP)),
+      events: async (limit: number) => (await redis<string[]>("LRANGE", "st:log", 0, limit - 1)).map((s) => JSON.parse(s) as StationEvent),
+      addEvent: async (e: StationEvent) => {
+        await redis("LPUSH", "st:log", JSON.stringify(e));
+        await redis("LTRIM", "st:log", 0, ST_LOG - 1);
+        await redis("EXPIRE", "st:log", ST_KEEP);
+      },
+      gates: async () => pairs(await redis<string[] | null>("HGETALL", "st:gates"), (v) => JSON.parse(v) as GateReading),
+      setGate: async (key: string, g: GateReading) => {
+        await redis("HSET", "st:gates", key, JSON.stringify(g));
+        await redis("EXPIRE", "st:gates", ST_KEEP);
+      },
+      seen: async () => pairs(await redis<string[] | null>("HGETALL", "st:seen"), (v) => v),
+      markSeen: async (source: string, at: string) => {
+        await redis("HSET", "st:seen", source, at);
+        await redis("EXPIRE", "st:seen", ST_KEEP);
+      },
+    }
+  : {
+      backend: "memory" as const,
+      ping: async () => true,
+      runs: async (jobIds: string[]): Promise<Record<string, Run[]>> => Object.fromEntries(jobIds.map((id) => [id, smem.runs.get(id) ?? []])),
+      setRuns: async (jobId: string, runs: Run[]) => void smem.runs.set(jobId, runs),
+      events: async (limit: number) => smem.log.slice(0, limit),
+      addEvent: async (e: StationEvent) => void (smem.log = [e, ...smem.log].slice(0, ST_LOG)),
+      gates: async () => Object.fromEntries(smem.gates),
+      setGate: async (key: string, g: GateReading) => void smem.gates.set(key, g),
+      seen: async () => Object.fromEntries(smem.seen),
+      markSeen: async (source: string, at: string) => void smem.seen.set(source, at),
+    };
