@@ -53,6 +53,8 @@ const memStore = {
     mem.counters.set(key, n);
     return n;
   },
+  // Reads counters without changing them; a missing bucket reads as 0.
+  counts: async (keys: string[]) => keys.map((k) => mem.counters.get(k) ?? 0),
 };
 
 // The privacy notice promises deletion 12 months after creation, so every personal-data key expires then.
@@ -91,6 +93,8 @@ const redisStore: typeof memStore = {
     if (n === 1) await redis("EXPIRE", `rl:${key}`, ttlSeconds);
     return n;
   },
+  counts: async (keys) =>
+    keys.length ? (await redis<(string | null)[]>("MGET", ...keys.map((k) => `rl:${k}`))).map((v) => Number(v ?? 0)) : [],
 };
 
 const base = REDIS ? redisStore : memStore;
