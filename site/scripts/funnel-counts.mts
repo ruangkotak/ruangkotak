@@ -4,7 +4,7 @@
 const { UPSTASH_REDIS_REST_URL: BASE, UPSTASH_REDIS_REST_TOKEN: TOKEN } = process.env;
 if (!BASE || !TOKEN) throw new Error("Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN");
 
-const STEPS = ["preview_started", "preview_completed", "report_viewed", "apply_submitted"] as const;
+const STEPS = ["home_view", "preview_started", "preview_completed", "report_viewed", "apply_submitted"] as const;
 const days = Number(process.argv[2] ?? 14);
 const myDay = (d: Date) => new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
 const list = Array.from({ length: days }, (_, i) => myDay(new Date(Date.now() - i * 86400_000))).reverse();
@@ -22,6 +22,7 @@ list.forEach((d, i) => {
 });
 console.log(["TOTAL".padEnd(11), ...STEPS.map((s) => String(totals[s]).padStart(18))].join(""));
 const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(0)}%` : "n/a");
-console.log(`\nstarted -> completed: ${pct(totals.preview_completed, totals.preview_started)}`);
+console.log(`\nhome view -> started: ${pct(totals.preview_started, totals.home_view)}`);
+console.log(`started -> completed: ${pct(totals.preview_completed, totals.preview_started)}`);
 console.log(`completed -> applied: ${pct(totals.apply_submitted, totals.preview_completed)}`);
 export {};
