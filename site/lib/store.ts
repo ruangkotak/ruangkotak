@@ -55,6 +55,8 @@ const memStore = {
   },
   // Reads counters without changing them; a missing bucket reads as 0.
   counts: async (keys: string[]) => keys.map((k) => mem.counters.get(k) ?? 0),
+  // Every saved report, for the owner's private review list. Read-only.
+  allReports: async () => [...mem.reports.values()],
 };
 
 // The privacy notice promises deletion 12 months after creation, so every personal-data key expires then.
@@ -95,6 +97,21 @@ const redisStore: typeof memStore = {
   },
   counts: async (keys) =>
     keys.length ? (await redis<(string | null)[]>("MGET", ...keys.map((k) => `rl:${k}`))).map((v) => Number(v ?? 0)) : [],
+  allReports: async () => {
+    const keys: string[] = [];
+    let cursor = "0";
+    do {
+      const [next, batch] = await redis<[string, string[]]>("SCAN", cursor, "MATCH", "rep:*", "COUNT", 200);
+      keys.push(...batch);
+      cursor = next;
+    } while (cursor !== "0" && keys.length < 1000);
+    const out: Report[] = [];
+    for (let i = 0; i < keys.length; i += 50) {
+      const vals = await redis<(string | null)[]>("MGET", ...keys.slice(i, i + 50));
+      for (const v of vals) if (v) out.push(JSON.parse(v) as Report);
+    }
+    return out;
+  },
 };
 
 const base = REDIS ? redisStore : memStore;
