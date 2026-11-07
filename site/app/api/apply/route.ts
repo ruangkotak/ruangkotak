@@ -3,6 +3,7 @@ import { notifyOwner } from "@/lib/notify";
 import { headers } from "next/headers";
 import { APPLY_CONSENT, consentRecord } from "@/lib/legal";
 import { store } from "@/lib/store";
+import { track } from "@/lib/track";
 
 const FIELDS = ["name", "handle", "platform", "niche", "views", "goal", "contact"] as const;
 
@@ -24,5 +25,6 @@ export async function POST(req: Request) {
   const c = consentRecord([APPLY_CONSENT], ip);
   await store.addApplication({ ...a, consentVersion: c.version, consentAt: c.at, consentIp: c.ip, consentText: APPLY_CONSENT });
   await notifyOwner("Monthly application", FIELDS.map((f) => `${f}: ${a[f] || "-"}`));
+  await track("apply_submitted");
   return Response.json({ ok: true });
 }

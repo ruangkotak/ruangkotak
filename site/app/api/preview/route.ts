@@ -5,6 +5,7 @@ import { attachCovers } from "@/lib/covers";
 import { notifyOwner, sendReportLink } from "@/lib/notify";
 import { MOCK, fetchAccount, normaliseHandle, reportIdFor } from "@/lib/source";
 import { store } from "@/lib/store";
+import { track } from "@/lib/track";
 import { CONSENT, consentRecord } from "@/lib/legal";
 import type { Lead, Platform } from "@/lib/types";
 
@@ -56,6 +57,7 @@ export async function POST(req: Request) {
   const read = readLead(body, ip);
   if ("bad" in read) return Response.json({ ok: false, invalid: read.bad }, { status: 400 });
   const { lead } = read;
+  await track("preview_started");
 
   // Device identity: an httpOnly cookie plus the id the browser keeps in localStorage.
   // IP is recorded for the owner alert but not used to block, because Malaysian mobile networks share IPs (CGNAT).
@@ -119,6 +121,7 @@ export async function POST(req: Request) {
     ]);
 
     jar.set("rk_dev", cookieId, { httpOnly: true, sameSite: "lax", secure: true, maxAge: 60 * 60 * 24 * 365, path: "/" });
+    await track("preview_completed");
     return Response.json({ ok: true, url: path });
   } catch (err) {
     console.error("[preview]", err);

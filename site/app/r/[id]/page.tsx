@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { MiniReport } from "@/components/mini-report";
 import { store } from "@/lib/store";
+import { track } from "@/lib/track";
 
 export const metadata = { title: "Mini-diagnosis | RUANGKOTAK", robots: { index: false } };
 
@@ -10,6 +11,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
   // A report only opens after someone entered their account and left a contact for it; there is no public sample.
   const report = (await store.isUnlocked(id)) ? await store.getReport(id) : null;
   if (!report) notFound();
+  await track("report_viewed");
 
   return (
     <main className="mx-auto max-w-[940px] px-4 py-8 md:py-12">
