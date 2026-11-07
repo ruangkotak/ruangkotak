@@ -1,0 +1,98 @@
+{
+  "$comment": "Station registry: the source of truth for accounts, departments, desks, jobs and gates. Schedules are cron (Malaysia time, UTC+8) or 'every <n>m|h'. Edit by hand; /api/station/beat rejects job ids that are not listed here.",
+  "accounts": [
+    { "id": "internal", "label": "RUANGKOTAK", "kind": "internal", "funnel": "site" },
+    { "id": "alanazizreview", "label": "@alanazizreview", "kind": "personal", "funnel": null },
+    { "id": "client-demo", "label": "Client demo", "kind": "client", "funnel": null }
+  ],
+  "gates": [
+    { "id": "report", "label": "Report", "detail": "audit reports waiting for review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 24 },
+    { "id": "final", "label": "Final", "detail": "creative deliverables waiting for review", "reviewer": "cdo-reviewer", "job": null, "slaHours": 48 },
+    { "id": "invoice", "label": "Invoice", "detail": "invoices waiting for approval", "reviewer": "cfo-reviewer", "job": null, "slaHours": 72 }
+  ],
+  "departments": [
+    {
+      "id": "cmo", "no": "02", "name": "CMO", "client": true,
+      "desks": [
+        { "id": "strategist", "name": "Strategist" },
+        { "id": "scriptwriter", "name": "Scriptwriter" },
+        { "id": "card-writer", "name": "Card Writer" },
+        { "id": "performance-analyst", "name": "Performance Analyst", "agent": "media-buyer" },
+        { "id": "funnel-operator", "name": "Funnel Operator", "agent": "social-lead" },
+        { "id": "scrape-agent", "name": "Scrape Agent" },
+        { "id": "shoot-producer", "name": "Shoot Producer" },
+        { "id": "publisher", "name": "Publisher", "agent": "social-lead" },
+        { "id": "cmo-reviewer", "name": "Reviewer" }
+      ]
+    },
+    {
+      "id": "cdo", "no": "03", "name": "CDO", "client": true,
+      "desks": [
+        { "id": "art-director", "name": "Art Director", "agent": "creative-lead" },
+        { "id": "designer", "name": "Designer" },
+        { "id": "editor", "name": "Editor" },
+        { "id": "motion-designer", "name": "Motion Designer" },
+        { "id": "caption-editor", "name": "Caption Editor" },
+        { "id": "web-ui-designer", "name": "Web UI Designer" },
+        { "id": "colorist", "name": "Colorist" },
+        { "id": "sound-editor", "name": "Sound Editor" },
+        { "id": "cdo-reviewer", "name": "Reviewer" }
+      ]
+    },
+    {
+      "id": "coo", "no": "04", "name": "COO", "client": false,
+      "desks": [
+        { "id": "coo-lead", "name": "COO Lead" },
+        { "id": "dispatcher", "name": "Dispatcher" },
+        { "id": "staff-coord", "name": "Staff Coord" },
+        { "id": "account-manager", "name": "Account Manager", "agent": "account-director" },
+        { "id": "digest-editor", "name": "Digest Editor" },
+        { "id": "librarian", "name": "Librarian" },
+        { "id": "coo-reviewer", "name": "Reviewer" }
+      ]
+    },
+    {
+      "id": "router", "no": "05", "name": "Router", "client": false,
+      "desks": [
+        { "id": "router", "name": "Router" },
+        { "id": "inbox", "name": "Inbox", "noReadPath": true }
+      ]
+    },
+    {
+      "id": "cfo", "no": "06", "name": "CFO", "client": false,
+      "desks": [
+        { "id": "controller", "name": "Controller", "noReadPath": true },
+        { "id": "billing-clerk", "name": "Billing Clerk", "noReadPath": true },
+        { "id": "cost-analyst", "name": "Cost Analyst", "noReadPath": true },
+        { "id": "payroll-kpi", "name": "Payroll & KPI", "noReadPath": true },
+        { "id": "cfo-reviewer", "name": "Reviewer", "noReadPath": true }
+      ]
+    },
+    {
+      "id": "cto", "no": "07", "name": "CTO", "client": false,
+      "desks": [
+        { "id": "platform-engineer", "name": "Platform Engineer" },
+        { "id": "web-builder", "name": "Web Builder" },
+        { "id": "site-reliability", "name": "Site Reliability" },
+        { "id": "security-officer", "name": "Security Officer", "agent": "security-reviewer" },
+        { "id": "backup-recovery", "name": "Backup & Recovery" },
+        { "id": "cto-reviewer", "name": "Reviewer" }
+      ]
+    }
+  ],
+  "jobs": [
+    { "id": "ig-comment-dm", "desk": "funnel-operator", "schedule": "every 15m", "account": "alanazizreview" },
+    { "id": "ig-velocity-6h", "desk": "performance-analyst", "schedule": "0 */6 * * *", "account": "alanazizreview" },
+    { "id": "board-completeness", "desk": "cmo-reviewer", "schedule": "0 9 * * *", "account": "internal" },
+    { "id": "client-demo-velocity", "desk": "performance-analyst", "schedule": "30 */6 * * *", "account": "client-demo" },
+    { "id": "client-demo-final-check", "desk": "cdo-reviewer", "schedule": "0 18 * * 1-5", "account": "client-demo" },
+    { "id": "vault-conflict-scan", "desk": "librarian", "schedule": "every 30m", "account": "internal" },
+    { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
+    { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },
+    { "id": "route-asks", "desk": "router", "schedule": "every 5m", "account": "internal" },
+    { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
+    { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
+    { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 10m", "account": "internal" },
+    { "id": "sync-watchdog", "desk": "platform-engineer", "schedule": "every 15m", "account": "internal" }
+  ]
+}

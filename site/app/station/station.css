@@ -1,0 +1,55 @@
+/* Station runs dark whatever the OS theme: it is a monitor, read at a glance, often at night.
+   Same family as the site's dark palette, with the brand highlighter yellow as the "live" accent. */
+:root:has(.rk-station) {
+  --bg: #12120f;
+  --surface: #1a1a16;
+  --raised: #22221d;
+  --ink: #f2f1ea;
+  --carbon: #e8e7d9;
+  --muted: #8f9081;
+  --line: #2f2f28;
+  --line-strong: #45453b;
+  --tag: #2a2a23;
+  --mark: #fff347;
+  --good: #7fbf8c;
+  --bad: #f08a76;
+  --warn: #e9b25c;
+  --on-solid: #12120f;
+  color-scheme: dark;
+}
+
+.rk-station { font-feature-settings: "tnum" 1, "cv11" 1; }
+.rk-station .mono { font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: 0; }
+.rk-station .label { font-size: 10.5px; line-height: 1.1; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.st-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.st-tile { background: var(--raised); border: 1px solid var(--line); border-radius: 6px; }
+
+/* Desk states: icon + border + word, never colour alone. */
+.st-desk[data-state="running"] { border-color: var(--mark); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--mark) 35%, transparent); }
+.st-desk[data-state="stuck"] { border: 1px dashed var(--bad); background: color-mix(in oklab, var(--bad) 8%, var(--raised)); }
+.st-desk[data-state="failing"] { border-color: color-mix(in oklab, var(--bad) 60%, var(--line)); }
+.st-desk[data-state="due"] { border-color: color-mix(in oklab, var(--mark) 45%, var(--line)); }
+.st-desk[data-state="no-read"] { background: transparent; border-style: dotted; color: var(--muted); }
+.st-desk[data-state="idle"] { color: color-mix(in oklab, var(--ink) 70%, transparent); }
+
+.st-job[data-state="stuck"] { border: 1px dashed var(--bad); }
+.st-job[data-state="running"] { border-color: var(--mark); }
+
+.st-hatch { background: repeating-linear-gradient(135deg, color-mix(in oklab, var(--bad) 55%, transparent) 0 2px, transparent 2px 6px); }
+
+/* A short stem under each gate, the "wire" into the department that reviews it. */
+.st-gate { position: relative; }
+.st-gate::after { content: ""; position: absolute; left: 50%; bottom: -13px; height: 12px; border-left: 1px dashed var(--line-strong); }
+
+.st-pip { width: 7px; height: 12px; border-radius: 1.5px; background: var(--line-strong); }
+.st-pip[data-r="ok"] { background: var(--good); }
+.st-pip[data-r="fail"] { background: var(--bad); }
+.st-pip[data-r="run"] { background: var(--mark); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .st-spin { animation: st-spin 1.4s linear infinite; }
+  .st-pulse { animation: st-pulse 1.8s ease-in-out infinite; }
+}
+@keyframes st-spin { to { transform: rotate(360deg); } }
+@keyframes st-pulse { 50% { opacity: 0.35; } }
