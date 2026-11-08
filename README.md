@@ -40,6 +40,19 @@ is a 404 to anyone without a key.
   | `backup-freshness-guard` | Backup & Recovery | every 6h | fails if unpushed commits or uncommitted edits are older than 24h |
   | `credential-registry` | Security Officer | 03:00 daily | fails if a tracked file holds an env file, a known token shape, or one of your local secret values |
   | `vault-conflict-scan` | Librarian | every 30m | fails if sync left conflict copies in your notes vault (only with `--vault`) |
+  | `ig-velocity-6h` | Performance Analyst | every 6h | plays per hour on the newest reels vs the last scrape; fails if no reels come back (needs `--apify-token`) |
+  | `ig-comment-dm` | Funnel Operator | every 15m | comments with a trigger word on reels from the last 7 days go into a DM checklist (needs `--apify-token` and `--ig-keywords "AUDIT,KOTAK"`) |
+
+  **Comment → DM:** new keyword comments are appended to
+  `<vault>/Station/dm-queue-alanazizreview.md`, or to
+  `~/.local/state/ruangkotak-station/` without a vault. Tick a box once
+  you've sent the DM. Station's **DM** gate counts the unticked boxes and
+  goes to *Needs you* when the oldest has waited over 4 hours. Commenters'
+  names and words never leave the laptop; Station gets only the count. The
+  job does not send DMs itself: that needs a Meta app with messaging
+  permission. Every run is an Apify call billed to your Apify account, so
+  check usage after the first day. For a client, add `"instagram": "<handle>"`
+  to their account in the registry, and their `*-velocity` job starts running.
 
   `station-tick.mts --list` shows what runs and when, `--run <job>` runs one
   now, and `station-install.mts --uninstall` removes the agent. To add a job:

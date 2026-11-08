@@ -219,7 +219,7 @@ test("the client view never leaks internal departments, other accounts, infra or
   assert.equal(s.infra, null);
   assert.deepEqual(s.accounts.map((a) => a.id), ["client-demo"]);
   assert.ok(s.departments.flatMap((d) => d.jobs).every((j) => j.account === "client-demo"));
-  assert.deepEqual(s.gates.map((g) => g.id), ["report", "final"]); // no invoice: that is the CFO's
+  assert.deepEqual(s.gates.map((g) => g.id), ["report", "final", "dm"]); // no invoice: that is the CFO's
   assert.equal(s.gates[0].waiting, 1);
   assert.deepEqual(s.log.map((e) => e.message), ["running client-demo-velocity"]);
   assert.equal(s.log[0].source, undefined);
@@ -229,7 +229,7 @@ test("the client view never leaks internal departments, other accounts, infra or
   assert.equal(s.top.working, 1);
   assert.ok(s.departments.flatMap((d) => d.desks).every((k) => k.agent === undefined));
   const text = JSON.stringify(s);
-  for (const leak of ["alanazizreview", "credential-registry", "laptop", "internal"]) assert.ok(!text.includes(leak), `client snapshot mentions ${leak}`);
+  for (const leak of ["alanazizreview", "credential-registry", "laptop", "internal", "instagram"]) assert.ok(!text.includes(leak), `client snapshot mentions ${leak}`);
 });
 
 test("the owner can filter to one account", () => {
@@ -253,4 +253,14 @@ test("a cron job waits for its slot and catches up once after sleep", () => {
   assert.equal(isDue(nightly, { lastCheck: minutes(-1).toISOString() }, NOW), false); // 17:00 MYT, slot is hours away
   // Laptop closed at 02:00 MYT, opened at 17:00 MYT: 03:00 passed while asleep, so it runs once now.
   assert.equal(isDue(nightly, { lastCheck: "2026-11-06T18:00:00Z" }, NOW), true);
+});
+
+test("a finished job carries its last message for the card", () => {
+  const v = jobView(job("ig-velocity-6h"), registry, applyBeat([], { kind: "job", jobId: "ig-velocity-6h", state: "ok", message: "newest 5h old: 1.2k plays" }, NOW), NOW);
+  assert.equal(v.lastMessage, "newest 5h old: 1.2k plays");
+});
+
+test("the registry check catches a bad instagram handle", () => {
+  const broken = { ...registry, accounts: registry.accounts.map((a) => (a.id === "alanazizreview" ? { ...a, instagram: "@Alan" } : a)) };
+  assert.match(checkRegistry(broken).join("\n"), /invalid instagram handle/);
 });

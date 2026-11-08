@@ -74,7 +74,7 @@ function JobLine({ j, now, showAccount }: { j: JobView; now: number; showAccount
   const tag = jobTag(j, now);
   const loud = j.state === "stuck" || j.state === "failing";
   return (
-    <li className="st-tile st-job px-2.5 py-2" data-state={j.state}>
+    <li className="st-tile st-job min-w-0 px-2.5 py-2" data-state={j.state}>
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[11px] text-muted">{j.deskName}</span>
         <span className={`mono shrink-0 text-[10px] ${loud ? "text-bad" : j.state === "running" || tag === "DUE NOW" ? "text-mark" : "text-muted"}`}>
@@ -85,7 +85,9 @@ function JobLine({ j, now, showAccount }: { j: JobView; now: number; showAccount
       </div>
       <div className="mono mt-0.5 truncate text-[12.5px]">{j.id}</div>
       <div className="mt-1 flex items-center justify-between gap-2">
-        {j.reason ? <span className={`truncate text-[11px] ${loud ? "text-bad" : "text-muted"}`}>{j.reason}</span> : <span className="text-[11px] text-muted">{showAccount ? j.account : j.schedule}</span>}
+        {j.reason ? <span className={`min-w-0 truncate text-[11px] ${loud ? "text-bad" : "text-muted"}`}>{j.reason}</span>
+          : j.lastMessage ? <span className="min-w-0 truncate text-[11px] text-muted" title={j.lastMessage}>{showAccount ? `${j.account} · ` : ""}{j.lastMessage}</span>
+          : <span className="text-[11px] text-muted">{showAccount ? j.account : j.schedule}</span>}
         <Pips runs={j.runs} />
       </div>
     </li>
@@ -130,7 +132,7 @@ export function Gates({ gates, now }: { gates: GateView[]; now: number }) {
   return (
     <section aria-label="Approval gates" className="st-card px-3.5 py-3">
       <div className="label mb-2.5">Gates</div>
-      <ul className="grid gap-2 sm:grid-cols-3">
+      <ul className={`grid gap-2 sm:grid-cols-2 ${gates.length > 3 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
         {gates.map((g) => {
           const next = until(g.nextReviewAt, now);
           return (
@@ -179,7 +181,7 @@ function Funnel({ f }: { f: Snapshot["funnel"] }) {
 export function DeptCard({ d, now, funnel, showAccount, className = "" }: { d: DeptView; now: number; funnel?: Snapshot["funnel"]; showAccount: boolean; className?: string }) {
   const wide = d.desks.length > 3;
   return (
-    <section aria-labelledby={`dept-${d.id}`} className={`st-card @container px-3.5 py-3 ${className}`}>
+    <section aria-labelledby={`dept-${d.id}`} className={`st-card @container min-w-0 px-3.5 py-3 ${className}`}>
       <div className="flex items-baseline justify-between gap-2">
         <h2 id={`dept-${d.id}`} className="text-[13px] tracking-[0.06em] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
           <span className="num mr-1.5 text-muted">{d.no}</span>{d.name}
@@ -190,8 +192,8 @@ export function DeptCard({ d, now, funnel, showAccount, className = "" }: { d: D
         <ul className={`grid content-start gap-1.5 ${wide ? "grid-cols-3 @[540px]:grid-cols-2" : "grid-cols-2"}`}>
           {d.desks.map((k) => <Desk key={k.id} d={k} now={now} />)}
         </ul>
-        <div className="flex flex-col gap-1.5">
-          <ul className="flex flex-col gap-1.5">{d.jobs.filter((j) => j.state !== "never").slice(0, 4).map((j) => <JobLine key={j.id} j={j} now={now} showAccount={showAccount} />)}</ul>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <ul className="flex min-w-0 flex-col gap-1.5">{d.jobs.filter((j) => j.state !== "never").slice(0, 4).map((j) => <JobLine key={j.id} j={j} now={now} showAccount={showAccount} />)}</ul>
           <p className="text-[11px] text-muted">
             {[
               d.jobs.filter((j) => j.state !== "never").length > 4 && `+${d.jobs.filter((j) => j.state !== "never").length - 4} more jobs`,

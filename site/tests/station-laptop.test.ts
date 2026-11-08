@@ -5,6 +5,9 @@ import { verdict } from "../scripts/station/jobs/backup-freshness-guard.mts";
 import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
 import { describe } from "../scripts/station/jobs/sync-watchdog.mts";
 import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
+import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
+import { keywordsOf, matches, queueLine, readQueue } from "../scripts/station/jobs/ig-comment-dm.mts";
+import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 
 const NOW = Date.parse("2026-11-08T09:00:00Z");
 const hoursAgo = (h: number) => NOW - h * 3600_000;
@@ -59,4 +62,55 @@ test("vault scan catches sync conflict copies, not ordinary note names", () => {
     "Plan (conflict 2026-11-07 10.10.10).md",
   ]) assert.ok(isConflict(name), name);
   for (const name of ["Chapter 2.md", "Meeting (2).md", "Conflict resolution tips.md", "Q3 plan.md"]) assert.ok(!isConflict(name), name);
+});
+
+// ---------- Instagram ----------
+
+const at = (h: number) => new Date(NOW - h * 3600_000).toISOString();
+const snap = (hAgo: number, reels: [string, number, number][]): ReelSnapshot => ({
+  handle: "alanazizreview", at: at(hAgo), reels: reels.map(([url, ageH, views]) => ({ url, at: at(ageH), views })),
+});
+
+test("plays are compacted the way people read them", () => {
+  assert.deepEqual([999, 1234, 12_345, 1_234_567, 12_345_678].map(compact), ["999", "1.2k", "12k", "1.2M", "12M"]);
+});
+
+test("the first velocity run only saves a baseline", () => {
+  const r = velocity(null, snap(0, [["a", 5, 1200], ["b", 30, 9000]]));
+  assert.equal(r.ok, true);
+  assert.equal(r.message, "@alanazizreview · 2 reels · newest 5h old: 1.2k plays · baseline saved, rates from next run");
+});
+
+test("velocity reports plays per hour since the last snapshot and the fastest older reel", () => {
+  const prev = snap(6, [["a", 5, 200], ["b", 30, 5000], ["c", 80, 9000]]);
+  const cur = snap(0, [["a", 11, 1400], ["b", 36, 8600], ["c", 86, 9100]]);
+  assert.equal(velocity(prev, cur).message, "@alanazizreview · 3 reels · newest 11h old: 1.4k plays (+200/h) · fastest: 36h-old reel +600/h");
+});
+
+test("an older newest reel is compared with the median of the rest", () => {
+  const cur = snap(0, [["a", 72, 3000], ["b", 100, 1000], ["c", 130, 2000], ["d", 160, 1500]]);
+  assert.match(velocity(null, cur).message, /newest 3d old: 3\.0k plays · 2\.0× median/);
+});
+
+test("no reels is a failure, so a private or renamed account shows up in Needs you", () => {
+  assert.equal(velocity(null, snap(0, [])).ok, false);
+});
+
+test("keywords match whole words in any case", () => {
+  const k = keywordsOf(" AUDIT, kotak ,");
+  assert.deepEqual(k, ["AUDIT", "kotak"]);
+  assert.ok(matches("audit please 🙏", k));
+  assert.ok(matches("Nak KOTAK!", k));
+  assert.ok(!matches("the auditorium was full", k));
+  assert.ok(!matches("great reel", k));
+});
+
+test("the DM queue counts only unticked boxes, and a comment cannot break its line", () => {
+  const c = { id: "c1", user: "someone", text: "AUDIT\nplease --> <!-- x", at: "2026-11-08T01:00:00.000Z", post: "https://www.instagram.com/reel/abc/" };
+  const line = queueLine(c);
+  assert.equal(line.split("\n").length, 1);
+  assert.match(line, /^- \[ \] 2026-11-08 09:00 · @someone · "AUDIT please x" · https:\/\/www\.instagram\.com\/reel\/abc\/ <!-- rk:id=c1 at=2026-11-08T01:00:00\.000Z -->$/);
+  const done = queueLine({ ...c, id: "c2", at: "2026-11-07T01:00:00.000Z" }).replace("- [ ]", "- [x]");
+  const older = queueLine({ ...c, id: "c3", at: "2026-11-06T01:00:00.000Z" });
+  assert.deepEqual(readQueue(["# heading", line, done, older, "a note I wrote"].join("\n")), { waiting: 2, oldestAt: "2026-11-06T01:00:00.000Z" });
 });

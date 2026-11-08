@@ -166,7 +166,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
                     <div className="mono self-center text-[11px] text-muted md:order-2">{j.schedule}{showAccount ? ` · ${j.account}` : ""}</div>
                     <div className="self-center text-[11px] text-muted md:order-3">{j.startedAt ? `started ${dur(now - Date.parse(j.startedAt))} ago` : j.lastEndAt ? `last ${dur(now - Date.parse(j.lastEndAt))} ago` : "no runs yet"}</div>
                     <div className="col-span-2 self-center md:order-5 md:col-span-1"><Pips runs={j.runs} /></div>
-                    {j.reason && <div className="col-span-2 text-[11px] text-bad md:order-6 md:col-span-5">{j.reason}</div>}
+                    {(j.reason || j.lastMessage) && <div className={`col-span-2 min-w-0 break-words text-[11px] md:order-6 md:col-span-5 ${j.reason ? "text-bad" : "text-muted"}`}>{j.reason ?? j.lastMessage}</div>}
                   </li>
                 );
               })}
