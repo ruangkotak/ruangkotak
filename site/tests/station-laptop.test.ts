@@ -8,6 +8,8 @@ import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { keywordsOf, matches, queueLine, readQueue } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
+import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
+import { digest, mytDay, parseDay, parseTasks } from "../scripts/station/jobs/reminder-check.mts";
 
 const NOW = Date.parse("2026-11-08T09:00:00Z");
 const hoursAgo = (h: number) => NOW - h * 3600_000;
@@ -113,4 +115,67 @@ test("the DM queue counts only unticked boxes, and a comment cannot break its li
   const done = queueLine({ ...c, id: "c2", at: "2026-11-07T01:00:00.000Z" }).replace("- [ ]", "- [x]");
   const older = queueLine({ ...c, id: "c3", at: "2026-11-06T01:00:00.000Z" });
   assert.deepEqual(readQueue(["# heading", line, done, older, "a note I wrote"].join("\n")), { waiting: 2, oldestAt: "2026-11-06T01:00:00.000Z" });
+});
+
+// ---------- COO ----------
+
+test("task dates read the ways people write them", () => {
+  const today = "2026-11-08"; // a Sunday
+  const cases: [string, string | undefined][] = [
+    ["2026-11-12", "2026-11-12"], ["12 Nov", "2026-11-12"], ["Nov 12, 2026", "2026-11-12"], ["12th November", "2026-11-12"],
+    ["today", "2026-11-08"], ["tomorrow", "2026-11-09"], ["Friday", "2026-11-13"], ["sunday", "2026-11-08"],
+    ["Jan 5", "2027-01-05"], // more than two months back this year, so next year
+    ["5 Oct", "2026-10-05"], // a month ago stays this year: it is overdue
+    ["soon", undefined], ["the launch", undefined], ["35 Nov", undefined],
+  ];
+  for (const [raw, want] of cases) assert.equal(parseDay(raw, today), want, raw);
+});
+
+test("Malaysia-time day rolls over at 16:00 UTC", () => {
+  assert.equal(mytDay(new Date("2026-11-08T15:59:00Z")), "2026-11-08");
+  assert.equal(mytDay(new Date("2026-11-08T16:00:00Z")), "2026-11-09");
+});
+
+const TASKS = `# Tasks
+
+## Active
+- [ ] **Send Brand X proposal** - for Brand X, due 6 Nov
+- [ ] **Edit reel 14** - due today
+- [ ] **Book shoot** - due tomorrow
+- [ ] **Plan Q1** - no date
+- [x] ~~Old thing~~ (2026-11-01)
+
+## Waiting On
+- [ ] **Invoice from editor** - since 2026-10-20
+- [ ] **Client feedback** - since 2026-11-05
+
+## Someday
+- [ ] **Podcast** - due 1 Nov
+
+## Done
+- [x] ~~Shipped~~ (2026-11-02)
+`;
+
+test("only open Active and Waiting On tasks count; Someday and Done are left alone", () => {
+  const t = parseTasks(TASKS, "2026-11-08");
+  assert.deepEqual(t.map((x) => x.title), ["Send Brand X proposal", "Edit reel 14", "Book shoot", "Plan Q1", "Invoice from editor", "Client feedback"]);
+  assert.equal(t[0].due, "2026-11-06");
+  assert.equal(t[4].since, "2026-10-20");
+});
+
+test("the digest counts for Station and lists for the note, and only lateness needs you", () => {
+  const { result, note } = digest(parseTasks(TASKS, "2026-11-08"), "2026-11-08", [{ file: "dm-queue-alanazizreview.md", waiting: 2 }], "TASKS.md", "2026-11-08 08:00");
+  assert.equal(result.message, "4 active · 1 overdue · 1 due today · 1 due tomorrow · 2 waiting (1 over 7 days)");
+  assert.equal(result.attention, "1 overdue task, 1 task waiting over 7 days");
+  assert.ok(!result.message.includes("Brand X") && !result.attention!.includes("Brand X"), "task text stays in the note");
+  assert.match(note, /## Overdue\n- \*\*Send Brand X proposal\*\* \(due Fri 6 Nov, 2 days late\)/);
+  assert.match(note, /- dm-queue-alanazizreview\.md: 2 waiting/);
+  const calm = digest(parseTasks("## Active\n- [ ] **Plan Q1**\n", "2026-11-08"), "2026-11-08", [], "TASKS.md", "x").result;
+  assert.equal(calm.attention, undefined);
+});
+
+test("a brief line carries what is needed to reply with a quote and nothing that identifies how to reach them", () => {
+  const line = briefLine({ id: "2026-11-07T01:00:00.000Z:ab12", at: "2026-11-07T01:00:00.000Z", handle: "@someone", platform: "Instagram", niche: "food", views: "10k", goal: "more <!-- bookings -->" });
+  assert.equal(line, '- [ ] 2026-11-07 09:00 · @someone · Instagram · food · 10k views · goal: "more bookings" <!-- rk:id=2026-11-07T01:00:00.000Z:ab12 at=2026-11-07T01:00:00.000Z -->');
+  assert.deepEqual(readQueue(line), { waiting: 1, oldestAt: "2026-11-07T01:00:00.000Z" });
 });

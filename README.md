@@ -43,6 +43,13 @@ is a 404 to anyone without a key.
   | `ig-velocity-6h` | Performance Analyst | every 6h | plays per hour on the newest reels vs the last scrape; fails if no reels come back (needs `--apify-token`) |
   | `ig-comment-dm` | Funnel Operator | every 15m | comments with a trigger word on reels from the last 7 days go into a DM checklist (needs `--apify-token` and `--ig-keywords "AUDIT,KOTAK"`) |
 
+  | `reminder-check` | Digest Editor | 08:00, 20:00 | reads `TASKS.md` (repo root or vault, or `--tasks <file>`); writes `<vault>/Station/Digest.md`; overdue tasks and waits over 7 days go to *Needs you* |
+  | `brief-sweep` | Dispatcher | 07:00 Mon–Sat | new monthly applications from the site go into `<vault>/Station/brief-queue.md`; the **Brief** gate counts unticked ones (24h window) |
+
+  **Briefs:** each line has handle, platform, niche, views and goal, so you
+  can judge the brief. Names and contact details never leave the server;
+  reply from the owner alert you already get, then tick the box.
+
   **Comment → DM:** new keyword comments are appended to
   `<vault>/Station/dm-queue-alanazizreview.md`, or to
   `~/.local/state/ruangkotak-station/` without a vault. Tick a box once

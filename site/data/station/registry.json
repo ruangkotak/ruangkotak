@@ -9,6 +9,7 @@
     { "id": "report", "label": "Report", "detail": "audit reports waiting for review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 24 },
     { "id": "final", "label": "Final", "detail": "creative deliverables waiting for review", "reviewer": "cdo-reviewer", "job": null, "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
+    { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
     { "id": "invoice", "label": "Invoice", "detail": "invoices waiting for approval", "reviewer": "cfo-reviewer", "job": null, "slaHours": 72 }
   ],
   "departments": [

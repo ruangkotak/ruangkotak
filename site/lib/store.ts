@@ -176,3 +176,31 @@ export const stationStore = REDIS
       seen: async () => Object.fromEntries(smem.seen),
       markSeen: async (source: string, at: string) => void smem.seen.set(source, at),
     };
+
+// ---------- Station: applications for the brief sweep ----------
+// Monthly applications created after `since`, oldest first, for the owner's reply checklist. Only what is needed to
+// review a brief and reply with a quote leaves here: no name, contact details or consent record.
+export type BriefSummary = { id: string; at: string; handle: string; platform: string; niche: string; views: string; goal: string };
+
+const brief = (id: string, a: Record<string, string>): BriefSummary => ({
+  id, at: a.at, handle: a.handle ?? "", platform: a.platform ?? "", niche: a.niche ?? "", views: a.views ?? "", goal: a.goal ?? "",
+});
+
+export async function applicationsSince(since: string, limit = 200): Promise<BriefSummary[]> {
+  if (!REDIS) return mem.applications.filter((a) => a.at > since).slice(0, limit).map((a) => brief(`mem-${a.at}`, a));
+  const keys: string[] = [];
+  let cursor = "0";
+  do {
+    const [next, batch] = await redis<[string, string[]]>("SCAN", cursor, "MATCH", "app:*", "COUNT", 200);
+    keys.push(...batch.filter((k) => k.slice(4) > since)); // app:<ISO time>:<rand>, so key order is time order
+    cursor = next;
+  } while (cursor !== "0" && keys.length < 5000);
+  keys.sort();
+  const picked = keys.slice(0, limit);
+  const out: BriefSummary[] = [];
+  for (let i = 0; i < picked.length; i += 50) {
+    const vals = await redis<(string | null)[]>("MGET", ...picked.slice(i, i + 50));
+    vals.forEach((v, j) => v && out.push(brief(picked[i + j].slice(4), JSON.parse(v))));
+  }
+  return out;
+}
