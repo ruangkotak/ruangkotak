@@ -23,11 +23,28 @@ is a 404 to anyone without a key.
   internal departments, infra or other accounts.
 - **Edit what exists:** `site/data/station/registry.json` (accounts,
   departments, desks, jobs, gates). Cron is Malaysia time.
-- **Report from a job:** wrap the command, and it sends start/ok/fail beats:
+- **Wire your laptop (once):** from `site/`, run
 
-      STATION_KEY=… node site/scripts/station-run.mts ig-velocity-6h -- ./my-job.sh
-      STATION_KEY=… node site/scripts/station-run.mts --gate report --waiting 3
+      node --experimental-strip-types scripts/station-install.mts --key <STATION_KEY> --vault ~/path/to/notes
 
+  It saves the key to `~/.config/ruangkotak/station.env` (mode 600) and
+  installs a launchd agent (macOS) or a crontab line (Linux). That agent
+  runs `scripts/station-tick.mts` every minute. Every job with a script in
+  `site/scripts/station/jobs/` then runs on its registry schedule and
+  reports to Station:
+
+  | Job | Desk | Schedule | Checks |
+  | --- | --- | --- | --- |
+  | `station-map-obs` | Site Reliability | every 5m | ruangkotak.com answers 200 within 5s; also keeps the Laptop tile green |
+  | `sync-watchdog` | Platform Engineer | every 15m | `git fetch` works; reports ahead/behind and changed files |
+  | `backup-freshness-guard` | Backup & Recovery | every 6h | fails if unpushed commits or uncommitted edits are older than 24h |
+  | `credential-registry` | Security Officer | 03:00 daily | fails if a tracked file holds an env file, a known token shape, or one of your local secret values |
+  | `vault-conflict-scan` | Librarian | every 30m | fails if sync left conflict copies in your notes vault (only with `--vault`) |
+
+  `station-tick.mts --list` shows what runs and when, `--run <job>` runs one
+  now, and `station-install.mts --uninstall` removes the agent. To add a job:
+  list it in the registry and drop `<jobId>.mts` into `scripts/station/jobs/`.
+  For anything else, wrap it with `scripts/station-run.mts <jobId> -- <command>`.
   Three failures in a row (or a run open over an hour) is **stuck** and lands
   in *Needs you*. Anything without a real data source shows `NO PROBE` or
   `no read path yet`, never a made-up number.

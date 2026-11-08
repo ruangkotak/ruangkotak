@@ -107,6 +107,21 @@ export function nextRunAt(schedule: Schedule, lastStart: Date | null, now: Date)
   return nextCron(schedule.cron, lastStart ?? now);
 }
 
+/** What the laptop scheduler remembers per job: when it last started it, and (for cron) when it last looked. */
+export type TickEntry = { lastStart?: string; lastCheck?: string };
+
+/**
+ * Whether the laptop should run a job now. Intervals run when they never ran or their gap has passed.
+ * Cron runs when a fire time fell between the last look and now, so a laptop that slept through 03:00
+ * catches up once on wake instead of firing every missed slot. A cron job seen for the first time waits for its next slot.
+ */
+export function isDue(schedule: Schedule, e: TickEntry, now: Date): boolean {
+  if (schedule.kind === "interval") return !e.lastStart || Date.parse(e.lastStart) + schedule.ms <= now.getTime();
+  if (!e.lastCheck) return false;
+  const next = nextCron(schedule.cron, new Date(e.lastCheck));
+  return !!next && next.getTime() <= now.getTime();
+}
+
 // ---------- runs and beats ----------
 
 export type Run = { startAt?: string; endAt?: string; ok?: boolean; exitCode?: number; message?: string; source?: string };

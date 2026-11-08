@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  applyBeat, buildSnapshot, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  applyBeat, buildSnapshot, isDue, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -96,11 +96,11 @@ test("a run open for over an hour is stuck (hung)", () => {
 });
 
 test("next run follows the last start; a missed slot reads as due", () => {
-  // every 10m, last started 25 minutes ago and finished fine: it missed its slot.
+  // every 5m, last started 26 minutes ago and finished fine: it missed its slot.
   const late = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-25)), NOW);
   assert.equal(late.state, "due");
-  assert.equal(late.nextAt, minutes(-16).toISOString());
-  const fresh = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-3)), NOW);
+  assert.equal(late.nextAt, minutes(-21).toISOString());
+  const fresh = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-2)), NOW);
   assert.equal(fresh.state, "scheduled");
 });
 
@@ -236,4 +236,21 @@ test("the owner can filter to one account", () => {
   const s = snapshot({ mode: "owner", account: "alanazizreview" });
   assert.deepEqual([...new Set(s.departments.flatMap((d) => d.jobs).map((j) => j.account))], ["alanazizreview"]);
   assert.equal(s.departments.length, 6);
+});
+
+// ---------- laptop scheduler ----------
+
+test("an interval job is due when it never ran or its gap has passed", () => {
+  const every5 = parseSchedule("every 5m")!;
+  assert.equal(isDue(every5, {}, NOW), true);
+  assert.equal(isDue(every5, { lastStart: minutes(-4).toISOString() }, NOW), false);
+  assert.equal(isDue(every5, { lastStart: minutes(-5).toISOString() }, NOW), true);
+});
+
+test("a cron job waits for its slot and catches up once after sleep", () => {
+  const nightly = parseSchedule("0 3 * * *")!; // 03:00 MYT = 19:00 UTC the day before
+  assert.equal(isDue(nightly, {}, NOW), false); // first sighting never fires straight away
+  assert.equal(isDue(nightly, { lastCheck: minutes(-1).toISOString() }, NOW), false); // 17:00 MYT, slot is hours away
+  // Laptop closed at 02:00 MYT, opened at 17:00 MYT: 03:00 passed while asleep, so it runs once now.
+  assert.equal(isDue(nightly, { lastCheck: "2026-11-06T18:00:00Z" }, NOW), true);
 });

@@ -1,31 +1,18 @@
-// Runs a command and reports it to Station: a "start" beat, then "ok" or "fail" with the exit code.
+// Runs any command and reports it to Station: a "start" beat, then "ok" or "fail" with the exit code.
+// Use it for jobs that are not in scripts/station/jobs/, such as a cron entry or a script that lives elsewhere.
 //
-//   STATION_KEY=… node scripts/station-run.mts <jobId> -- <command> [args…]
-//   STATION_KEY=… node scripts/station-run.mts --gate report --waiting 3 [--oldest 2026-11-07T01:00:00Z] [--account client-demo]
+//   node --experimental-strip-types scripts/station-run.mts <jobId> -- <command> [args…]
+//   node --experimental-strip-types scripts/station-run.mts --gate report --waiting 3 [--oldest <ISO>] [--account client-demo]
 //
-// STATION_URL defaults to https://ruangkotak.com (use http://127.0.0.1:3100 locally). STATION_SOURCE defaults to "laptop",
-// which also keeps the Laptop tile green. The command's own exit code is passed through, so cron/launchd still see failures.
-// A beat that cannot be delivered is printed and ignored: reporting never breaks the job itself.
+// The key and URL come from ~/.config/ruangkotak/station.env (see station-install.mts) or the environment
+// (STATION_KEY, STATION_URL, STATION_SOURCE). The command's exit code is passed through, so cron/launchd still see failures.
 import { spawn } from "node:child_process";
+import { beat, loadEnv } from "./station/client.mts";
 
-const { STATION_KEY, STATION_URL = "https://ruangkotak.com", STATION_SOURCE = "laptop" } = process.env;
-if (!STATION_KEY) {
-  console.error("STATION_KEY is not set");
+const env = loadEnv();
+if (!env.STATION_KEY) {
+  console.error("STATION_KEY is not set: run station-install.mts, or export it");
   process.exit(2);
-}
-
-async function beat(body: Record<string, unknown>) {
-  try {
-    const res = await fetch(new URL("/api/station/beat", STATION_URL), {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-station-key": STATION_KEY! },
-      body: JSON.stringify({ source: STATION_SOURCE, ...body }),
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!res.ok) console.error(`[station] beat refused: ${res.status} ${await res.text()}`);
-  } catch (err) {
-    console.error(`[station] beat not delivered: ${(err as Error).message}`);
-  }
 }
 
 const args = process.argv.slice(2);
@@ -35,7 +22,7 @@ const flag = (name: string) => {
 };
 
 if (flag("gate")) {
-  await beat({ gate: flag("gate"), waiting: Number(flag("waiting") ?? 0), oldestAt: flag("oldest"), account: flag("account") });
+  await beat(env, { gate: flag("gate"), waiting: Number(flag("waiting") ?? 0), oldestAt: flag("oldest"), account: flag("account") });
   process.exit(0);
 }
 
@@ -45,11 +32,11 @@ if (!jobId || sep !== "--" || !cmd) {
   process.exit(2);
 }
 
-await beat({ jobId, state: "start" });
+await beat(env, { jobId, state: "start" });
 const code: number = await new Promise((done) => {
   const child = spawn(cmd, rest, { stdio: "inherit" });
   child.on("error", (err) => (console.error(err.message), done(127)));
   child.on("close", (c, signal) => done(c ?? (signal ? 128 : 1)));
 });
-await beat(code === 0 ? { jobId, state: "ok" } : { jobId, state: "fail", exitCode: code });
+await beat(env, code === 0 ? { jobId, state: "ok" } : { jobId, state: "fail", exitCode: code });
 process.exit(code);

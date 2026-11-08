@@ -92,7 +92,7 @@
     { "id": "route-asks", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
-    { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 10m", "account": "internal" },
+    { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },
     { "id": "sync-watchdog", "desk": "platform-engineer", "schedule": "every 15m", "account": "internal" }
   ]
 }
