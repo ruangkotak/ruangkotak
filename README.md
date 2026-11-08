@@ -46,6 +46,10 @@ is a 404 to anyone without a key.
   | `reminder-check` | Digest Editor | 08:00, 20:00 | reads `TASKS.md` (repo root or vault, or `--tasks <file>`); writes `<vault>/Station/Digest.md`; overdue tasks and waits over 7 days go to *Needs you* |
   | `brief-sweep` | Dispatcher | 07:00 Mon–Sat | new monthly applications from the site go into `<vault>/Station/brief-queue.md`; the **Brief** gate counts unticked ones (24h window) |
 
+  | `board-completeness` | CMO Reviewer | 09:00 | reads `content/<date>/*.md` and their `**Status:**` line; the **Review** gate counts drafts dated today or later; a draft publishing within a day that isn't approved goes to *Needs you* |
+  | `client-demo-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
+  | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
+
   **Briefs:** each line has handle, platform, niche, views and goal, so you
   can judge the brief. Names and contact details never leave the server;
   reply from the owner alert you already get, then tick the box.

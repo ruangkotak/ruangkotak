@@ -6,8 +6,8 @@
     { "id": "client-demo", "label": "Client demo", "kind": "client", "funnel": null }
   ],
   "gates": [
-    { "id": "report", "label": "Report", "detail": "audit reports waiting for review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 24 },
-    { "id": "final", "label": "Final", "detail": "creative deliverables waiting for review", "reviewer": "cdo-reviewer", "job": null, "slaHours": 48 },
+    { "id": "review", "label": "Review", "detail": "content drafts waiting for your review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 48 },
+    { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": "client-demo-final-check", "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
     { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
     { "id": "invoice", "label": "Invoice", "detail": "invoices waiting for approval", "reviewer": "cfo-reviewer", "job": null, "slaHours": 72 }
@@ -57,7 +57,7 @@
       "id": "router", "no": "05", "name": "Router", "client": false,
       "desks": [
         { "id": "router", "name": "Router" },
-        { "id": "inbox", "name": "Inbox", "noReadPath": true }
+        { "id": "inbox", "name": "Inbox" }
       ]
     },
     {
@@ -87,11 +87,11 @@
     { "id": "ig-velocity-6h", "desk": "performance-analyst", "schedule": "0 */6 * * *", "account": "alanazizreview", "script": "ig-velocity" },
     { "id": "board-completeness", "desk": "cmo-reviewer", "schedule": "0 9 * * *", "account": "internal" },
     { "id": "client-demo-velocity", "desk": "performance-analyst", "schedule": "30 */6 * * *", "account": "client-demo", "script": "ig-velocity" },
-    { "id": "client-demo-final-check", "desk": "cdo-reviewer", "schedule": "0 18 * * 1-5", "account": "client-demo" },
+    { "id": "client-demo-final-check", "desk": "cdo-reviewer", "schedule": "0 18 * * 1-5", "account": "client-demo", "script": "final-check" },
     { "id": "vault-conflict-scan", "desk": "librarian", "schedule": "every 30m", "account": "internal" },
     { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
     { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },
-    { "id": "route-asks", "desk": "router", "schedule": "every 5m", "account": "internal" },
+    { "id": "route-asks", "desk": "router", "schedule": "every 15m", "account": "internal" },
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
     { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },

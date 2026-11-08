@@ -38,7 +38,7 @@ const load = async (id: string) => (await import(scriptOf(byId.get(id)!))) as Jo
 const contextFor = (id: string): JobContext => {
   const job = byId.get(id)!;
   const a = registry.accounts.find((x) => x.id === job.account)!;
-  return { env, repo: REPO_DIR, now: new Date(), job: { id, account: job.account }, account: { id: a.id, label: a.label, instagram: a.instagram }, stateDir: STATE_DIR };
+  return { env, repo: REPO_DIR, now: new Date(), job: { id, account: job.account }, account: { id: a.id, label: a.label, instagram: a.instagram }, stateDir: STATE_DIR, registry };
 };
 /** Why a job cannot run here, or null when it can: a missing setting, or the job's own check (e.g. no Instagram handle). */
 const blocked = (id: string, mod: JobModule) => {
