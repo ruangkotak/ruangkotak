@@ -10,7 +10,7 @@
     { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": "client-demo-final-check", "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
     { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
-    { "id": "invoice", "label": "Invoice", "detail": "invoices waiting for approval", "reviewer": "cfo-reviewer", "job": null, "slaHours": 72 }
+    { "id": "invoice", "label": "Invoice", "detail": "unpaid invoices", "reviewer": "billing-clerk", "job": "invoice-chase", "slaHours": 72 }
   ],
   "departments": [
     {
@@ -63,11 +63,11 @@
     {
       "id": "cfo", "no": "06", "name": "CFO", "client": false,
       "desks": [
-        { "id": "controller", "name": "Controller", "noReadPath": true },
-        { "id": "billing-clerk", "name": "Billing Clerk", "noReadPath": true },
-        { "id": "cost-analyst", "name": "Cost Analyst", "noReadPath": true },
-        { "id": "payroll-kpi", "name": "Payroll & KPI", "noReadPath": true },
-        { "id": "cfo-reviewer", "name": "Reviewer", "noReadPath": true }
+        { "id": "controller", "name": "Controller" },
+        { "id": "billing-clerk", "name": "Billing Clerk" },
+        { "id": "cost-analyst", "name": "Cost Analyst" },
+        { "id": "payroll-kpi", "name": "Payroll & KPI" },
+        { "id": "cfo-reviewer", "name": "Reviewer" }
       ]
     },
     {
@@ -95,6 +95,10 @@
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
     { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },
+    { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "0 10 * * 1-5", "account": "internal" },
+    { "id": "cost-watch", "desk": "cost-analyst", "schedule": "0 9 * * 1", "account": "internal" },
+    { "id": "books-summary", "desk": "controller", "schedule": "30 9 * * 1", "account": "internal" },
+    { "id": "kpi-weekly", "desk": "payroll-kpi", "schedule": "0 10 * * 1", "account": "internal" },
     { "id": "sync-watchdog", "desk": "platform-engineer", "schedule": "every 15m", "account": "internal" }
   ]
 }

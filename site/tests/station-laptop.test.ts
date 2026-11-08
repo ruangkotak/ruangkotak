@@ -12,6 +12,11 @@ import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
 import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
 import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks.mts";
 import { markNewLines, markerOf } from "../scripts/station/queue.mts";
+import { formatMoney, parseCosts, parseInvoices, parseMoney, total, withoutComments, INVOICES_TEMPLATE, COSTS_TEMPLATE } from "../scripts/station/ledger.mts";
+import { chase } from "../scripts/station/jobs/invoice-chase.mts";
+import { costReport } from "../scripts/station/jobs/cost-watch.mts";
+import { books } from "../scripts/station/jobs/books-summary.mts";
+import { upsertRow, weekTotals } from "../scripts/station/jobs/kpi-weekly.mts";
 import { readFileSync } from "node:fs";
 import { digest, mytDay, parseDay, parseTasks } from "../scripts/station/jobs/reminder-check.mts";
 
@@ -249,4 +254,74 @@ test("routing marks new asks, retries unrouted ones only when they now match, an
   assert.deepEqual(r3.routed.map((d) => d.name), ["COO Lead"]);
   assert.equal(r3.unrouted, 0);
   assert.match(r3.text, /call mum #coo · → COO Lead <!-- rk:id=\S+ at=\S+ desk=coo-lead -->/);
+});
+
+// ---------- CFO ----------
+
+test("amounts read with the currency before or after, and format back the local way", () => {
+  assert.deepEqual(parseMoney("INV-1 · RM 3,500 · due 20 Nov"), { currency: "MYR", amount: 3500 });
+  assert.deepEqual(parseMoney("Apify · USD 49/mo"), { currency: "USD", amount: 49 });
+  assert.deepEqual(parseMoney("tool · $12.50/mo"), { currency: "USD", amount: 12.5 });
+  assert.deepEqual(parseMoney("1200 MYR"), { currency: "MYR", amount: 1200 });
+  assert.equal(parseMoney("INV-2026-11 for Brand X"), null, "an invoice number is not an amount");
+  assert.equal(formatMoney({ currency: "MYR", amount: 8500 }), "RM 8,500");
+  assert.equal(formatMoney({ currency: "USD", amount: -49 }), "−$49");
+  assert.equal(total([{ currency: "MYR", amount: 3500 }, { currency: "USD", amount: 49 }, { currency: "MYR", amount: 5000 }]), "RM 8,500 + $49");
+  assert.equal(total([]), "nothing");
+});
+
+test("the ledger templates' examples are never read as real entries", () => {
+  assert.deepEqual(parseInvoices(withoutComments(INVOICES_TEMPLATE), "2026-11-08"), { invoices: [], unreadable: 0 });
+  assert.deepEqual(parseCosts(withoutComments(COSTS_TEMPLATE), "2026-11-08"), { costs: [], unreadable: 0 });
+});
+
+const INVOICES = `# Invoices
+- [ ] INV-012 · client-demo · RM 3,500 · sent 2026-11-01 · due 2026-11-20
+- [ ] INV-010 · Brand Y · RM 2,000 · sent 2026-10-01 · due 2026-10-15
+- [x] INV-011 · Brand X · RM 5,000 · sent 2026-10-20 · due 2026-11-03 · paid 2026-11-02
+- [x] INV-009 · Brand Z · RM 1,000 · paid 2026-10-10
+- [ ] INV-013 · forgot the amount
+`;
+const COSTS = `- Apify · USD 49/mo · renews 2026-11-12
+- Domain · RM 60/yr · renews 2027-03-01
+- Canva · RM 55/mo · renews 2026-12-01
+- mystery thing
+`;
+
+test("invoice chase counts unpaid, totals them, and sends past-due ones to Needs you", () => {
+  const { invoices, unreadable } = parseInvoices(INVOICES, "2026-11-08");
+  const r = chase(invoices, unreadable, "2026-11-08");
+  assert.equal(r.message, "2 unpaid · RM 5,500 outstanding · 1 past due (RM 2,000) · 1 line without an amount");
+  assert.equal(r.attention, "1 invoice past due (RM 2,000)");
+  assert.deepEqual(r.gates, [{ gate: "invoice", waiting: 2 }]);
+  assert.ok(!JSON.stringify(r).includes("Brand"), "client names stay in the file");
+});
+
+test("cost watch gives the monthly run-rate, this week's renewals and Apify usage", () => {
+  const { costs, unreadable } = parseCosts(COSTS, "2026-11-08");
+  const r = costReport(costs, unreadable, "2026-11-08", { used: 41.2, max: 49 });
+  assert.equal(r.message, "3 costs · RM 60 + $49/mo · 1 renewal this week · Apify this cycle $41.20 of $49 · 1 line without an amount and /mo or /yr");
+  assert.equal(r.attention, "1 renewal this week ($49); Apify at 84% of its monthly limit");
+  assert.equal(costReport([], 0, "2026-11-08", null).message, "no costs listed yet");
+  assert.match(costReport([], 0, "2026-11-08", "error").message, /Apify usage unreadable/);
+});
+
+test("the books summary splits this month from last and nets out a month of costs", () => {
+  const { invoices } = parseInvoices(INVOICES, "2026-11-08");
+  const { costs } = parseCosts(COSTS, "2026-11-08");
+  const { result, note } = books(invoices, costs, "2026-11-08", "2026-11-09 09:30");
+  assert.equal(result.message, "Nov: RM 5,000 paid · RM 3,500 invoiced · RM 5,500 outstanding · costs RM 60 + $49/mo");
+  assert.match(note, /\| Paid \| RM 5,000 \| RM 1,000 \|/);
+  assert.match(note, /\| Paid minus a month of costs \| RM 4,940 \+ −\$49 \| RM 940 \+ −\$49 \|/);
+});
+
+test("the KPI note gets one row per week, replaced if the job runs twice that day", () => {
+  const w = weekTotals([{ day: "a", home_view: 10, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 }, { day: "b", home_view: 5 }]);
+  assert.deepEqual(w, { home_view: 15, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 });
+  const one = upsertRow("", "| 2026-11-09 | 15 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
+  assert.match(one, /Payroll: no read path yet/);
+  const again = upsertRow(one, "| 2026-11-09 | 16 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
+  assert.equal(again.split("\n").filter((l) => l.startsWith("| 2026-11-09")).length, 1);
+  const next = upsertRow(again, "| 2026-11-16 | 20 | 5 | 4 | 3 | 2 | RM 7,000 |", "2026-11-16");
+  assert.deepEqual(next.split("\n").filter((l) => /^\| 2026/.test(l)).map((l) => l.slice(2, 12)), ["2026-11-09", "2026-11-16"]);
 });
