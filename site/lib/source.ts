@@ -97,6 +97,16 @@ async function scrapeInstagram(handle: string) {
   return { followers: profile[0]?.followersCount ?? 0, videos };
 }
 
+/** Station: the newest reels of an account (link, posted time, plays), via the same Apify actor as the preview. */
+export async function latestReels(handle: string, limit = 12): Promise<{ url: string; at: string; views: number }[]> {
+  const items = await apify<IgReel>("apify~instagram-reel-scraper", { username: [handle], resultsLimit: limit });
+  return items
+    .map((r) => ({ url: r.url ?? "", at: r.timestamp ?? "", views: r.videoPlayCount ?? r.videoViewCount ?? -1 }))
+    .filter((r) => /^https:\/\/(www\.)?instagram\.com\//.test(r.url) && !Number.isNaN(Date.parse(r.at)) && r.views >= 0)
+    .map((r) => ({ ...r, at: new Date(r.at).toISOString() }))
+    .sort((a, b) => b.at.localeCompare(a.at));
+}
+
 export function normaliseHandle(raw: string) {
   const h = raw
     .trim()

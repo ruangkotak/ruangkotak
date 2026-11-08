@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot,
+  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, siteProbe,
   applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
@@ -444,7 +444,7 @@ test("the account panel: plays per hour since the last check, plays gained this 
   assert.deepEqual(empty.week, { posted: 0, playsGained: null, delivered: 0, inReview: null });
 });
 
-test("a client's page shows only their reels and items; the owner's all-accounts view has no account panel", () => {
+test("a client's page shows only their reels and items; internal has no panel; all-accounts shows the owner's own", () => {
   const gates = {
     "final:client-demo": { waiting: 1, at: NOW.toISOString(), items: [{ label: "Demo reel", at: NOW.toISOString() }] },
     "final:alanazizreview": { waiting: 1, at: NOW.toISOString(), items: [{ label: "Alan secret project", at: NOW.toISOString() }] },
@@ -452,6 +452,38 @@ test("a client's page shows only their reels and items; the owner's all-accounts
   const client = snapshot({ mode: "client", account: "client-demo" }, { gates, reels: [snapAt(0, [["D", 5, 100]])] });
   assert.equal(client.account?.label, "Client demo");
   assert.ok(!JSON.stringify(client).includes("Alan secret project"));
-  assert.equal(snapshot({ mode: "owner", account: "all" }, { gates }).account, undefined);
+  assert.equal(snapshot({ mode: "owner", account: "all" }, { gates }).account?.label, "@alanazizreview", "the owner sees their own creator account");
   assert.equal(snapshot({ mode: "owner", account: "internal" }, { gates }).account, undefined);
+});
+
+// ---------- site probe and server reel checks ----------
+
+test("the site tile: a real outage on Vercel, NO PROBE when a laptop or sandbox simply can't reach it", () => {
+  assert.equal(siteProbe({ status: 200, ms: 196 }, true).status, "ok");
+  assert.equal(siteProbe({ status: 200, ms: 2400 }, true).status, "degraded");
+  assert.equal(siteProbe({ status: 503, ms: 80 }, false).status, "down", "an answer that isn't 200 is down anywhere");
+  assert.equal(siteProbe({ error: "unreachable" }, true).status, "down");
+  const local = siteProbe({ error: "unreachable" }, false);
+  assert.equal(local.status, "no-probe");
+  assert.match(local.detail, /can't reach it from here/);
+});
+
+test("reels are re-checked when there is none, or the newest is 6 hours old", () => {
+  assert.equal(reelsDue([], NOW), true);
+  assert.equal(reelsDue([snapAt(2, [])], NOW), false);
+  assert.equal(reelsDue([snapAt(6, [])], NOW), true);
+});
+
+test("the server's reel check reports like the laptop job", () => {
+  const prev = snapAt(6, [["A", 26, 1000]]);
+  const cur = { ...snapAt(0, [["A", 20, 1600], ["B", 300, 9000]]) };
+  assert.equal(reelsMessage("alanazizreview", cur, prev), "@alanazizreview · 2 reels · newest 20h old: 1600 plays (+100/h)");
+  assert.equal(reelsMessage("alanazizreview", { at: NOW.toISOString(), reels: [] }, undefined), "@alanazizreview · no public reels returned");
+});
+
+test("the owner's all-accounts view shows their own creator account's panel", () => {
+  const s = snapshot({ mode: "owner", account: "all" }, { reels: [snapAt(0, [["A", 20, 1600]])] });
+  assert.equal(s.account?.label, "@alanazizreview");
+  assert.equal(s.account?.reels[0].views, 1600);
+  assert.equal(snapshot({ mode: "client", account: "client-demo" }).account?.label, "Client demo");
 });

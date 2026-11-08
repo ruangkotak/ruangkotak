@@ -121,6 +121,14 @@ is a 404 to anyone without a key.
   (24 h). Approving (ticking) sends, posts or publishes nothing. Video,
   colour, sound and shoot desks have no agent and stay human. Uses your
   Claude plan.
+- **Reels checked by the site:** every personal or client account with an
+  Instagram handle (starting with @alanazizreview) has its newest 12 reels
+  fetched by the website itself, using its own `APIFY_TOKEN`, when the last
+  check is 6+ hours old: after you open Station and in the daily 9am check.
+  Each check is a run of that account's velocity job (source "server"), so a
+  failing scrape shows and alerts like any job. Your own account's page sits
+  at the top of the all-accounts view. The laptop's velocity job skips its
+  scrape when the site checked in the last 5 hours.
 - **Client pages:** a client's link (and your view filtered to one account)
   opens on *This week* (reels posted, plays gained, delivered, in final
   review), their reels with plays per hour and a trend line, and their
