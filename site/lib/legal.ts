@@ -2,7 +2,7 @@
 // The server records NOTICE_VERSION and the exact consent text with every lead, as the PDPA Standards 2015 require
 // consent to be recorded. Change the version whenever the notice or any consent sentence changes.
 
-export const NOTICE_VERSION = "2026-09-30";
+export const NOTICE_VERSION = "2026-11-09";
 
 // Shown on the privacy notice and in the footer (Consumer Protection (Electronic Trade Transactions) Regulations).
 // `registration` is the SSM business registration number.
