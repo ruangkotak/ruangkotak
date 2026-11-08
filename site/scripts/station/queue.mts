@@ -79,3 +79,15 @@ export function allQueues(folder: string) {
     .sort()
     .map((f) => ({ file: f, ...readQueueFile(join(folder, f)) }));
 }
+
+/** Ticks the line whose marker has this id and adds a note before the marker ("DM sent 10:02"). Unknown id: unchanged. */
+export function tickLine(text: string, id: string, note: string) {
+  return text
+    .split("\n")
+    .map((line) => {
+      const item = checklistItem(line);
+      if (!item || item.ticked || item.marker?.id !== id) return line;
+      return line.replace(/^(\s*[-*] )\[ \]/, "$1[x]").replace(/ <!-- rk:/, ` · ${clean(note)} <!-- rk:`);
+    })
+    .join("\n");
+}
