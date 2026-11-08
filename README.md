@@ -109,6 +109,14 @@ is a 404 to anyone without a key.
   Three failures in a row (or a run open over an hour) is **stuck** and lands
   in *Needs you*. Anything without a real data source shows `NO PROBE` or
   `no read path yet`, never a made-up number.
+- **Telegram alerts:** when something new lands in *Needs you* (a stuck
+  job, a late invoice or payout, an overdue task, a gate past its window, the
+  site down, a failed DM), Station sends one Telegram message through the
+  same bot as the application alerts, and another when it clears. Checks run
+  after every laptop beat, while you have Station open, and once a day
+  (Vercel cron, `CRON_SECRET`) as a safety net. A reworded item (1 → 2 late)
+  is re-sent at most every 6 hours; a slow site is not an alert (only down);
+  a closed laptop only after 12 hours. *Alerts* tab → *Send test alert*.
 - **Env vars:** `STATION_KEY`, one `CLIENT_KEY_<SLUG>` per client
   (`client-demo` → `CLIENT_KEY_CLIENT_DEMO`), and optionally `NOTION_TOKEN`
   for the Notion tile. Data lives in the same Upstash Redis as the funnel.

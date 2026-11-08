@@ -6,5 +6,6 @@
       "source": "/((?!api/|_next/|r/|space-stack|.*\\..*).*)",
       "headers": [{ "key": "Vary", "value": "Accept" }]
     }
-  ]
+  ],
+  "crons": [{ "path": "/api/station/alerts", "schedule": "0 1 * * *" }]
 }

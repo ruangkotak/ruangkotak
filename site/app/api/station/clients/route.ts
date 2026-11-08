@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { COOKIE, hashKey, newClientKey, onboarding, validateClient, type ClientRecord } from "@/lib/station";
-import { fileRegistry, scopeOf } from "@/lib/station-live";
+import { hashKey, newClientKey, onboarding, validateClient, type ClientRecord } from "@/lib/station";
+import { fileRegistry, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
 // The Clients tab: list, add, rotate a link, pause, resume, update, remove. Owner only; anyone else gets a 404.
@@ -10,19 +10,7 @@ import { clientStore, stationStore } from "@/lib/store";
 const noStore = { "cache-control": "no-store" };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
 
-async function owner(req: NextRequest, write: boolean) {
-  const headerKey = req.headers.get("x-station-key");
-  const scope = await scopeOf({ headerKey, cookie: req.cookies.get(COOKIE)?.value });
-  if (scope?.kind !== "owner") return false;
-  if (write && !headerKey) {
-    let originHost: string | null = null;
-    try {
-      originHost = new URL(req.headers.get("origin") ?? "").host; // "null" or missing throws: refused
-    } catch {}
-    if (!originHost || originHost !== req.headers.get("host")) return false;
-  }
-  return true;
-}
+const owner = ownerRequest;
 
 const view = (c: ClientRecord, runs: Awaited<ReturnType<typeof stationStore.runs>>, gates: Awaited<ReturnType<typeof stationStore.gates>>) => {
   const { keyHash: _, ...rest } = c;
