@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou,
+  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot,
   applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
@@ -401,4 +401,57 @@ test("a slow site and a laptop closed overnight are not alerts; a laptop quiet f
   const quiet = alertable(items, minutes(-13 * 60).toISOString(), NOW);
   assert.deepEqual(quiet.map((n) => n.key), ["job:x", "laptop:quiet"]);
   assert.equal(quiet[1].title, "Laptop quiet for 13h");
+});
+
+// ---------- account pages ----------
+
+test("reel beats are validated: own accounts only, instagram links, at most 12", () => {
+  const reel = { url: "https://www.instagram.com/reel/AAA/", at: "2026-11-07T01:00:00Z", views: 1200 };
+  const ok = parseBeat({ reels: [reel], account: "alanazizreview" }, registry);
+  assert.ok(ok.ok && ok.beat.kind === "reels" && ok.beat.reels[0].views === 1200);
+  assert.equal(parseBeat({ reels: [reel], account: "internal" }, registry).ok, false);
+  assert.equal(parseBeat({ reels: [{ ...reel, url: "https://evil.example/x" }], account: "alanazizreview" }, registry).ok, false);
+  assert.equal(parseBeat({ reels: Array(13).fill(reel), account: "alanazizreview" }, registry).ok, false);
+  assert.equal(parseBeat({ reels: [{ ...reel, views: -1 }], account: "alanazizreview" }, registry).ok, false);
+});
+
+test("gate beats can name their items, cleaned and capped", () => {
+  const r = parseBeat({ gate: "final", account: "client-demo", waiting: 1, items: [{ label: " Reel 3   v2 <!-- x --> ", at: "2026-11-07T01:00:00Z" }], delivered: [] }, registry);
+  assert.ok(r.ok && r.beat.kind === "gate");
+  assert.deepEqual((r.beat as { items?: unknown }).items, [{ label: "Reel 3 v2 x", at: "2026-11-07T01:00:00.000Z" }]);
+  assert.equal(parseBeat({ gate: "final", waiting: 1, items: [{ label: 3, at: "x" }] }, registry).ok, false);
+});
+
+const snapAt = (hAgo: number, reels: [string, number, number][]): ReelSnapshot =>
+  ({ at: minutes(-hAgo * 60).toISOString(), reels: reels.map(([id, ageH, views]) => ({ url: `https://www.instagram.com/reel/${id}/`, at: minutes(-ageH * 60).toISOString(), views })) });
+
+test("the account panel: plays per hour since the last check, plays gained this week, the trend, and the review lists", () => {
+  const snaps = [
+    snapAt(0, [["NEW", 20, 3000], ["A", 100, 9000], ["B", 400, 5200]]),
+    snapAt(6, [["A", 94, 8400], ["B", 394, 5100]]),
+    snapAt(7 * 24, [["B", 232, 4000]]), // a week ago only B existed
+  ];
+  const finalGate = { waiting: 2, at: NOW.toISOString(), items: [{ label: "Reel 3 v2", at: minutes(-120).toISOString() }], delivered: [{ label: "Carousel", at: minutes(-24 * 60).toISOString() }, { label: "Old thing", at: minutes(-40 * 24 * 60).toISOString() }] };
+  const p = accountPanel("Kopi Kita", snaps, finalGate, NOW);
+  assert.deepEqual(p.reels.map((r) => r.perHour), [null, 100, 17]);
+  assert.equal(p.week.posted, 2, "NEW (20h) and A (100h) are both under 7 days old");
+  assert.equal(p.week.playsGained, 3000 + 9000 + 1200); // NEW and A were posted after the base check: counted in full
+  assert.equal(p.week.delivered, 1);
+  assert.equal(p.week.inReview, 2);
+  assert.deepEqual(p.trend.map((t) => t.median), [4000, 6750, 5200]);
+  assert.deepEqual(p.review.delivered.map((d) => d.label), ["Carousel"], "older than 30 days drops off");
+  const empty = accountPanel("New", [], undefined, NOW);
+  assert.deepEqual(empty.week, { posted: 0, playsGained: null, delivered: 0, inReview: null });
+});
+
+test("a client's page shows only their reels and items; the owner's all-accounts view has no account panel", () => {
+  const gates = {
+    "final:client-demo": { waiting: 1, at: NOW.toISOString(), items: [{ label: "Demo reel", at: NOW.toISOString() }] },
+    "final:alanazizreview": { waiting: 1, at: NOW.toISOString(), items: [{ label: "Alan secret project", at: NOW.toISOString() }] },
+  };
+  const client = snapshot({ mode: "client", account: "client-demo" }, { gates, reels: [snapAt(0, [["D", 5, 100]])] });
+  assert.equal(client.account?.label, "Client demo");
+  assert.ok(!JSON.stringify(client).includes("Alan secret project"));
+  assert.equal(snapshot({ mode: "owner", account: "all" }, { gates }).account, undefined);
+  assert.equal(snapshot({ mode: "owner", account: "internal" }, { gates }).account, undefined);
 });

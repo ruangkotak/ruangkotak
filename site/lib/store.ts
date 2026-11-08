@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, ClientRecord, GateReading, Run, StationEvent } from "./station";
+import type { Alerted, ClientRecord, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -127,9 +127,11 @@ export const store: typeof base = { ...base, getReport: async (id) => withoutSam
 const ST_KEEP = 90 * 24 * 60 * 60;
 const ST_LOG = 500;
 
-type StationMem = { runs: Map<string, Run[]>; log: StationEvent[]; gates: Map<string, GateReading>; seen: Map<string, string> };
+type StationMem = { runs: Map<string, Run[]>; log: StationEvent[]; gates: Map<string, GateReading>; seen: Map<string, string>; reels?: Map<string, ReelSnapshot[]> };
 const gs = globalThis as unknown as { __rkStation?: StationMem };
 const smem: StationMem = (gs.__rkStation ??= { runs: new Map(), log: [], gates: new Map(), seen: new Map() });
+smem.reels ??= new Map();
+const ST_REELS = 60; // reel checks kept per account: 15 days at one every 6 hours
 
 const pairs = <T>(flat: string[] | null, read: (v: string) => T) => {
   const out: Record<string, T> = {};
@@ -159,6 +161,14 @@ export const stationStore = REDIS
         await redis("EXPIRE", "st:gates", ST_KEEP);
       },
       seen: async () => pairs(await redis<string[] | null>("HGETALL", "st:seen"), (v) => v),
+      /** Reel snapshots for an account, newest first. */
+      reels: async (account: string): Promise<ReelSnapshot[]> =>
+        (await redis<string[]>("LRANGE", `st:reels:${account}`, 0, ST_REELS - 1)).map((v) => JSON.parse(v) as ReelSnapshot),
+      addReels: async (account: string, snap: ReelSnapshot) => {
+        await redis("LPUSH", `st:reels:${account}`, JSON.stringify(snap));
+        await redis("LTRIM", `st:reels:${account}`, 0, ST_REELS - 1);
+        await redis("EXPIRE", `st:reels:${account}`, ST_KEEP);
+      },
       markSeen: async (source: string, at: string) => {
         await redis("HSET", "st:seen", source, at);
         await redis("EXPIRE", "st:seen", ST_KEEP);
@@ -175,6 +185,8 @@ export const stationStore = REDIS
       setGate: async (key: string, g: GateReading) => void smem.gates.set(key, g),
       seen: async () => Object.fromEntries(smem.seen),
       markSeen: async (source: string, at: string) => void smem.seen.set(source, at),
+      reels: async (account: string): Promise<ReelSnapshot[]> => smem.reels!.get(account) ?? [],
+      addReels: async (account: string, snap: ReelSnapshot) => void smem.reels!.set(account, [snap, ...(smem.reels!.get(account) ?? [])].slice(0, ST_REELS)),
     };
 
 // ---------- Station: applications for the brief sweep ----------

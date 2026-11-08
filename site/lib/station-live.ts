@@ -142,18 +142,19 @@ async function probes(seen: Record<string, string>, now: Date): Promise<Probe[]>
 
 export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
   const { registry } = await liveRegistry();
-  const [runs, events, gates, seen] = await Promise.all([
+  const [runs, events, gates, seen, reels] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
     stationStore.gates(),
     stationStore.seen(),
+    view.account === "all" ? Promise.resolve([]) : stationStore.reels(view.account),
   ]);
   const wantsFunnel = view.account === "all" || registry.accounts.find((a) => a.id === view.account)?.funnel === "site";
   const [infra, funnel] = await Promise.all([
     view.mode === "owner" ? probes(seen, now) : Promise.resolve([]),
     wantsFunnel ? dailyCounts(7).catch((err) => (console.error("[station] funnel", err), "error" as const)) : Promise.resolve(null),
   ]);
-  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, now });
+  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, reels, now });
   return view.mode === "owner" ? { ...snap, alerts: telegramReady() } : snap;
 }
 
@@ -161,8 +162,10 @@ export async function recordBeat(beat: Beat, registry: Registry, now = new Date(
   if (beat.kind === "job") {
     const runs = (await stationStore.runs([beat.jobId]))[beat.jobId] ?? [];
     await stationStore.setRuns(beat.jobId, applyBeat(runs, beat, now));
+  } else if (beat.kind === "reels") {
+    await stationStore.addReels(beat.account, { at: now.toISOString(), reels: beat.reels });
   } else {
-    await stationStore.setGate(`${beat.gate}:${beat.account}`, { waiting: beat.waiting, oldestAt: beat.oldestAt, at: now.toISOString() });
+    await stationStore.setGate(`${beat.gate}:${beat.account}`, { waiting: beat.waiting, oldestAt: beat.oldestAt, at: now.toISOString(), items: beat.items, delivered: beat.delivered });
   }
   await stationStore.addEvent(eventFor(beat, registry, now));
   if (beat.source) await stationStore.markSeen(beat.source, now.toISOString());

@@ -8,6 +8,7 @@ import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { tickLine } from "../scripts/station/queue.mts";
+import { labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
 import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
@@ -393,4 +394,18 @@ test("a sent DM ticks exactly its own line", () => {
   assert.equal(out.split("\n")[1], b);
   assert.deepEqual(readQueue(out), { waiting: 1, oldestAt: "2026-11-08T01:00:00.000Z" });
   assert.equal(tickLine(out, "999", "x"), out);
+});
+
+test("final review: open lines are named for the client; a tick after being open is a delivery, a deletion is not", () => {
+  const t0 = "2026-11-08T01:00:00.000Z";
+  const marked = markNewLines("# Final review\n- [ ] Reel 3 v2\n- [ ] Carousel for launch\n- [ ] Cancelled idea\n", t0).text;
+  const first = finalReview(marked, { open: {}, delivered: [] }, new Date(t0));
+  assert.deepEqual(first.items.map((i) => i.label), ["Reel 3 v2", "Carousel for launch", "Cancelled idea"]);
+  assert.deepEqual(first.delivered, []);
+  const next = marked.replace("- [ ] Reel 3 v2", "- [x] Reel 3 v2").split("\n").filter((l) => !l.includes("Cancelled")).join("\n");
+  const second = finalReview(next, first, new Date("2026-11-09T01:00:00.000Z"));
+  assert.deepEqual(second.items.map((i) => i.label), ["Carousel for launch"]);
+  assert.deepEqual(second.delivered.map((d) => [d.label, d.at]), [["Reel 3 v2", "2026-11-09T01:00:00.000Z"]]);
+  assert.equal(finalReview(next, second, new Date("2026-11-10T01:00:00.000Z")).delivered.length, 1, "not delivered twice");
+  assert.equal(labelOf("- [ ] 2026-11-08 09:00 · @fan · \"AUDIT\" <!-- rk:id=1 at=x -->"), '@fan · "AUDIT"');
 });
