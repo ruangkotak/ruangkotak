@@ -29,6 +29,7 @@ const EN: Section[] = [
         "What you give us: your name, email, WhatsApp number (optional), your TikTok or Instagram handle, and anything you write in the monthly application.",
         "Public data from the account you enter: recent public videos, their captions, cover images, view counts and posting dates, and the follower count.",
         "Technical data: your IP address and approximate country, a cookie (rk_dev) and a browser storage id (rk_id) that let each device get one free mini-diagnosis, and a session flag (rk_intro) that remembers you have seen the opening animation.",
+        "Visit statistics: which pages you view, the site that sent you here, your country, and your device and browser type. Vercel Web Analytics counts these without cookies and does not identify you personally.",
         "Your consent: which boxes you ticked, when, from which IP address, and the version of this notice.",
       ],
     ],
@@ -41,6 +42,7 @@ const EN: Section[] = [
         "To email you the link to your mini-diagnosis.",
         "To review a monthly application and reply with a quote.",
         "To stop misuse, such as one device requesting many free diagnoses.",
+        "To see which pages people visit and where they come from, so we can improve the site.",
         "Only if you tick the optional box: to contact you about the monthly service and send occasional tips.",
       ],
       "We do not sell your personal data, and we do not use it for anything else without asking you first.",
@@ -57,7 +59,7 @@ const EN: Section[] = [
     p: [
       "We use service providers who process data only on our instructions:",
       [
-        "Vercel (website hosting)",
+        "Vercel (website hosting and visit statistics)",
         "Upstash (database)",
         "Resend (sending email)",
         "Telegram (internal alerts to our team)",
@@ -129,6 +131,7 @@ const MS: Section[] = [
         "Yang anda berikan: nama, e-mel, nombor WhatsApp (pilihan), nama pengguna TikTok atau Instagram anda, dan apa-apa yang anda tulis dalam permohonan bulanan.",
         "Data awam daripada akaun yang anda masukkan: video awam terkini, kapsyen, imej muka depan, bilangan tontonan dan tarikh siaran, serta bilangan pengikut.",
         "Data teknikal: alamat IP dan anggaran negara anda, kuki (rk_dev) dan id storan pelayar (rk_id) supaya setiap peranti mendapat satu diagnosis mini percuma, dan penanda sesi (rk_intro) yang mengingati anda sudah melihat animasi pembukaan.",
+        "Statistik lawatan: halaman yang anda lihat, laman yang membawa anda ke sini, negara anda, serta jenis peranti dan pelayar anda. Vercel Web Analytics mengiranya tanpa kuki dan tidak mengenal pasti anda secara peribadi.",
         "Persetujuan anda: kotak yang anda tandakan, bila, dari alamat IP mana, dan versi notis ini.",
       ],
     ],
@@ -141,6 +144,7 @@ const MS: Section[] = [
         "Untuk menghantar pautan diagnosis mini anda melalui e-mel.",
         "Untuk menyemak permohonan bulanan dan membalas dengan sebut harga.",
         "Untuk mencegah penyalahgunaan, seperti satu peranti meminta banyak diagnosis percuma.",
+        "Untuk melihat halaman yang dilawati dan dari mana pelawat datang, supaya kami boleh menambah baik laman ini.",
         "Hanya jika anda menandakan kotak pilihan: untuk menghubungi anda tentang perkhidmatan bulanan dan menghantar tip sekali-sekala.",
       ],
       "Kami tidak menjual data peribadi anda, dan tidak menggunakannya untuk tujuan lain tanpa bertanya kepada anda terlebih dahulu.",
@@ -157,7 +161,7 @@ const MS: Section[] = [
     p: [
       "Kami menggunakan pembekal perkhidmatan yang memproses data hanya mengikut arahan kami:",
       [
-        "Vercel (pengehosan laman web)",
+        "Vercel (pengehosan laman web dan statistik lawatan)",
         "Upstash (pangkalan data)",
         "Resend (penghantaran e-mel)",
         "Telegram (makluman dalaman kepada pasukan kami)",
