@@ -264,3 +264,31 @@ test("the registry check catches a bad instagram handle", () => {
   const broken = { ...registry, accounts: registry.accounts.map((a) => (a.id === "alanazizreview" ? { ...a, instagram: "@Alan" } : a)) };
   assert.match(checkRegistry(broken).join("\n"), /invalid instagram handle/);
 });
+
+// ---------- attention ----------
+
+test("a successful run can raise attention without failing", () => {
+  const r = parseBeat({ jobId: "reminder-check", state: "ok", message: "5 active · 2 overdue", attention: "  2 overdue   tasks " }, registry);
+  assert.ok(r.ok && r.beat.kind === "job");
+  const runs = applyBeat([], r.beat as JobBeat, NOW);
+  const v = jobView(job("reminder-check"), registry, runs, NOW);
+  assert.equal(v.state === "failing" || v.state === "stuck", false);
+  assert.equal(v.attention, "2 overdue tasks");
+  const s = snapshot({ mode: "owner", account: "all" }, { runs: { "reminder-check": runs } });
+  assert.deepEqual(s.needsYou.map((n) => n.title), ["Digest Editor: 2 overdue tasks"]);
+});
+
+test("attention clears on the next run without it, and never rides a start beat", () => {
+  const first = applyBeat([], { kind: "job", jobId: "reminder-check", state: "ok", attention: "1 overdue task" }, minutes(-60));
+  const next = applyBeat(first, { kind: "job", jobId: "reminder-check", state: "ok" }, NOW);
+  assert.equal(jobView(job("reminder-check"), registry, next, NOW).attention, undefined);
+  const start = parseBeat({ jobId: "reminder-check", state: "start", attention: "x" }, registry);
+  assert.ok(start.ok && start.beat.kind === "job" && start.beat.attention === undefined);
+});
+
+test("the brief gate belongs to the COO, so clients never see it", () => {
+  const owner = snapshot({ mode: "owner", account: "all" }, { gates: { "brief:internal": { waiting: 2, at: NOW.toISOString() } } });
+  assert.equal(owner.gates.find((g) => g.id === "brief")?.waiting, 2);
+  const client = snapshot({ mode: "client", account: "client-demo" });
+  assert.ok(!client.gates.some((g) => g.id === "brief"));
+});

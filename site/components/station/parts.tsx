@@ -127,12 +127,15 @@ function Stat({ label, value, tone, hatch, small }: { label: string; value: numb
   );
 }
 
+// Literal class names, so Tailwind sees them.
+const GATE_COLS: Record<number, string> = { 4: "lg:grid-cols-4", 5: "lg:grid-cols-5", 6: "lg:grid-cols-3" };
+
 export function Gates({ gates, now }: { gates: GateView[]; now: number }) {
   if (!gates.length) return null;
   return (
     <section aria-label="Approval gates" className="st-card px-3.5 py-3">
       <div className="label mb-2.5">Gates</div>
-      <ul className={`grid gap-2 sm:grid-cols-2 ${gates.length > 3 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+      <ul className={`grid gap-2 sm:grid-cols-2 ${GATE_COLS[gates.length] ?? "lg:grid-cols-3"}`}>
         {gates.map((g) => {
           const next = until(g.nextReviewAt, now);
           return (
@@ -161,14 +164,14 @@ function Funnel({ f }: { f: Snapshot["funnel"] }) {
   if (f.status !== "ok") return <div className="mt-3 text-[11px] text-muted">Funnel · {f.status === "error" ? "counters unavailable" : "no read path yet"}</div>;
   const week = Object.fromEntries(FUNNEL.map(([k]) => [k, f.days.reduce((s, d) => s + Number(d[k] ?? 0), 0)]));
   const today = f.days.at(-1);
-  const top = Math.max(1, week.home_view);
+  const top = Math.max(1, ...Object.values(week)); // scale to the biggest step: home views can be fewer (e.g. direct links)
   return (
     <div className="mt-3 border-t border-line pt-2.5">
       <div className="label mb-1.5">Site funnel · 7 days</div>
       <ol className="grid grid-cols-5 gap-1.5">
         {FUNNEL.map(([k, name]) => (
           <li key={k} className="flex flex-col gap-1">
-            <span className="h-1 rounded-full bg-line"><span className="block h-1 rounded-full bg-carbon" style={{ width: `${Math.max(4, (week[k] / top) * 100)}%` }} /></span>
+            <span className="h-1 rounded-full bg-line"><span className="block h-1 rounded-full bg-carbon" style={{ width: `${Math.min(100, Math.max(4, (week[k] / top) * 100))}%` }} /></span>
             <span className="num text-[15px] leading-none">{week[k]}</span>
             <span className="text-[10px] text-muted">{name} <span className="num">+{Number(today?.[k] ?? 0)}</span></span>
           </li>

@@ -2,6 +2,7 @@
 //
 //   node --experimental-strip-types scripts/station-install.mts --key <STATION_KEY> [--vault ~/Notes] [--url https://ruangkotak.com]
 //        [--apify-token <token>] [--ig-keywords "AUDIT,KOTAK"]      (Instagram jobs; re-run any time to change settings)
+//        [--tasks ~/path/TASKS.md]                                (reminder-check; default: TASKS.md at the repo root or in the vault)
 //   node --experimental-strip-types scripts/station-install.mts --uninstall
 //   add --dry-run to see what would change without changing it
 //
@@ -77,6 +78,8 @@ const settings: Record<string, string | undefined> = {
   // Instagram jobs: the laptop's own Apify token, and the comment words that earn a DM.
   APIFY_TOKEN: flag("apify-token") ?? existing.APIFY_TOKEN,
   STATION_IG_KEYWORDS: flag("ig-keywords") ?? existing.STATION_IG_KEYWORDS,
+  // reminder-check: the task list, when it is not TASKS.md at the repo root or in the vault.
+  STATION_TASKS_FILE: flag("tasks") ? resolve(flag("tasks")!.replace(/^~(?=$|\/)/, homedir())) : existing.STATION_TASKS_FILE,
 };
 
 // Check the key against Station before saving anything. The read endpoint takes the same owner key and writes nothing.
