@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou,
   applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
@@ -358,4 +359,46 @@ test("onboarding steps follow what Station has seen", () => {
   assert.ok(later.every((s) => s.done));
   assert.match(later[3].note!, /2 waiting · add deliverables to final-queue-kopi-kita\.md/);
   assert.match(onboarding({ ...kopi, instagram: undefined }, {}, {})[2].note!, /Instagram handle/);
+});
+
+// ---------- Telegram alerts ----------
+
+const N = (key: string, title: string, kind: NeedsYou["kind"] = "job"): NeedsYou => ({ key, kind, title, detail: "" });
+
+test("needs-you items carry keys that name the thing, not the wording", () => {
+  const s = snapshot({ mode: "owner", account: "all" }, {
+    runs: { "credential-registry": failing3, "reminder-check": applyBeat([], { kind: "job", jobId: "reminder-check", state: "ok", attention: "2 overdue tasks" }, NOW) },
+    probes: [{ id: "site", label: "ruangkotak.com", status: "down", detail: "x" }],
+  });
+  assert.deepEqual(s.needsYou.map((n) => n.key), ["job:credential-registry", "attention:reminder-check", "probe:site:down"]);
+});
+
+test("a new item is announced once; a reworded one again only after 6 hours; a cleared one once as resolved", () => {
+  const first = planAlerts([N("a", "1 invoice late")], {}, NOW);
+  assert.deepEqual(first.raised.map((n) => n.key), ["a"]);
+  const same = planAlerts([N("a", "1 invoice late")], first.next, minutes(5));
+  assert.equal(alertText(same, "L"), null, "nothing new, nothing sent");
+  const soon = planAlerts([N("a", "2 invoices late")], first.next, minutes(60));
+  assert.equal(soon.updated.length, 0, "reworded within 6h: quiet");
+  const later = planAlerts([N("a", "2 invoices late")], first.next, new Date(NOW.getTime() + REPEAT_MS));
+  assert.deepEqual(later.updated.map((n) => n.title), ["2 invoices late"]);
+  const cleared = planAlerts([], later.next, minutes(500));
+  assert.deepEqual(cleared.resolved, [{ key: "a", title: "2 invoices late" }]);
+  assert.deepEqual(cleared.next, {});
+});
+
+test("the message lists what is new, then what cleared, then the link", () => {
+  const prev = { b: { title: "Billing Clerk: 1 invoice past due", at: NOW.toISOString() } };
+  const plan = planAlerts([{ ...N("a", "Security Officer: credential-registry failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
+  assert.equal(alertText(plan, "https://ruangkotak.com/station#alerts"),
+    "Station needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#alerts");
+  assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^Station: cleared\n✓ Billing Clerk/);
+});
+
+test("a slow site and a laptop closed overnight are not alerts; a laptop quiet for 12 hours is", () => {
+  const items = [N("probe:site:degraded", "ruangkotak.com degraded", "probe"), N("probe:laptop:down", "Laptop down", "probe"), N("job:x", "x failing")];
+  assert.deepEqual(alertable(items, minutes(-60).toISOString(), NOW).map((n) => n.key), ["job:x"]);
+  const quiet = alertable(items, minutes(-13 * 60).toISOString(), NOW);
+  assert.deepEqual(quiet.map((n) => n.key), ["job:x", "laptop:quiet"]);
+  assert.equal(quiet[1].title, "Laptop quiet for 13h");
 });

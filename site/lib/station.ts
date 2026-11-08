@@ -397,7 +397,8 @@ export type ProbeStatus = "ok" | "degraded" | "down" | "no-probe";
 export type Probe = { id: string; label: string; status: ProbeStatus; detail: string };
 export type StationEvent = { at: string; dept: string; desk: string; job?: string; account: string; level: "info" | "ok" | "fail" | "warn"; message: string; source?: string };
 export type FunnelDay = { day: string } & Record<string, number | string>;
-export type NeedsYou = { kind: "job" | "probe" | "gate"; title: string; detail: string; dept?: string };
+/** `key` names the thing (a job, a probe, a gate), not its wording, so alerts can tell "new" from "changed". */
+export type NeedsYou = { key: string; kind: "job" | "probe" | "gate"; title: string; detail: string; dept?: string };
 
 export type GateView = {
   id: string; label: string; detail: string; reviewer: string; reviewerDept: string;
@@ -419,6 +420,8 @@ export type Snapshot = {
   funnel: { status: "ok" | "no-read-path" | "error"; days: FunnelDay[] };
   needsYou: NeedsYou[];
   log: StationEvent[];
+  /** Owner view only: whether Telegram alerts are set up. */
+  alerts?: boolean;
 };
 
 export type SnapshotInput = {
@@ -480,11 +483,11 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   const probes = client ? null : input.probes;
 
   const needsYou: NeedsYou[] = [
-    ...jobs.filter((j) => j.state === "stuck").map((j) => ({ kind: "job" as const, title: `${j.deskName}: ${j.id} ${j.reason?.startsWith("started") ? "hung" : "failing"}`, detail: j.reason ?? "", dept: j.dept })),
-    ...jobs.filter((j) => j.attention && j.state !== "stuck").map((j) => ({ kind: "job" as const, title: `${j.deskName}: ${j.attention}`, detail: `from ${j.id}`, dept: j.dept })),
-    ...(probes ?? []).filter((p) => p.status === "degraded" || p.status === "down").map((p) => ({ kind: "probe" as const, title: `${p.label} ${p.status}`, detail: p.detail })),
+    ...jobs.filter((j) => j.state === "stuck").map((j) => ({ key: `job:${j.id}`, kind: "job" as const, title: `${j.deskName}: ${j.id} ${j.reason?.startsWith("started") ? "hung" : "failing"}`, detail: j.reason ?? "", dept: j.dept })),
+    ...jobs.filter((j) => j.attention && j.state !== "stuck").map((j) => ({ key: `attention:${j.id}`, kind: "job" as const, title: `${j.deskName}: ${j.attention}`, detail: `from ${j.id}`, dept: j.dept })),
+    ...(probes ?? []).filter((p) => p.status === "degraded" || p.status === "down").map((p) => ({ key: `probe:${p.id}:${p.status}`, kind: "probe" as const, title: `${p.label} ${p.status}`, detail: p.detail })),
     ...gates.filter((g) => g.overdue).map((g) => ({
-      kind: "gate" as const, title: `${g.label} gate over its ${g.slaHours}h review window`, detail: `${g.waiting} waiting, oldest ${ago(Date.parse(g.oldestAt!), now)}`, dept: g.reviewerDept,
+      key: `gate:${g.id}`, kind: "gate" as const, title: `${g.label} gate over its ${g.slaHours}h review window`, detail: `${g.waiting} waiting, oldest ${ago(Date.parse(g.oldestAt!), now)}`, dept: g.reviewerDept,
     })),
   ];
 
@@ -527,4 +530,58 @@ export function eventFor(beat: Beat, r: Registry, now: Date): StationEvent {
   if (beat.state === "start") return { ...base, level: "info", message: `running ${job.id}${tail}` };
   if (beat.state === "ok") return { ...base, level: "ok", message: `${job.id} ok${tail}` };
   return { ...base, level: "fail", message: `${job.id} failed (exit ${beat.exitCode ?? 1})${tail}` };
+}
+
+// ---------- Telegram alerts ----------
+
+/** What has been announced: key -> the wording sent and when. */
+export type Alerted = Record<string, { title: string; at: string }>;
+
+export const REPEAT_MS = 6 * 3600_000;
+export const LAPTOP_QUIET_MS = 12 * 3600_000;
+
+/**
+ * Pure: compares what needs you now with what was already announced. New keys are raised; a key whose wording changed
+ * (e.g. 1 → 2 invoices late) is re-announced only if the last message about it is 6+ hours old; keys that are gone are
+ * announced once as resolved. `next` is what to store.
+ */
+export function planAlerts(items: NeedsYou[], prev: Alerted, now: Date) {
+  const raised: NeedsYou[] = [];
+  const updated: NeedsYou[] = [];
+  const next: Alerted = {};
+  for (const n of items) {
+    const old = prev[n.key];
+    if (!old) {
+      raised.push(n);
+      next[n.key] = { title: n.title, at: now.toISOString() };
+    } else if (old.title !== n.title && now.getTime() - Date.parse(old.at) >= REPEAT_MS) {
+      updated.push(n);
+      next[n.key] = { title: n.title, at: now.toISOString() };
+    } else next[n.key] = old;
+  }
+  const resolved = Object.entries(prev).filter(([k]) => !items.some((n) => n.key === k)).map(([key, v]) => ({ key, title: v.title }));
+  return { raised, updated, resolved, next };
+}
+
+/** Which Needs-you items are worth a Telegram message: not a slow site (only down), and the laptop only when long quiet. */
+export function alertable(items: NeedsYou[], laptopSeenAt: string | undefined, now: Date): NeedsYou[] {
+  const out = items.filter((n) => !n.key.startsWith("probe:laptop") && !(n.kind === "probe" && n.key.endsWith(":degraded")));
+  const quiet = laptopSeenAt ? now.getTime() - Date.parse(laptopSeenAt) : null;
+  if (quiet !== null && quiet >= LAPTOP_QUIET_MS)
+    out.push({ key: "laptop:quiet", kind: "probe", title: `Laptop quiet for ${ago(Date.parse(laptopSeenAt!), now)}`, detail: "laptop jobs are not running" });
+  return out;
+}
+
+/** The message, or null when there is nothing to say. Plain text: Telegram shows it as is. */
+export function alertText(plan: ReturnType<typeof planAlerts>, link: string): string | null {
+  const news = [...plan.raised, ...plan.updated];
+  if (!news.length && !plan.resolved.length) return null;
+  const lines = [news.length ? `Station needs you (${news.length})` : "Station: cleared"];
+  for (const n of news) lines.push(`• ${n.title}${n.detail ? ` (${n.detail.slice(0, 120)})` : ""}`);
+  if (plan.resolved.length) {
+    if (news.length) lines.push("", "Resolved");
+    for (const r of plan.resolved) lines.push(`✓ ${r.title}`);
+  }
+  lines.push("", link);
+  return lines.join("\n");
 }

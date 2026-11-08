@@ -4,6 +4,7 @@ import { Bell, Broadcast, Handshake, ListChecks, UsersThree } from "@phosphor-ic
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/station";
 import { Clients } from "./clients";
+import { TelegramPanel } from "./telegram";
 import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsYouList, Pips, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
@@ -180,6 +181,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
         {tab === "alerts" && (
           <>
+            {snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
             <NeedsYouList items={snap.needsYou} />
             <section className="st-card px-3.5 py-3">
               <h2 className="label">Late or failed once</h2>

@@ -49,6 +49,28 @@ export async function notifyOwner(subject: string, lines: string[]) {
   }
 }
 
+/** Telegram only, for Station alerts (no email). Returns whether Telegram accepted it; logs why not. */
+export async function notifyTelegram(text: string): Promise<boolean> {
+  const { TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID } = process.env;
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.log(`\n[telegram:mock] ${text.replace(/\n/g, "\n                ")}\n`);
+    return false;
+  }
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text, disable_web_page_preview: true }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) console.error("[telegram] failed", res.status, (await res.text().catch(() => "")).slice(0, 300));
+    return res.ok;
+  } catch (err) {
+    console.error("[telegram] failed", err);
+    return false;
+  }
+}
+
 // Emails the creator their mini-diagnosis link. Needs REPORT_FROM on a domain verified in Resend,
 // because Resend's shared test sender only delivers to the account owner.
 // It is a transactional message the person asked for, so it carries no offers; follow-ups need their marketing opt-in.

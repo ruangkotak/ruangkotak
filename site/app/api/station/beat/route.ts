@@ -1,5 +1,6 @@
 import { keyScope, parseBeat } from "@/lib/station";
-import { liveRegistry, recordBeat } from "@/lib/station-live";
+import { after } from "next/server";
+import { checkAlerts, liveRegistry, recordBeat } from "@/lib/station-live";
 
 // Jobs report here: POST { jobId, state: "start" | "ok" | "fail", exitCode?, message?, source? }
 // or a gate reading: POST { gate, waiting, oldestAt?, account?, source? }.
@@ -12,6 +13,7 @@ export async function POST(req: Request) {
   if (!parsed.ok) return Response.json({ ok: false, error: parsed.error }, { status: 400 });
   try {
     await recordBeat(parsed.beat, registry);
+    after(checkAlerts); // Telegram, after the response: the laptop never waits on it
     return Response.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     console.error("[station] beat", err);

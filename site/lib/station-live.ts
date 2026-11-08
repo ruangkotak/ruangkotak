@@ -1,9 +1,12 @@
 // The I/O half of Station: reads the store, runs the infra probes, records beats. Pure logic is in lib/station.ts.
 import registryJson from "@/data/station/registry.json";
-import { clientStore, stationStore } from "./store";
+import type { NextRequest } from "next/server";
+import { notifyTelegram } from "./notify";
+import { SITE } from "./site";
+import { alertStore, clientStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  applyBeat, buildSnapshot, cookieScope, eventFor, keyScope, resolveView, withClients,
+  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, eventFor, keyScope, planAlerts, resolveView, withClients,
   type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
@@ -26,6 +29,24 @@ export async function liveRegistry(): Promise<{ registry: Registry; clients: Cli
 export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Promise<Scope | null> {
   const { registry } = await liveRegistry();
   return keyScope(req.headerKey, req.account, process.env, registry) ?? cookieScope(req.cookie, process.env, registry);
+}
+
+/**
+ * True when the request comes from the owner: the x-station-key header, or the session cookie. Writes made with the
+ * cookie must also come from Station's own page (Origin host = Host; "null" or missing is refused), on top of SameSite=Lax.
+ */
+export async function ownerRequest(req: NextRequest, write: boolean) {
+  const headerKey = req.headers.get("x-station-key");
+  const scope = await scopeOf({ headerKey, cookie: req.cookies.get(COOKIE)?.value });
+  if (scope?.kind !== "owner") return false;
+  if (write && !headerKey) {
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(req.headers.get("origin") ?? "").host;
+    } catch {}
+    if (!originHost || originHost !== req.headers.get("host")) return false;
+  }
+  return true;
 }
 
 export async function viewFor(scope: Scope | null, q: ViewQuery): Promise<View | null> {
@@ -132,7 +153,8 @@ export async function getSnapshot(view: View, now = new Date()): Promise<Snapsho
     view.mode === "owner" ? probes(seen, now) : Promise.resolve([]),
     wantsFunnel ? dailyCounts(7).catch((err) => (console.error("[station] funnel", err), "error" as const)) : Promise.resolve(null),
   ]);
-  return buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, now });
+  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, now });
+  return view.mode === "owner" ? { ...snap, alerts: telegramReady() } : snap;
 }
 
 export async function recordBeat(beat: Beat, registry: Registry, now = new Date()) {
@@ -144,4 +166,38 @@ export async function recordBeat(beat: Beat, registry: Registry, now = new Date(
   }
   await stationStore.addEvent(eventFor(beat, registry, now));
   if (beat.source) await stationStore.markSeen(beat.source, now.toISOString());
+}
+
+// ---------- Telegram alerts ----------
+
+export const telegramReady = () => !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
+
+/**
+ * Compares what needs you now with what was already announced and sends one Telegram message about the difference.
+ * Runs after every beat, when the owner has Station open, and once a day from Vercel cron. At most once a minute
+ * (a Redis lock), so a burst of beats sends one message. Never throws.
+ */
+export async function checkAlerts(): Promise<{ sent: boolean; reason?: string }> {
+  try {
+    if (!telegramReady()) return { sent: false, reason: "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set" };
+    const lockSeconds = Number(process.env.STATION_ALERT_LOCK_SECONDS ?? 60) || 60; // tests shorten it
+    if (!(await alertStore.lock("alerts", lockSeconds))) return { sent: false, reason: "checked moments ago" };
+    const now = new Date();
+    const [snap, seen, prev] = await Promise.all([getSnapshot({ mode: "owner", account: "all" }, now), stationStore.seen(), alertStore.alerted()]);
+    const plan = planAlerts(alertable(snap.needsYou, seen.laptop, now), prev, now);
+    const text = alertText(plan, `${SITE}/station#alerts`);
+    if (!text) {
+      if (JSON.stringify(plan.next) !== JSON.stringify(prev)) await alertStore.setAlerted(plan.next);
+      return { sent: false, reason: "nothing new" };
+    }
+    // Only remember what was announced if the message got through, so a Telegram hiccup is retried next time.
+    if (await notifyTelegram(text)) {
+      await alertStore.setAlerted(plan.next);
+      return { sent: true };
+    }
+    return { sent: false, reason: "Telegram refused the message (see the server log)" };
+  } catch (err) {
+    console.error("[station] alerts", err);
+    return { sent: false, reason: "check failed (see the server log)" };
+  }
 }

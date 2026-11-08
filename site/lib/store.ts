@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { ClientRecord, GateReading, Run, StationEvent } from "./station";
+import type { Alerted, ClientRecord, GateReading, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -226,4 +226,28 @@ export const clientStore = REDIS
       all: async (): Promise<ClientRecord[]> => [...cmem.values()],
       save: async (c: ClientRecord) => void cmem.set(c.id, c),
       remove: async (id: string) => void cmem.delete(id),
+    };
+
+// ---------- Station: Telegram alerts ----------
+// st:alerted = JSON of what has been announced (key -> wording, time). st:lock:<name> = a short lock so two requests
+// arriving together never send the same alert twice.
+const ga = globalThis as unknown as { __rkAlerts?: { alerted: Alerted; locks: Map<string, number> } };
+const amem = (ga.__rkAlerts ??= { alerted: {}, locks: new Map() });
+
+export const alertStore = REDIS
+  ? {
+      alerted: async (): Promise<Alerted> => parse<Alerted>(await redis<string | null>("GET", "st:alerted")) ?? {},
+      setAlerted: async (a: Alerted) => void (await redis("SET", "st:alerted", JSON.stringify(a))),
+      /** true when this caller got the lock (held for `seconds`). */
+      lock: async (name: string, seconds: number) => (await redis<string | null>("SET", `st:lock:${name}`, "1", "EX", seconds, "NX")) === "OK",
+    }
+  : {
+      alerted: async (): Promise<Alerted> => amem.alerted,
+      setAlerted: async (a: Alerted) => void (amem.alerted = a),
+      lock: async (name: string, seconds: number) => {
+        const until = amem.locks.get(name) ?? 0;
+        if (until > Date.now()) return false;
+        amem.locks.set(name, Date.now() + seconds * 1000);
+        return true;
+      },
     };
