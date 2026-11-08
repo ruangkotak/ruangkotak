@@ -1,6 +1,6 @@
 // Performance Analyst, every 6 hours (ig-velocity-6h for @alanazizreview; client-demo-velocity and future client jobs
 // share this script): how fast are the latest reels gaining plays?
-// Scrapes the newest 12 reels, compares plays with the previous snapshot, and reports plays per hour. The first run
+// Skips when Station (the site) checked the account's reels in the last 5 hours. Otherwise scrapes the newest 12 reels, compares plays with the previous snapshot, and reports plays per hour. The first run
 // only saves a baseline. Fails when the scrape fails or returns no reels (private, renamed, or blocked).
 import { compact, readSnapshot, scrapeReels, writeSnapshot, type ReelSnapshot } from "../apify.mts";
 import type { JobContext, JobResult } from "../client.mts";
@@ -41,8 +41,23 @@ export function velocity(prev: ReelSnapshot | null, cur: ReelSnapshot): JobResul
   return { ok: true, message: `@${cur.handle} · ${cur.reels.length} reels · ${parts.join(" · ")}` };
 }
 
+/** When Station itself checked this account's reels recently (the site does every 6 hours), the laptop skips its scrape. */
+async function checkedByStation(ctx: JobContext): Promise<number | null> {
+  try {
+    const res = await fetch(new URL(`/api/station/state?account=${encodeURIComponent(ctx.job.account)}`, ctx.env.STATION_URL), {
+      headers: { "x-station-key": ctx.env.STATION_KEY ?? "" }, signal: AbortSignal.timeout(10_000),
+    });
+    const at = res.ok ? ((await res.json()) as { account?: { checkedAt?: string | null } }).account?.checkedAt : null;
+    return at ? Date.now() - Date.parse(at) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const handle = ctx.account.instagram!;
+  const age = await checkedByStation(ctx);
+  if (age !== null && age < 5 * H) return { ok: true, message: `@${handle} · reels checked by Station ${Math.max(1, Math.round(age / 60_000))} min ago; skipped to save Apify` };
   try {
     const prev = readSnapshot(ctx.stateDir, handle);
     const cur: ReelSnapshot = { handle, at: new Date().toISOString(), reels: await scrapeReels(ctx.env.APIFY_TOKEN!, handle, REELS) };

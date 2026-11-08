@@ -2,11 +2,12 @@
 import registryJson from "@/data/station/registry.json";
 import type { NextRequest } from "next/server";
 import { notifyTelegram } from "./notify";
+import { latestReels } from "./source";
 import { SITE } from "./site";
 import { alertStore, clientStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, eventFor, keyScope, planAlerts, resolveView, withClients,
+  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, reelsDue, reelsMessage, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
   type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
@@ -68,13 +69,12 @@ async function timed(url: string, init: RequestInit = {}) {
 const why = (err: unknown) => (err instanceof Error && err.name === "TimeoutError" ? "no answer in 3s" : "unreachable");
 
 async function probeSite(): Promise<Probe> {
-  const label = "ruangkotak.com";
+  const onVercel = !!process.env.VERCEL_ENV;
   try {
     const { res, ms } = await timed("https://ruangkotak.com/", { headers: { "user-agent": "ruangkotak-station/1" } });
-    if (!res.ok) return { id: "site", label, status: "down", detail: `front page answered ${res.status}` };
-    return ms > 2000 ? { id: "site", label, status: "degraded", detail: `front page slow: ${ms} ms` } : { id: "site", label, status: "ok", detail: `front page 200 in ${ms} ms` };
+    return siteProbe({ status: res.status, ms }, onVercel);
   } catch (err) {
-    return { id: "site", label, status: "down", detail: `front page ${why(err)}` };
+    return siteProbe({ error: why(err) }, onVercel);
   }
 }
 
@@ -140,6 +140,10 @@ async function probes(seen: Record<string, string>, now: Date): Promise<Probe[]>
 
 // ---------- reads and writes ----------
 
+/** Whose reels the page shows: the account being viewed, or (owner, all accounts) the owner's own creator account. */
+const panelAccount = (r: Registry, view: View) =>
+  view.account !== "all" ? view.account : view.mode === "owner" ? r.accounts.find((a) => a.kind === "personal" && a.instagram)?.id : undefined;
+
 export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
   const { registry } = await liveRegistry();
   const [runs, events, gates, seen, reels] = await Promise.all([
@@ -147,7 +151,7 @@ export async function getSnapshot(view: View, now = new Date()): Promise<Snapsho
     stationStore.events(500),
     stationStore.gates(),
     stationStore.seen(),
-    view.account === "all" ? Promise.resolve([]) : stationStore.reels(view.account),
+    panelAccount(registry, view) ? stationStore.reels(panelAccount(registry, view)!) : Promise.resolve([]),
   ]);
   const wantsFunnel = view.account === "all" || registry.accounts.find((a) => a.id === view.account)?.funnel === "site";
   const [infra, funnel] = await Promise.all([
@@ -203,4 +207,46 @@ export async function checkAlerts(): Promise<{ sent: boolean; reason?: string }>
     console.error("[station] alerts", err);
     return { sent: false, reason: "check failed (see the server log)" };
   }
+}
+
+// ---------- reels, checked from the server ----------
+
+/**
+ * Checks the reels of every personal or client account with an Instagram handle whose last check is 6+ hours old,
+ * using the site's own APIFY_TOKEN, so their pages have real data without the laptop. At most 3 accounts per call,
+ * one at a time, each behind a 15-minute lock so two requests never scrape the same account. Each check is recorded as
+ * a run of that account's velocity job (source "server"), so a failing scrape shows up, and alerts, like any job.
+ * Runs after the owner's state polls and from the daily cron. Never throws.
+ */
+export async function refreshReels(now = new Date()): Promise<string[]> {
+  const done: string[] = [];
+  if (!process.env.APIFY_TOKEN) return done;
+  try {
+    const { registry } = await liveRegistry();
+    const accounts = registry.accounts.filter((a) => a.kind !== "internal" && a.instagram);
+    for (const a of accounts) {
+      if (done.length >= 3) break;
+      const snaps = await stationStore.reels(a.id);
+      if (!reelsDue(snaps, now) || !(await alertStore.lock(`reels:${a.id}`, 900))) continue;
+      const job = registry.jobs.find((j) => j.account === a.id && j.script === "ig-velocity");
+      const record = async (b: Beat) => {
+        if (job) await recordBeat(b, registry, new Date());
+      };
+      if (job) await record({ kind: "job", jobId: job.id, state: "start", source: "server" });
+      try {
+        const reels = (await latestReels(a.instagram!, 12)).slice(0, 12);
+        if (!reels.length) throw new Error(`no public reels returned for @${a.instagram}`);
+        const snap = { at: new Date().toISOString(), reels };
+        await stationStore.addReels(a.id, snap);
+        if (job) await record({ kind: "job", jobId: job.id, state: "ok", message: reelsMessage(a.instagram!, snap, snaps[0]), source: "server" });
+        done.push(a.id);
+      } catch (err) {
+        console.error("[station] reels", a.id, err);
+        if (job) await record({ kind: "job", jobId: job.id, state: "fail", exitCode: 1, message: String((err as Error).message).slice(0, 160), source: "server" });
+      }
+    }
+  } catch (err) {
+    console.error("[station] reels", err);
+  }
+  return done;
 }

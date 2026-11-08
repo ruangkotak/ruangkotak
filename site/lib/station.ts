@@ -573,6 +573,9 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   const feed = events[0];
   const account = view.account === "all" ? null : r.accounts.find((a) => a.id === view.account);
   const funnelSource = view.account === "all" ? "site" : account?.funnel ?? null;
+  // The page's account panel: the account being viewed, or in the owner's all-accounts view their own creator account.
+  const panel = account && account.kind !== "internal" ? account
+    : view.mode === "owner" && view.account === "all" ? r.accounts.find((a) => a.kind === "personal" && a.instagram) : undefined;
   return {
     now: now.toISOString(),
     view,
@@ -591,7 +594,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
     funnel: funnelSource !== "site" ? { status: "no-read-path", days: [] } : input.funnel === "error" ? { status: "error", days: [] } : { status: input.funnel ? "ok" : "no-read-path", days: input.funnel ?? [] },
     needsYou,
     log: events.slice(0, LOG_LIMIT),
-    account: account && account.kind !== "internal" ? accountPanel(account.label, input.reels ?? [], input.gates[`final:${account.id}`], now) : undefined,
+    account: panel ? accountPanel(panel.label, input.reels ?? [], input.gates[`final:${panel.id}`], now) : undefined,
   };
 }
 
@@ -666,4 +669,33 @@ export function alertText(plan: ReturnType<typeof planAlerts>, link: string): st
   }
   lines.push("", link);
   return lines.join("\n");
+}
+
+// ---------- site probe and server-side reel checks ----------
+
+/**
+ * Pure: the ruangkotak.com tile from one request. On Vercel a failure is a real outage. Anywhere else (a laptop, a
+ * sandbox) a request that never got an answer says more about that machine's network than about the site, so it reads
+ * NO PROBE instead of raising a false "down" alert.
+ */
+export function siteProbe(r: { status?: number; ms?: number; error?: string }, onVercel: boolean): Probe {
+  const base = { id: "site", label: "ruangkotak.com" };
+  if (r.error) return onVercel ? { ...base, status: "down", detail: `front page ${r.error}` } : { ...base, status: "no-probe", detail: `can't reach it from here (${r.error}); checked on Vercel` };
+  if (r.status !== 200) return { ...base, status: "down", detail: `front page answered ${r.status}` };
+  return r.ms! > 2000 ? { ...base, status: "degraded", detail: `front page slow: ${r.ms} ms` } : { ...base, status: "ok", detail: `front page 200 in ${r.ms} ms` };
+}
+
+export const REELS_EVERY_MS = 6 * 3600_000;
+
+/** Pure: whether an account's reels are due a check (none yet, or the newest check is 6+ hours old). */
+export const reelsDue = (snaps: ReelSnapshot[], now: Date) => !snaps[0] || now.getTime() - Date.parse(snaps[0].at) >= REELS_EVERY_MS - 5 * 60_000;
+
+/** Pure: the one-line run message for a reel check, against the previous check when there is one. */
+export function reelsMessage(handle: string, cur: ReelSnapshot, prev: ReelSnapshot | undefined): string {
+  const newest = [...cur.reels].sort((a, b) => b.at.localeCompare(a.at))[0];
+  if (!newest) return `@${handle} · no public reels returned`;
+  const hours = prev ? (Date.parse(cur.at) - Date.parse(prev.at)) / 3600_000 : 0;
+  const before = prev?.reels.find((r) => r.url === newest.url);
+  const rate = before && hours > 0.5 ? ` (+${Math.max(0, Math.round((newest.views - before.views) / hours))}/h)` : "";
+  return `@${handle} · ${cur.reels.length} reels · newest ${ago(Date.parse(newest.at), new Date(cur.at))} old: ${newest.views} plays${rate}`;
 }
