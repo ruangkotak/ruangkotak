@@ -2,7 +2,7 @@
 // Settings come from ~/.config/ruangkotak/station.env (written by station-install.mts, mode 600), and the real
 // environment wins over the file. The key never goes into a launchd plist, a crontab or the repo.
 import { execFile } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,16 @@ export function parseEnvFile(text: string): Record<string, string> {
 export function loadEnv(): Env {
   const file = existsSync(ENV_FILE) ? parseEnvFile(readFileSync(ENV_FILE, "utf8")) : {};
   return { STATION_URL: DEFAULT_URL, STATION_SOURCE: "laptop", ...file, ...process.env };
+}
+
+/** Changes one setting in station.env (mode 600), keeping every other line. Used to store a refreshed token. */
+export function setEnvValue(key: string, value: string) {
+  const lines = existsSync(ENV_FILE) ? readFileSync(ENV_FILE, "utf8").split("\n") : [];
+  const at = lines.findIndex((l) => new RegExp(`^\\s*${key}\\s*=`).test(l));
+  if (at >= 0) lines[at] = `${key}=${value}`;
+  else lines.splice(lines.length && lines.at(-1) === "" ? lines.length - 1 : lines.length, 0, `${key}=${value}`);
+  writeFileSync(ENV_FILE, lines.join("\n").replace(/\n*$/, "\n"), { mode: 0o600 });
+  chmodSync(ENV_FILE, 0o600);
 }
 
 /** Sends one beat. Never throws: a beat that cannot be delivered is logged and the job carries on. */

@@ -6,7 +6,8 @@ import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
 import { describe } from "../scripts/station/jobs/sync-watchdog.mts";
 import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
-import { keywordsOf, matches, queueLine, readQueue } from "../scripts/station/jobs/ig-comment-dm.mts";
+import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
+import { tickLine } from "../scripts/station/queue.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
 import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
@@ -357,4 +358,39 @@ test("the books summary nets out payroll when there is any, and stays as before 
   assert.match(note, /\| Payroll paid \| RM 600 \| RM 2,500 \|/);
   assert.match(note, /\| Paid minus costs and payroll \| RM 4,340 \+ −\$49 \| −\$49 \+ −RM 1,560 \|/);
   assert.doesNotMatch(books(invoices, costs, "2026-11-08", "x").note, /Payroll/);
+});
+
+// ---------- DM sending ----------
+
+const C = (id: string, hoursAgo: number, over: Partial<Comment> = {}): Comment =>
+  ({ id, user: `fan${id}`, text: "AUDIT", at: new Date(NOW - hoursAgo * 3600_000).toISOString(), post: "https://instagram.com/p/x", source: "api", ...over });
+
+test("nothing is sent unless sending is on", () => {
+  assert.deepEqual(planSends([C("1", 1)], { sending: false, sent: new Set(), owner: "alanazizreview", now: NOW }), { send: [], tooOld: [] });
+});
+
+test("only fresh API comments under 7 days old, never twice, never your own, at most the cap", () => {
+  const fresh = [
+    C("1", 1), C("2", 2, { source: "apify" }), C("3", 3), C("4", 200), C("5", 4, { user: "AlanAzizReview" }), C("6", 5), C("7", 6),
+  ];
+  const plan = planSends(fresh, { sending: true, sent: new Set(["3"]), owner: "alanazizreview", now: NOW, cap: 2 });
+  assert.deepEqual(plan.send.map((c) => c.id), ["1", "6"]);
+  assert.deepEqual(plan.tooOld.map((c) => c.id), ["4"]);
+});
+
+test("the message comes from the note, outside the instructions, with the handle filled in", () => {
+  assert.equal(messageFrom(MESSAGE_TEMPLATE), null, "the template alone sends nothing");
+  const msg = messageFrom(MESSAGE_TEMPLATE + "\nHi {username}! Here's your audit: https://ruangkotak.com\n");
+  assert.equal(msg, "Hi {username}! Here's your audit: https://ruangkotak.com");
+  assert.equal(fill(msg!, { user: "kopikita" }), "Hi @kopikita! Here's your audit: https://ruangkotak.com");
+});
+
+test("a sent DM ticks exactly its own line", () => {
+  const a = queueLine({ id: "111", user: "a", text: "AUDIT", at: "2026-11-08T01:00:00.000Z", post: "p" });
+  const b = queueLine({ id: "222", user: "b", text: "AUDIT", at: "2026-11-08T01:00:00.000Z", post: "p" });
+  const out = tickLine([a, b].join("\n"), "111", "DM sent 2026-11-08 09:05");
+  assert.match(out.split("\n")[0], /^- \[x\] .* · DM sent 2026-11-08 09:05 <!-- rk:id=111 /);
+  assert.equal(out.split("\n")[1], b);
+  assert.deepEqual(readQueue(out), { waiting: 1, oldestAt: "2026-11-08T01:00:00.000Z" });
+  assert.equal(tickLine(out, "999", "x"), out);
 });

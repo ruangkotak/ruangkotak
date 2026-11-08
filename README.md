@@ -76,15 +76,31 @@ is a 404 to anyone without a key.
   reply from the owner alert you already get, then tick the box.
 
   **Comment → DM:** new keyword comments are appended to
-  `<vault>/Station/dm-queue-alanazizreview.md`, or to
-  `~/.local/state/ruangkotak-station/` without a vault. Tick a box once
-  you've sent the DM. Station's **DM** gate counts the unticked boxes and
-  goes to *Needs you* when the oldest has waited over 4 hours. Commenters'
-  names and words never leave the laptop; Station gets only the count. The
-  job does not send DMs itself: that needs a Meta app with messaging
-  permission. Every run is an Apify call billed to your Apify account, so
-  check usage after the first day. For a client, add `"instagram": "<handle>"`
-  to their account in the registry, and their `*-velocity` job starts running.
+  `<vault>/Station/dm-queue-alanazizreview.md`. Station's **DM** gate counts
+  unticked lines and goes to *Needs you* after 4 hours. Commenters' names
+  and words never leave the laptop.
+
+  **Sending the DM automatically** uses Instagram's own API for your
+  professional account (free, and the only way to DM a commenter: one
+  "private reply" per comment, within 7 days of it):
+
+  1. At developers.facebook.com create an app, add the **Instagram** product,
+     choose *API setup with Instagram login*, add your account and generate
+     a token with `instagram_business_basic`, `instagram_business_manage_comments`
+     and `instagram_business_manage_messages`.
+  2. `node --experimental-strip-types scripts/station-install.mts --ig-token <token>`:
+     comments are now read through the API (no Apify cost for this job).
+  3. Write the message in `<vault>/Station/dm-message.md` (created on the
+     next run; `{username}` becomes their handle).
+  4. Turn sending on with `--dm-send on` (`--dm-send off` stops it).
+
+  It only messages keyword comments first seen while sending is on (never
+  the backlog), never your own, never twice, at most 20 per run. Sent lines
+  are ticked "DM sent"; a failed one stays unticked with Meta's reason and
+  goes to *Needs you*. The token is refreshed weekly and saved back to
+  `station.env`. Until Meta approves the app (App Review), it may only be
+  allowed to message accounts that have a role on the app; those failures
+  show up the same way.
 
   `station-tick.mts --list` shows what runs and when, `--run <job>` runs one
   now, and `station-install.mts --uninstall` removes the agent. To add a job:
