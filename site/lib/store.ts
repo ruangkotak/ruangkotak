@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { GateReading, Run, StationEvent } from "./station";
+import type { ClientRecord, GateReading, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -204,3 +204,26 @@ export async function applicationsSince(since: string, limit = 200): Promise<Bri
   }
   return out;
 }
+
+// ---------- Station: clients added from the Clients tab ----------
+// st:clients hash, id -> ClientRecord. Business records, kept while the client is with us: no expiry. Only a hash of each
+// client's key is stored.
+const gc = globalThis as unknown as { __rkClients?: Map<string, ClientRecord> };
+const cmem: Map<string, ClientRecord> = (gc.__rkClients ??= new Map());
+
+export const clientStore = REDIS
+  ? {
+      all: async (): Promise<ClientRecord[]> => {
+        const flat = await redis<string[] | null>("HGETALL", "st:clients");
+        const out: ClientRecord[] = [];
+        for (let i = 0; flat && i < flat.length; i += 2) out.push(JSON.parse(flat[i + 1]) as ClientRecord);
+        return out;
+      },
+      save: async (c: ClientRecord) => void (await redis("HSET", "st:clients", c.id, JSON.stringify(c))),
+      remove: async (id: string) => void (await redis("HDEL", "st:clients", id)),
+    }
+  : {
+      all: async (): Promise<ClientRecord[]> => [...cmem.values()],
+      save: async (c: ClientRecord) => void cmem.set(c.id, c),
+      remove: async (id: string) => void cmem.delete(id),
+    };

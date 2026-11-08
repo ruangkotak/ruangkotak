@@ -6,8 +6,8 @@ import { getSnapshot, scopeOf, viewFor } from "@/lib/station-live";
 // ?view=client&account=<slug> narrows to one client; ?account=<id> filters the owner view. No access is a 404.
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
-  const scope = scopeOf({ headerKey: req.headers.get("x-station-key"), cookie: req.cookies.get(COOKIE)?.value, account: q.get("account") });
-  const view = viewFor(scope, { view: q.get("view"), account: q.get("account") });
+  const scope = await scopeOf({ headerKey: req.headers.get("x-station-key"), cookie: req.cookies.get(COOKIE)?.value, account: q.get("account") });
+  const view = await viewFor(scope, { view: q.get("view"), account: q.get("account") });
   if (!view) return new Response("Not found", { status: 404 });
   try {
     return Response.json(await getSnapshot(view), { headers: { "cache-control": "no-store" } });

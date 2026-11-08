@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  applyBeat, buildSnapshot, isDue, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -291,4 +291,71 @@ test("the brief gate belongs to the COO, so clients never see it", () => {
   assert.equal(owner.gates.find((g) => g.id === "brief")?.waiting, 2);
   const client = snapshot({ mode: "client", account: "client-demo" });
   assert.ok(!client.gates.some((g) => g.id === "brief"));
+});
+
+// ---------- clients added from Station ----------
+
+const KEY = "client-key-for-tests-0001";
+const kopi: ClientRecord = { id: "kopi-kita", label: "Kopi Kita", instagram: "kopikita", createdAt: NOW.toISOString(), keyHash: hashKey(KEY), status: "active" };
+
+test("the Add client form: names become short names, bad input is refused in plain words", () => {
+  assert.equal(slugify("Kopi Kita & Co."), "kopi-kita-and-co");
+  assert.equal(slugify("Café Ñoño"), "cafe-nono");
+  const ok = validateClient({ label: "  Kopi   Kita ", instagram: "https://www.instagram.com/KopiKita/" }, new Set());
+  assert.deepEqual(ok, { ok: true, value: { id: "kopi-kita", label: "Kopi Kita", instagram: "kopikita" } });
+  assert.match((validateClient({ label: "K" }, new Set()) as { error: string }).error, /name/);
+  assert.match((validateClient({ label: "Client Demo" }, new Set(["client-demo"])) as { error: string }).error, /already used/);
+  assert.match((validateClient({ label: "All", slug: "all" }, new Set()) as { error: string }).error, /short name/);
+  assert.match((validateClient({ label: "Kopi", instagram: "not a handle!" }, new Set()) as { error: string }).error, /Instagram/);
+});
+
+test("a client gets velocity (only with a handle) and final-check jobs, spread over the hour", () => {
+  assert.deepEqual(clientJobs(kopi).map((j) => [j.id, j.script]), [["kopi-kita-velocity", "ig-velocity"], ["kopi-kita-final-check", "final-check"]]);
+  assert.match(clientJobs(kopi)[0].schedule, /^\d{1,2} \*\/6 \* \* \*$/);
+  assert.deepEqual(clientJobs({ id: "no-ig" }).map((j) => j.id), ["no-ig-final-check"]);
+});
+
+test("active clients join the registry; paused ones and ones shadowing the file do not", () => {
+  const r = withClients(registry, [kopi, { ...kopi, id: "sleepy", status: "paused" }, { ...kopi, id: "client-demo", label: "Impostor" }]);
+  assert.deepEqual(checkRegistry(r), []);
+  assert.ok(r.accounts.some((a) => a.id === "kopi-kita" && a.kind === "client"));
+  assert.ok(!r.accounts.some((a) => a.id === "sleepy"));
+  assert.equal(r.accounts.find((a) => a.id === "client-demo")!.label, "Client demo");
+  assert.ok(r.jobs.some((j) => j.id === "kopi-kita-final-check"));
+});
+
+test("a stored client's key opens only their account, through the same cookie flow, and rotating it ends sessions", () => {
+  const r = withClients(registry, [kopi]);
+  assert.deepEqual(keyScope(KEY, "kopi-kita", env, r), { kind: "client", account: "kopi-kita" });
+  assert.equal(keyScope(KEY, "client-demo", env, r), null);
+  assert.equal(keyScope("wrong", "kopi-kita", env, r), null);
+  const cookie = cookieFor({ kind: "client", account: "kopi-kita" }, env, r)!;
+  assert.ok(cookie && !cookie.includes(KEY));
+  assert.deepEqual(cookieScope(cookie, env, r), { kind: "client", account: "kopi-kita" });
+  const rotated = withClients(registry, [{ ...kopi, keyHash: hashKey("a-new-key-0002") }]);
+  assert.equal(cookieScope(cookie, env, rotated), null);
+  assert.equal(cookieScope(cookie, env, withClients(registry, [{ ...kopi, status: "paused" }])), null);
+  assert.equal(keyScope(KEY, "kopi-kita", env, withClients(registry, [{ ...kopi, status: "paused" }])), null);
+});
+
+test("key hashes never leave the server: not in the laptop's registry, not in any snapshot", () => {
+  const r = withClients(registry, [kopi]);
+  assert.ok(!JSON.stringify(publicRegistry(r)).includes(kopi.keyHash));
+  const owner = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, now: NOW });
+  const client = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, now: NOW });
+  for (const s of [owner, client]) assert.ok(!JSON.stringify(s).includes(kopi.keyHash));
+  assert.deepEqual(client.departments.flatMap((d) => d.jobs).map((j) => j.id).sort(), ["kopi-kita-final-check", "kopi-kita-velocity"]);
+});
+
+test("onboarding steps follow what Station has seen", () => {
+  const fresh = onboarding(kopi, {}, {});
+  assert.deepEqual(fresh.map((s) => [s.id, s.done]), [["link", true], ["opened", false], ["velocity", false], ["final", false]]);
+  const runs = {
+    "kopi-kita-velocity": applyBeat([], { kind: "job", jobId: "kopi-kita-velocity", state: "ok" }, NOW),
+    "kopi-kita-final-check": applyBeat([], { kind: "job", jobId: "kopi-kita-final-check", state: "ok" }, NOW),
+  };
+  const later = onboarding({ ...kopi, openedAt: NOW.toISOString() }, runs, { "final:kopi-kita": { waiting: 2, at: NOW.toISOString() } });
+  assert.ok(later.every((s) => s.done));
+  assert.match(later[3].note!, /2 waiting · add deliverables to final-queue-kopi-kita\.md/);
+  assert.match(onboarding({ ...kopi, instagram: undefined }, {}, {})[2].note!, /Instagram handle/);
 });

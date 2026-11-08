@@ -6,12 +6,13 @@
 //   beat      what a job sends to POST /api/station/beat: start / ok / fail for a job, or a gate reading.
 //   run       one execution of a job, built from its beats. The last 10 are kept per job.
 //   snapshot  everything the page draws, already filtered for who is looking (owner or one client).
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 // ---------- registry ----------
 
 export type AccountKind = "internal" | "personal" | "client";
-export type Account = { id: string; label: string; kind: AccountKind; funnel: "site" | null; instagram?: string };
+/** `keyHash` exists only on clients added from Station (see ClientRecord); it never leaves the server. */
+export type Account = { id: string; label: string; kind: AccountKind; funnel: "site" | null; instagram?: string; keyHash?: string };
 export type Desk = { id: string; name: string; agent?: string; noReadPath?: boolean };
 export type Department = { id: string; no: string; name: string; client: boolean; desks: Desk[] };
 /** `script` names the laptop job file when several jobs share one (default: the job id). */
@@ -254,22 +255,37 @@ export const clientKeyName = (account: string) => `CLIENT_KEY_${account.toUpperC
 const sign = (secret: string, scope: string) => createHmac("sha256", secret).update(`rk-station:${scope}`).digest("hex");
 const shareable = (r: Registry, account: string) => r.accounts.some((a) => a.id === account && a.kind !== "internal");
 
-/** Who a raw key belongs to. STATION_KEY is the owner; CLIENT_KEY_<SLUG> opens that one account. Missing env vars open nothing. */
+/** SHA-256 of a client key. Only this is stored; the key itself is shown once, when the link is made. */
+export const hashKey = (key: string) => createHash("sha256").update(key).digest("hex");
+export const newClientKey = () => randomBytes(24).toString("base64url");
+const storedHash = (r: Registry, account: string) => r.accounts.find((a) => a.id === account && a.kind !== "internal")?.keyHash;
+
+/**
+ * Who a raw key belongs to. STATION_KEY is the owner. A client key opens that one account: either CLIENT_KEY_<SLUG> in the
+ * environment (clients set up by hand) or a key whose hash is on a client added from Station. Missing keys open nothing.
+ */
 export function keyScope(key: string | null | undefined, account: string | null | undefined, env: Env, r: Registry): Scope | null {
   if (!key) return null;
   if (env.STATION_KEY && same(key, env.STATION_KEY)) return { kind: "owner" };
   if (account && shareable(r, account)) {
     const secret = env[clientKeyName(account)];
     if (secret && same(key, secret)) return { kind: "client", account };
+    const hash = storedHash(r, account);
+    if (hash && same(hashKey(key), hash)) return { kind: "client", account };
   }
   return null;
 }
 
-/** The session cookie holds a signature derived from the key, never the key itself; rotating the key ends every session. */
-export function cookieFor(scope: Scope, env: Env): string | null {
+/**
+ * The session cookie holds a signature derived from the key, never the key itself. Rotating the key (or STATION_KEY for
+ * clients added from Station, whose signature also covers their key hash) ends every session made with the old one.
+ */
+export function cookieFor(scope: Scope, env: Env, r?: Registry): string | null {
   if (scope.kind === "owner") return env.STATION_KEY ? `owner.${sign(env.STATION_KEY, "owner")}` : null;
   const secret = env[clientKeyName(scope.account)];
-  return secret ? `client.${scope.account}.${sign(secret, `client:${scope.account}`)}` : null;
+  if (secret) return `client.${scope.account}.${sign(secret, `client:${scope.account}`)}`;
+  const hash = r && storedHash(r, scope.account);
+  return hash && env.STATION_KEY ? `client.${scope.account}.${sign(env.STATION_KEY, `client:${scope.account}:${hash}`)}` : null;
 }
 
 export function cookieScope(value: string | null | undefined, env: Env, r: Registry): Scope | null {
@@ -278,9 +294,85 @@ export function cookieScope(value: string | null | undefined, env: Env, r: Regis
   if (kind === "owner" && a && env.STATION_KEY) return same(a, sign(env.STATION_KEY, "owner")) ? { kind: "owner" } : null;
   if (kind === "client" && a && b && shareable(r, a)) {
     const secret = env[clientKeyName(a)];
-    return secret && same(b, sign(secret, `client:${a}`)) ? { kind: "client", account: a } : null;
+    if (secret) return same(b, sign(secret, `client:${a}`)) ? { kind: "client", account: a } : null;
+    const hash = storedHash(r, a);
+    return hash && env.STATION_KEY && same(b, sign(env.STATION_KEY, `client:${a}:${hash}`)) ? { kind: "client", account: a } : null;
   }
   return null;
+}
+
+// ---------- clients added from Station ----------
+
+/** A client added from the Clients tab, stored in Redis. Paused clients drop out of the registry: link and jobs stop. */
+export type ClientRecord = {
+  id: string; label: string; instagram?: string; createdAt: string; keyHash: string;
+  status: "active" | "paused"; openedAt?: string; lastSeenAt?: string;
+};
+
+const SLUG = /^[a-z0-9][a-z0-9-]{1,30}$/;
+const RESERVED = new Set(["all", "internal", "owner", "client", "station", "new"]);
+
+export const slugify = (label: string) =>
+  label.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 31).replace(/-+$/, "");
+
+/** Checks the Add client form. The slug defaults to the name; it becomes the account id, job names and file names. */
+export function validateClient(input: { label?: unknown; slug?: unknown; instagram?: unknown }, taken: Set<string>):
+  { ok: true; value: { id: string; label: string; instagram?: string } } | { ok: false; error: string } {
+  const label = typeof input.label === "string" ? input.label.replace(/\s+/g, " ").trim().slice(0, 60) : "";
+  if (label.length < 2) return { ok: false, error: "Give the client a name." };
+  const id = typeof input.slug === "string" && input.slug.trim() ? input.slug.trim().toLowerCase() : slugify(label);
+  if (!SLUG.test(id) || RESERVED.has(id)) return { ok: false, error: "The short name must be 2-31 lowercase letters, digits or dashes." };
+  if (taken.has(id)) return { ok: false, error: `"${id}" is already used. Pick another short name.` };
+  const raw = typeof input.instagram === "string" ? input.instagram.trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/[/?#].*$/, "").replace(/^@/, "").toLowerCase() : "";
+  if (raw && !/^[a-z0-9._]{2,30}$/.test(raw)) return { ok: false, error: "That Instagram handle doesn't look right." };
+  return { ok: true, value: { id, label, instagram: raw || undefined } };
+}
+
+/** Spreads clients' 6-hourly scrapes over the hour, so they never all hit Apify at once. */
+const minuteFor = (id: string) => [...id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 7) % 60;
+
+/** The jobs every client gets: reel velocity (if they have a handle) and the weekday final-review check. */
+export function clientJobs(c: Pick<ClientRecord, "id" | "instagram">): Job[] {
+  return [
+    ...(c.instagram ? [{ id: `${c.id}-velocity`, desk: "performance-analyst", schedule: `${minuteFor(c.id)} */6 * * *`, account: c.id, script: "ig-velocity" }] : []),
+    { id: `${c.id}-final-check`, desk: "cdo-reviewer", schedule: "0 18 * * 1-5", account: c.id, script: "final-check" },
+  ];
+}
+
+/** The registry plus active clients added from Station. Ids already in the file win, so a stored client cannot shadow them. */
+export function withClients(base: Registry, clients: ClientRecord[]): Registry {
+  const ids = new Set(base.accounts.map((a) => a.id));
+  const jobIds = new Set(base.jobs.map((j) => j.id));
+  const live = clients.filter((c) => c.status === "active" && !ids.has(c.id));
+  return {
+    ...base,
+    accounts: [...base.accounts, ...live.map((c) => ({ id: c.id, label: c.label, kind: "client" as const, funnel: null, instagram: c.instagram, keyHash: c.keyHash }))],
+    jobs: [...base.jobs, ...live.flatMap(clientJobs).filter((j) => !jobIds.has(j.id))],
+  };
+}
+
+/** The registry as the laptop sees it: no key hashes. */
+export const publicRegistry = (r: Registry): Registry => ({ ...r, accounts: r.accounts.map(({ keyHash: _, ...a }) => a) });
+
+export type OnboardingStep = { id: string; label: string; done: boolean; at?: string; note?: string };
+
+/** Pure: where a client is in onboarding, from what Station has seen. */
+export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: Record<string, GateReading>): OnboardingStep[] {
+  const firstEnd = (job: string) => (runs[job] ?? []).filter((r) => r.endAt && r.ok).map((r) => r.endAt!).sort()[0];
+  const velocity = firstEnd(`${c.id}-velocity`);
+  const finalRun = firstEnd(`${c.id}-final-check`);
+  const finalGate = gates[`final:${c.id}`] as GateReading | undefined;
+  return [
+    { id: "link", label: "Private link made", done: true, at: c.createdAt },
+    { id: "opened", label: "Client opened their link", done: !!c.openedAt, at: c.openedAt, note: c.openedAt ? undefined : "send them the link" },
+    c.instagram
+      ? { id: "velocity", label: "First reel velocity run", done: !!velocity, at: velocity, note: velocity ? undefined : "runs on your laptop within 6 hours" }
+      : { id: "velocity", label: "Reel velocity", done: false, note: "add their Instagram handle to start it" },
+    {
+      id: "final", label: "Final review checklist ready", done: !!finalRun, at: finalRun,
+      note: finalRun ? `${finalGate?.waiting ?? 0} waiting · add deliverables to final-queue-${c.id}.md` : "created on the next weekday 18:00 run",
+    },
+  ];
 }
 
 export type ViewQuery = { view?: string | null; account?: string | null };

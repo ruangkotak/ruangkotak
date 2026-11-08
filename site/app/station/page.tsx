@@ -17,8 +17,8 @@ export default async function StationPage({ searchParams }: { searchParams: Sear
   const account = one(q.account);
   // A key in the URL is swapped for a session cookie and dropped from the address bar.
   if (key) redirect(`/api/station/enter?${new URLSearchParams({ key, ...(account ? { account } : {}) })}`);
-  const scope = scopeOf({ cookie: (await cookies()).get(COOKIE)?.value });
-  const view = viewFor(scope, { view: one(q.view), account });
+  const scope = await scopeOf({ cookie: (await cookies()).get(COOKIE)?.value });
+  const view = await viewFor(scope, { view: one(q.view), account });
   if (!view) notFound();
   const snapshot = await getSnapshot(view);
   return <Station initial={snapshot} canSwitch={scope?.kind === "owner"} />;

@@ -18,9 +18,15 @@ is a 404 to anyone without a key.
 
 - **Open it:** `https://ruangkotak.com/station?key=<STATION_KEY>`. The key is
   swapped for a 30-day session cookie and removed from the URL.
-- **Client link:** `/station?key=<CLIENT_KEY_<SLUG>>&account=<slug>` opens a
-  read-only view of that one account: its CMO/CDO jobs, gates and log, with no
-  internal departments, infra or other accounts.
+- **Add a client:** open the **Clients** tab, enter their name and
+  Instagram handle, and press *Add client*. Station shows their private link
+  once, with a ready-to-send WhatsApp message. Their reel velocity and
+  final-review jobs start on your laptop by themselves: no deploy, no env
+  vars. Each client card tracks onboarding (link opened, first velocity run,
+  final-review checklist ready) and has *New link* (the old one stops at
+  once), *Pause/Resume* and *Remove*. Only a hash of each key is stored.
+- **Client link (manual, older way):** `/station?key=<CLIENT_KEY_<SLUG>>&account=<slug>`
+  for clients written into the registry file, like `client-demo`.
 - **Edit what exists:** `site/data/station/registry.json` (accounts,
   departments, desks, jobs, gates). Cron is Malaysia time.
 - **Wire your laptop (once):** from `site/`, run
