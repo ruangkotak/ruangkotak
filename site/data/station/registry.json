@@ -99,6 +99,7 @@
     { "id": "cost-watch", "desk": "cost-analyst", "schedule": "0 9 * * 1", "account": "internal" },
     { "id": "books-summary", "desk": "controller", "schedule": "30 9 * * 1", "account": "internal" },
     { "id": "kpi-weekly", "desk": "payroll-kpi", "schedule": "0 10 * * 1", "account": "internal" },
+    { "id": "payroll-check", "desk": "payroll-kpi", "schedule": "30 10 * * 1-5", "account": "internal" },
     { "id": "sync-watchdog", "desk": "platform-engineer", "schedule": "every 15m", "account": "internal" }
   ]
 }

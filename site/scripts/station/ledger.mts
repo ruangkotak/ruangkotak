@@ -1,6 +1,8 @@
 // The CFO's plain-text ledgers, kept in <vault>/Station (or the state folder without a vault):
 //   invoices.md  - [ ] INV-012 · client-demo · RM 3,500 · sent 2026-11-01 · due 2026-11-20
 //                - [x] INV-011 · brand x · RM 2,000 · sent 2026-10-01 · due 2026-10-15 · paid 2026-10-14
+//   payroll.md   - [ ] Aina (editor) · RM 2,500 · for Nov 2026 · due 2026-11-30
+//                - [x] Faiz (shoot, freelance) · RM 800 · due 2026-11-05 · paid 2026-11-04
 //   costs.md     - Apify · USD 49/mo · renews 2026-11-15
 //                - Domain · RM 60/yr · renews 2027-03-01
 // Amounts: RM / MYR / USD / $ / SGD / S$ before or after the number, commas allowed. Dates read like TASKS.md dates.
@@ -107,6 +109,19 @@ One line per tool, subscription or recurring cost, with /mo or /yr. Add "renews 
 <!-- Example (lines inside this comment are ignored):
 - Apify · USD 49/mo · renews 2026-11-15
 - Domain · RM 60/yr · renews 2027-03-01
+-->
+
+`;
+
+export const PAYROLL_TEMPLATE = `# Payroll
+
+One line per payout: salaries, freelancers, allowances. Tick it when paid and add "paid <date>". Use the amount you
+actually pay; Station does not work out EPF, SOCSO or EIS. Station only ever sees counts and totals, never names.
+Payouts due within 3 days, or late, go to Needs you.
+
+<!-- Example (lines inside this comment are ignored):
+- [ ] Aina (editor) · RM 2,500 · for Nov 2026 · due 2026-11-30
+- [x] Faiz (shoot, freelance) · RM 800 · due 2026-11-05 · paid 2026-11-04
 -->
 
 `;
