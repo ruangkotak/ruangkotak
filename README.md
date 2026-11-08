@@ -50,6 +50,18 @@ is a 404 to anyone without a key.
   | `client-demo-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
   | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
 
+  | `invoice-chase` | Billing Clerk | 10:00 weekdays | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you* |
+  | `cost-watch` | Cost Analyst | Monday 09:00 | `<vault>/Station/costs.md`: monthly run-rate, renewals within 7 days (→ *Needs you*), and this cycle's real Apify usage when `APIFY_TOKEN` is set (above 80% → *Needs you*) |
+  | `books-summary` | Controller | Monday 09:30 | writes `<vault>/Station/Finance.md`: paid this month and last, invoiced, outstanding, costs, paid minus costs |
+  | `kpi-weekly` | Payroll & KPI | Monday 10:00 | adds this week's row to `<vault>/Station/KPI.md`: the site funnel's last 7 days plus revenue paid this month (no payroll source yet) |
+
+  **Ledgers:** `invoices.md` lines look like
+  `- [ ] INV-012 · client-demo · RM 3,500 · sent 2026-11-01 · due 2026-11-20`
+  (tick and add `paid <date>` when paid); `costs.md` lines like
+  `- Apify · USD 49/mo · renews 2026-11-15`. Both are created with
+  instructions on first run. Station gets counts and totals, never client
+  names or invoice numbers.
+
   **Briefs:** each line has handle, platform, niche, views and goal, so you
   can judge the brief. Names and contact details never leave the server;
   reply from the owner alert you already get, then tick the box.
