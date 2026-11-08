@@ -56,5 +56,8 @@ export function git(args: string[], cwd = REPO_DIR, timeout = 60_000): Promise<s
   );
 }
 
-export type JobResult = { ok: boolean; message: string };
-export type JobContext = { env: Env; repo: string; now: Date };
+/** A gate reading a job wants sent with its result (for the job's own account). Counts only, never names. */
+export type GateUpdate = { gate: string; waiting: number; oldestAt?: string };
+export type JobResult = { ok: boolean; message: string; gates?: GateUpdate[] };
+export type JobAccount = { id: string; label: string; instagram?: string };
+export type JobContext = { env: Env; repo: string; now: Date; job: { id: string; account: string }; account: JobAccount; stateDir: string };

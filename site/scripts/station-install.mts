@@ -1,6 +1,7 @@
 // Wires this laptop into Station, once. Run from site/:
 //
 //   node --experimental-strip-types scripts/station-install.mts --key <STATION_KEY> [--vault ~/Notes] [--url https://ruangkotak.com]
+//        [--apify-token <token>] [--ig-keywords "AUDIT,KOTAK"]      (Instagram jobs; re-run any time to change settings)
 //   node --experimental-strip-types scripts/station-install.mts --uninstall
 //   add --dry-run to see what would change without changing it
 //
@@ -73,6 +74,9 @@ const settings: Record<string, string | undefined> = {
   STATION_URL: flag("url") ?? existing.STATION_URL ?? DEFAULT_URL,
   STATION_SOURCE: existing.STATION_SOURCE ?? "laptop",
   STATION_VAULT_DIR: vault,
+  // Instagram jobs: the laptop's own Apify token, and the comment words that earn a DM.
+  APIFY_TOKEN: flag("apify-token") ?? existing.APIFY_TOKEN,
+  STATION_IG_KEYWORDS: flag("ig-keywords") ?? existing.STATION_IG_KEYWORDS,
 };
 
 // Check the key against Station before saving anything. The read endpoint takes the same owner key and writes nothing.

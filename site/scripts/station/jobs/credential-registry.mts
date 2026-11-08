@@ -31,9 +31,11 @@ function knownValues(repo: string): Map<string, string> {
   const known = new Map<string, string>();
   for (const file of [ENV_FILE, join(repo, ".env"), join(repo, "site", ".env"), join(repo, "site", ".env.local"), join(repo, "site", ".env.production")]) {
     if (!existsSync(file)) continue;
-    for (const [k, v] of Object.entries(parseEnvFile(readFileSync(file, "utf8"))))
+    for (const [k, v] of Object.entries(parseEnvFile(readFileSync(file, "utf8")))) {
+      if (!/KEY|TOKEN|SECRET|PASS|AUTH|PRIVATE/i.test(k)) continue; // settings like keywords or folders are not secrets
       // Long values only, and not settings that are plainly not secret: URLs, folders, flags, numbers.
       if (v.length >= 12 && !/^https?:\/\//.test(v) && !/^[~/]/.test(v) && !/^(true|false|\d+)$/.test(v)) known.set(v, k);
+    }
   }
   return known;
 }

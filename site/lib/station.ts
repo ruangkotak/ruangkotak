@@ -11,10 +11,11 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 // ---------- registry ----------
 
 export type AccountKind = "internal" | "personal" | "client";
-export type Account = { id: string; label: string; kind: AccountKind; funnel: "site" | null };
+export type Account = { id: string; label: string; kind: AccountKind; funnel: "site" | null; instagram?: string };
 export type Desk = { id: string; name: string; agent?: string; noReadPath?: boolean };
 export type Department = { id: string; no: string; name: string; client: boolean; desks: Desk[] };
-export type Job = { id: string; desk: string; schedule: string; account: string };
+/** `script` names the laptop job file when several jobs share one (default: the job id). */
+export type Job = { id: string; desk: string; schedule: string; account: string; script?: string };
 export type Gate = { id: string; label: string; detail: string; reviewer: string; job: string | null; slaHours: number };
 export type Registry = { accounts: Account[]; gates: Gate[]; departments: Department[]; jobs: Job[] };
 
@@ -30,13 +31,17 @@ export function checkRegistry(r: Registry): string[] {
     }
   const accounts = new Set(r.accounts.map((a) => a.id));
   if (!accounts.has("internal")) errors.push("an 'internal' account is required");
-  for (const a of r.accounts) if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(a.id)) errors.push(`account id ${a.id} must be lowercase letters, digits and dashes`);
+  for (const a of r.accounts) {
+    if (!/^[a-z0-9][a-z0-9-]{0,40}$/.test(a.id)) errors.push(`account id ${a.id} must be lowercase letters, digits and dashes`);
+    if (a.instagram !== undefined && !/^[a-z0-9._]{2,30}$/.test(a.instagram)) errors.push(`account ${a.id} has an invalid instagram handle (no @, lowercase)`);
+  }
   for (const j of r.jobs) {
     if (ids.has(j.id)) errors.push(`job ${j.id} is listed twice`);
     ids.add(j.id);
     if (!desks.has(j.desk)) errors.push(`job ${j.id} points at unknown desk ${j.desk}`);
     if (!accounts.has(j.account)) errors.push(`job ${j.id} points at unknown account ${j.account}`);
     if (!parseSchedule(j.schedule)) errors.push(`job ${j.id} has an unreadable schedule "${j.schedule}"`);
+    if (j.script !== undefined && !/^[a-z0-9-]{1,60}$/.test(j.script)) errors.push(`job ${j.id} has an invalid script name`);
   }
   for (const g of r.gates) {
     if (!desks.has(g.reviewer)) errors.push(`gate ${g.id} points at unknown reviewer desk ${g.reviewer}`);
@@ -174,7 +179,7 @@ export type JobState = "running" | "stuck" | "failing" | "due" | "scheduled" | "
 export type DeskState = "running" | "stuck" | "due" | "failing" | "scheduled" | "idle" | "no-read";
 export type JobView = {
   id: string; desk: string; deskName: string; dept: string; account: string; schedule: string;
-  state: JobState; reason?: string; nextAt: string | null; startedAt?: string; lastEndAt?: string;
+  state: JobState; reason?: string; nextAt: string | null; startedAt?: string; lastEndAt?: string; lastMessage?: string;
   runs: { ok: boolean | null; exitCode?: number; at: string }[];
 };
 
@@ -211,7 +216,7 @@ export function jobView(job: Job, r: Registry, runs: Run[], now: Date): JobView 
   else state = nextAt ? "scheduled" : "never";
   return {
     id: job.id, desk: desk.id, deskName: desk.name, dept: dept.id, account: job.account, schedule: job.schedule,
-    state, reason, nextAt: nextAt?.toISOString() ?? null, startedAt: open?.startAt, lastEndAt: finished[0]?.endAt,
+    state, reason, nextAt: nextAt?.toISOString() ?? null, startedAt: open?.startAt, lastEndAt: finished[0]?.endAt, lastMessage: finished[0]?.message,
     runs: runs.slice(0, KEEP_RUNS).map((x) => ({ ok: x.endAt ? !!x.ok : null, exitCode: x.exitCode, at: (x.endAt ?? x.startAt)! })),
   };
 }
