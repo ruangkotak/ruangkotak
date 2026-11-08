@@ -1,8 +1,9 @@
 "use client";
 
-import { Bell, Broadcast, ListChecks, UsersThree } from "@phosphor-icons/react";
+import { Bell, Broadcast, Handshake, ListChecks, UsersThree } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/station";
+import { Clients } from "./clients";
 import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsYouList, Pips, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
@@ -11,6 +12,7 @@ const TABS = [
   { id: "agents", label: "Agents", Icon: UsersThree },
   { id: "jobs", label: "Jobs", Icon: ListChecks },
   { id: "alerts", label: "Alerts", Icon: Bell },
+  { id: "clients", label: "Clients", Icon: Handshake }, // owner only
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 
@@ -43,7 +45,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
   useEffect(() => {
     const fromHash = location.hash.slice(1);
-    if (TABS.some((t) => t.id === fromHash)) setTab(fromHash as Tab);
+    if (TABS.some((t) => t.id === fromHash) && (fromHash !== "clients" || canSwitch)) setTab(fromHash as Tab);
     setNow(Date.now());
     const tick = setInterval(() => setNow(Date.now()), 10_000);
     // Poll only while the tab is visible; catch up at once when it comes back.
@@ -174,6 +176,8 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </section>
         )}
 
+        {tab === "clients" && canSwitch && <Clients onChanged={load} />}
+
         {tab === "alerts" && (
           <>
             <NeedsYouList items={snap.needsYou} />
@@ -192,8 +196,8 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
       </main>
 
       <nav aria-label="Station sections" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <ul className="mx-auto grid max-w-[640px] grid-cols-4">
-          {TABS.map(({ id, label, Icon }) => (
+        <ul className={`mx-auto grid max-w-[640px] ${canSwitch ? "grid-cols-5" : "grid-cols-4"}`}>
+          {TABS.filter((t) => t.id !== "clients" || canSwitch).map(({ id, label, Icon }) => (
             <li key={id}>
               <button onClick={() => pick(id)} aria-current={tab === id ? "page" : undefined}
                 className={`relative flex min-h-[56px] w-full flex-col items-center justify-center gap-1 text-[10.5px] tracking-[0.1em] uppercase ${tab === id ? "text-ink" : "text-muted"}`}>

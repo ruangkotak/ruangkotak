@@ -20,11 +20,27 @@ const JOB_TIMEOUT_MS = 10 * 60_000;
 type JobModule = { default: (ctx: JobContext) => Promise<JobResult>; requires?: string[]; unavailable?: (ctx: JobContext) => string | null };
 
 const env = loadEnv();
-const registry = JSON.parse(readFileSync(join(SITE_DIR, "data", "station", "registry.json"), "utf8")) as Registry;
+mkdirSync(STATE_DIR, { recursive: true });
+
+// The registry comes from Station when it can (it includes clients added from the Clients tab, so their jobs start
+// without a git pull), then from the last copy fetched, then from the file in the repo.
+const REGISTRY_CACHE = join(STATE_DIR, "registry.json");
+async function loadRegistry(): Promise<{ registry: Registry; from: string }> {
+  try {
+    const res = await fetch(new URL("/api/station/registry", env.STATION_URL), { headers: { "x-station-key": env.STATION_KEY ?? "" }, signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      const registry = (await res.json()) as Registry;
+      writeFileSync(REGISTRY_CACHE, JSON.stringify(registry));
+      return { registry, from: "Station" };
+    }
+  } catch {}
+  if (existsSync(REGISTRY_CACHE)) return { registry: JSON.parse(readFileSync(REGISTRY_CACHE, "utf8")) as Registry, from: "last copy from Station" };
+  return { registry: JSON.parse(readFileSync(join(SITE_DIR, "data", "station", "registry.json"), "utf8")) as Registry, from: "repo file" };
+}
+const { registry, from: registryFrom } = await loadRegistry();
 const scriptOf = (j: Job) => join(JOBS_DIR, `${j.script ?? j.id}.mts`);
 const laptopJobs = registry.jobs.filter((j) => existsSync(scriptOf(j)));
 const byId = new Map(registry.jobs.map((j) => [j.id, j]));
-mkdirSync(STATE_DIR, { recursive: true });
 
 const readState = (): Record<string, TickEntry> => {
   try {
@@ -76,7 +92,7 @@ const args = process.argv.slice(2);
 if (args[0] === "--list") {
   const state = readState();
   const now = new Date();
-  console.log(`Station: ${env.STATION_URL} · source "${env.STATION_SOURCE}" · state ${STATE_FILE}\n`);
+  console.log(`Station: ${env.STATION_URL} · source "${env.STATION_SOURCE}" · registry from ${registryFrom} · state ${STATE_FILE}\n`);
   for (const j of laptopJobs) {
     const why = blocked(j.id, await load(j.id));
     const e = state[j.id] ?? {};

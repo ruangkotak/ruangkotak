@@ -1,21 +1,35 @@
 // The I/O half of Station: reads the store, runs the infra probes, records beats. Pure logic is in lib/station.ts.
 import registryJson from "@/data/station/registry.json";
-import { stationStore } from "./store";
+import { clientStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  applyBeat, buildSnapshot, cookieScope, eventFor, keyScope, resolveView,
-  type Beat, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
+  applyBeat, buildSnapshot, cookieScope, eventFor, keyScope, resolveView, withClients,
+  type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
-export const registry = registryJson as unknown as Registry;
+/** The hand-edited registry file, without the clients added from Station. */
+export const fileRegistry = registryJson as unknown as Registry;
+
+// The live registry is the file plus active clients from Redis, read on every request (one HGETALL). Not cached, so a
+// new client works the moment it is added, and a paused client or rotated link stops working the moment it changes.
+export async function liveRegistry(): Promise<{ registry: Registry; clients: ClientRecord[] }> {
+  try {
+    const clients = await clientStore.all();
+    return { registry: withClients(fileRegistry, clients), clients };
+  } catch (err) {
+    console.error("[station] clients unavailable, using the registry file only", err);
+    return { registry: fileRegistry, clients: [] };
+  }
+}
 
 /** Who is asking: an x-station-key header (scripts) or the session cookie (the page). */
-export function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Scope | null {
+export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Promise<Scope | null> {
+  const { registry } = await liveRegistry();
   return keyScope(req.headerKey, req.account, process.env, registry) ?? cookieScope(req.cookie, process.env, registry);
 }
 
-export function viewFor(scope: Scope | null, q: ViewQuery): View | null {
-  return resolveView(scope, q, registry);
+export async function viewFor(scope: Scope | null, q: ViewQuery): Promise<View | null> {
+  return resolveView(scope, q, (await liveRegistry()).registry);
 }
 
 // ---------- probes ----------
@@ -106,6 +120,7 @@ async function probes(seen: Record<string, string>, now: Date): Promise<Probe[]>
 // ---------- reads and writes ----------
 
 export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
+  const { registry } = await liveRegistry();
   const [runs, events, gates, seen] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
@@ -120,7 +135,7 @@ export async function getSnapshot(view: View, now = new Date()): Promise<Snapsho
   return buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, now });
 }
 
-export async function recordBeat(beat: Beat, now = new Date()) {
+export async function recordBeat(beat: Beat, registry: Registry, now = new Date()) {
   if (beat.kind === "job") {
     const runs = (await stationStore.runs([beat.jobId]))[beat.jobId] ?? [];
     await stationStore.setRuns(beat.jobId, applyBeat(runs, beat, now));
