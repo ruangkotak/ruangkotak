@@ -61,4 +61,7 @@ export type GateUpdate = { gate: string; waiting: number; oldestAt?: string };
 /** `attention`: a short, count-only line for Station's Needs you, sent with a successful run (no names, no task text). */
 export type JobResult = { ok: boolean; message: string; attention?: string; gates?: GateUpdate[] };
 export type JobAccount = { id: string; label: string; instagram?: string };
-export type JobContext = { env: Env; repo: string; now: Date; job: { id: string; account: string }; account: JobAccount; stateDir: string };
+export type JobContext = {
+  env: Env; repo: string; now: Date; job: { id: string; account: string }; account: JobAccount; stateDir: string;
+  registry: { departments: { id: string; desks: { id: string; name: string }[] }[] };
+};

@@ -122,9 +122,9 @@ test("beats for unknown jobs, gates or bad fields are rejected", () => {
   assert.equal(parseBeat({ jobId: "sync-watchdog", state: "maybe" }, registry).ok, false);
   assert.equal(parseBeat({ jobId: "sync-watchdog", state: "fail", exitCode: 1.5 }, registry).ok, false);
   assert.equal(parseBeat({ jobId: "sync-watchdog", state: "ok", source: "My Laptop!" }, registry).ok, false);
-  assert.equal(parseBeat({ gate: "report", waiting: -1 }, registry).ok, false);
+  assert.equal(parseBeat({ gate: "review", waiting: -1 }, registry).ok, false);
   assert.equal(parseBeat({ gate: "nope", waiting: 1 }, registry).ok, false);
-  assert.equal(parseBeat({ gate: "report", waiting: 1, account: "someone-else" }, registry).ok, false);
+  assert.equal(parseBeat({ gate: "review", waiting: 1, account: "someone-else" }, registry).ok, false);
   assert.equal(parseBeat(null, registry).ok, false);
 });
 
@@ -132,7 +132,7 @@ test("a valid beat is accepted and its message is trimmed", () => {
   const r = parseBeat({ jobId: "sync-watchdog", state: "fail", exitCode: 3, message: `  ${"x".repeat(300)}  `, source: "laptop" }, registry);
   assert.ok(r.ok);
   assert.equal((r.beat as JobBeat).message?.length, 200);
-  const g = parseBeat({ gate: "report", waiting: 2 }, registry);
+  const g = parseBeat({ gate: "review", waiting: 2 }, registry);
   assert.ok(g.ok && g.beat.kind === "gate" && g.beat.account === "internal");
 });
 
@@ -188,7 +188,7 @@ test("needs-you gathers stuck jobs, bad probes and overdue gates", () => {
       { id: "site", label: "ruangkotak.com", status: "degraded", detail: "front page slow: 2400 ms" },
       { id: "apify", label: "Apify", status: "no-probe", detail: "APIFY_TOKEN not set" },
     ],
-    gates: { "report:internal": { waiting: 3, oldestAt: minutes(-30 * 60).toISOString(), at: NOW.toISOString() } },
+    gates: { "review:internal": { waiting: 3, oldestAt: minutes(-50 * 60).toISOString(), at: NOW.toISOString() } },
   });
   assert.deepEqual(s.needsYou.map((n) => n.kind), ["job", "probe", "gate"]);
   assert.equal(s.needsYou[0].title, "Security Officer: credential-registry failing");
@@ -199,7 +199,7 @@ test("needs-you gathers stuck jobs, bad probes and overdue gates", () => {
 
 test("a gate nobody reports on says so instead of showing zero", () => {
   const s = snapshot({ mode: "owner", account: "all" });
-  assert.equal(s.gates.find((g) => g.id === "report")!.waiting, null);
+  assert.equal(s.gates.find((g) => g.id === "review")!.waiting, null);
   assert.equal(s.funnel.status, "no-read-path");
 });
 
@@ -207,7 +207,7 @@ test("the client view never leaks internal departments, other accounts, infra or
   const s = snapshot({ mode: "client", account: "client-demo" }, {
     runs: { "credential-registry": failing3, "client-demo-velocity": runsFrom([{ state: "start" }], minutes(-1)) },
     probes: [{ id: "site", label: "ruangkotak.com", status: "down", detail: "x" }],
-    gates: { "report:internal": { waiting: 5, at: NOW.toISOString() }, "report:client-demo": { waiting: 1, at: NOW.toISOString() } },
+    gates: { "review:internal": { waiting: 5, at: NOW.toISOString() }, "review:client-demo": { waiting: 1, at: NOW.toISOString() } },
     events: [
       { at: NOW.toISOString(), dept: "cmo", desk: "performance-analyst", account: "client-demo", level: "info", message: "running client-demo-velocity", source: "laptop" },
       { at: NOW.toISOString(), dept: "cmo", desk: "funnel-operator", account: "alanazizreview", level: "info", message: "running ig-comment-dm" },
@@ -219,7 +219,7 @@ test("the client view never leaks internal departments, other accounts, infra or
   assert.equal(s.infra, null);
   assert.deepEqual(s.accounts.map((a) => a.id), ["client-demo"]);
   assert.ok(s.departments.flatMap((d) => d.jobs).every((j) => j.account === "client-demo"));
-  assert.deepEqual(s.gates.map((g) => g.id), ["report", "final", "dm"]); // no invoice: that is the CFO's
+  assert.deepEqual(s.gates.map((g) => g.id), ["review", "final", "dm"]); // no invoice: that is the CFO's
   assert.equal(s.gates[0].waiting, 1);
   assert.deepEqual(s.log.map((e) => e.message), ["running client-demo-velocity"]);
   assert.equal(s.log[0].source, undefined);

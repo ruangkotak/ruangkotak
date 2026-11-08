@@ -9,6 +9,10 @@ import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { keywordsOf, matches, queueLine, readQueue } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
+import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
+import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks.mts";
+import { markNewLines, markerOf } from "../scripts/station/queue.mts";
+import { readFileSync } from "node:fs";
 import { digest, mytDay, parseDay, parseTasks } from "../scripts/station/jobs/reminder-check.mts";
 
 const NOW = Date.parse("2026-11-08T09:00:00Z");
@@ -178,4 +182,71 @@ test("a brief line carries what is needed to reply with a quote and nothing that
   const line = briefLine({ id: "2026-11-07T01:00:00.000Z:ab12", at: "2026-11-07T01:00:00.000Z", handle: "@someone", platform: "Instagram", niche: "food", views: "10k", goal: "more <!-- bookings -->" });
   assert.equal(line, '- [ ] 2026-11-07 09:00 · @someone · Instagram · food · 10k views · goal: "more bookings" <!-- rk:id=2026-11-07T01:00:00.000Z:ab12 at=2026-11-07T01:00:00.000Z -->');
   assert.deepEqual(readQueue(line), { waiting: 1, oldestAt: "2026-11-07T01:00:00.000Z" });
+});
+
+// ---------- remaining jobs ----------
+
+test("post status is the first word after **Status:**", () => {
+  assert.equal(statusOf("# Tue\n\n**Status:** DRAFT. Not published. Needs Alan's review."), "DRAFT");
+  assert.equal(statusOf("**Status:** approved"), "APPROVED");
+  assert.equal(statusOf("no status here"), "UNKNOWN");
+});
+
+test("the real post in content/ reads as a draft", () => {
+  assert.equal(statusOf(readFileSync(new URL("../../content/2026-09-15/post.md", import.meta.url), "utf8")), "DRAFT");
+});
+
+test("the board review counts the week, the drafts, and flags drafts publishing within a day", () => {
+  const p = (day: string, status: string): Post => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T00:00:00.000Z` });
+  const posts = [p("2026-11-01", "DRAFT"), p("2026-11-08", "DRAFT"), p("2026-11-09", "APPROVED"), p("2026-11-11", "DRAFT"), p("2026-11-20", "SCHEDULED")];
+  const r = review(posts, "2026-11-08");
+  assert.equal(r.message, "next 7 days: 3 posts on 3 of 7 days · 2 drafts waiting for review · 1 past draft never marked published");
+  assert.equal(r.attention, "1 draft publishing within a day is not approved");
+  assert.deepEqual(r.gates, [{ gate: "review", waiting: 2, oldestAt: "2026-11-08T00:00:00.000Z" }]);
+  assert.equal(review([p("2026-11-12", "APPROVED")], "2026-11-08").attention, undefined);
+});
+
+test("hand-typed checklist lines get a marker once, and markers can carry extra fields", () => {
+  const text = "# Final review\n\n- [ ] Reel 3 v2\n- [x] Reel 2 final\nsome note\n";
+  const first = markNewLines(text, "2026-11-08T01:00:00.000Z");
+  assert.equal(first.marked.length, 1);
+  assert.match(first.text, /- \[ \] Reel 3 v2 <!-- rk:id=20261108010000-1 at=2026-11-08T01:00:00\.000Z -->/);
+  assert.match(first.text, /- \[x\] Reel 2 final\nsome note/);
+  assert.deepEqual(readQueue(first.text), { waiting: 1, oldestAt: "2026-11-08T01:00:00.000Z" });
+  const again = markNewLines(first.text, "2026-11-08T05:00:00.000Z");
+  assert.equal(again.marked.length, 0);
+  assert.equal(again.text, first.text);
+  assert.deepEqual(markerOf("- [ ] x <!-- rk:id=a1 at=2026-11-08T01:00:00Z desk=editor -->"), { id: "a1", at: "2026-11-08T01:00:00Z", desk: "editor" });
+  assert.deepEqual(readQueue("- [ ] x <!-- rk:id=a1 at=2026-11-08T01:00:00Z desk=editor -->"), { waiting: 1, oldestAt: "2026-11-08T01:00:00Z" });
+});
+
+const DESKS: DeskRef[] = JSON.parse(readFileSync(new URL("../data/station/registry.json", import.meta.url), "utf8"))
+  .departments.flatMap((d: { id: string; desks: { id: string; name: string }[] }) => d.desks.map((k) => ({ id: k.id, name: k.name, dept: d.id })));
+
+test("asks go to a desk by #tag first, then by the first keyword", () => {
+  const name = (t: string) => deskFor(t, DESKS)?.name ?? null;
+  assert.equal(name("- [ ] cut the hook for reel 14"), "Editor");
+  assert.equal(name("- [ ] fix captions on reel 3"), "Caption Editor");
+  assert.equal(name("- [ ] send the invoice to client-demo"), "Billing Clerk");
+  assert.equal(name("- [ ] reel thumbnail please #designer"), "Designer");
+  assert.equal(name("- [ ] new idea #cdo"), "Art Director");
+  assert.equal(name("- [ ] chase payment #billing-clerk"), "Billing Clerk");
+  assert.equal(name("- [ ] call mum"), null);
+});
+
+test("routing marks new asks, retries unrouted ones only when they now match, and never rewrites for nothing", () => {
+  const t0 = "2026-11-08T01:00:00.000Z";
+  const r1 = route("# Asks\n\n- [ ] cut reel 14\n- [ ] call mum\n- [x] done thing\n", DESKS, t0);
+  assert.deepEqual(r1.routed.map((d) => d.name), ["Editor"]);
+  assert.equal(r1.open, 2);
+  assert.equal(r1.unrouted, 1);
+  assert.match(r1.text, /- \[ \] cut reel 14 · → Editor <!-- rk:id=\S+ at=2026-11-08T01:00:00\.000Z desk=editor -->/);
+  assert.match(r1.text, /- \[ \] call mum · → \? \(add a #desk\) <!-- rk:id=\S+ at=\S+ desk=none -->/);
+  const r2 = route(r1.text, DESKS, "2026-11-08T01:15:00.000Z");
+  assert.equal(r2.changed, false, "an unrouted ask that still matches nothing is left alone");
+  const tagged = r1.text.replace("call mum · → ? (add a #desk)", "call mum · → ? (add a #desk) #coo");
+  const r3 = route(tagged, DESKS, "2026-11-08T01:30:00.000Z");
+  assert.deepEqual(r3.routed.map((d) => d.name), ["COO Lead"]);
+  assert.equal(r3.unrouted, 0);
+  assert.match(r3.text, /call mum #coo · → COO Lead <!-- rk:id=\S+ at=\S+ desk=coo-lead -->/);
 });
