@@ -8,6 +8,8 @@ import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { tickLine } from "../scripts/station/queue.mts";
+import { labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
+import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
 import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
@@ -393,4 +395,43 @@ test("a sent DM ticks exactly its own line", () => {
   assert.equal(out.split("\n")[1], b);
   assert.deepEqual(readQueue(out), { waiting: 1, oldestAt: "2026-11-08T01:00:00.000Z" });
   assert.equal(tickLine(out, "999", "x"), out);
+});
+
+test("final review: open lines are named for the client; a tick after being open is a delivery, a deletion is not", () => {
+  const t0 = "2026-11-08T01:00:00.000Z";
+  const marked = markNewLines("# Final review\n- [ ] Reel 3 v2\n- [ ] Carousel for launch\n- [ ] Cancelled idea\n", t0).text;
+  const first = finalReview(marked, { open: {}, delivered: [] }, new Date(t0));
+  assert.deepEqual(first.items.map((i) => i.label), ["Reel 3 v2", "Carousel for launch", "Cancelled idea"]);
+  assert.deepEqual(first.delivered, []);
+  const next = marked.replace("- [ ] Reel 3 v2", "- [x] Reel 3 v2").split("\n").filter((l) => !l.includes("Cancelled")).join("\n");
+  const second = finalReview(next, first, new Date("2026-11-09T01:00:00.000Z"));
+  assert.deepEqual(second.items.map((i) => i.label), ["Carousel for launch"]);
+  assert.deepEqual(second.delivered.map((d) => [d.label, d.at]), [["Reel 3 v2", "2026-11-09T01:00:00.000Z"]]);
+  assert.equal(finalReview(next, second, new Date("2026-11-10T01:00:00.000Z")).delivered.length, 1, "not delivered twice");
+  assert.equal(labelOf("- [ ] 2026-11-08 09:00 · @fan · \"AUDIT\" <!-- rk:id=1 at=x -->"), '@fan · "AUDIT"');
+});
+
+// ---------- agents ----------
+
+test("only open asks routed to a desk with an agent are worked, once, with at most two tries", () => {
+  const text = route("# Asks\n- [ ] write 5 hooks for reel 14 #scriptwriter\n- [ ] cut reel 14\n- [ ] call the venue\n- [x] old ask #designer\n", DESKS, "2026-11-08T01:00:00.000Z").text;
+  const agentOf = new Map([["scriptwriter", "creative-lead"], ["designer", "creative-lead"]]);
+  const asks = asksToWork(text, agentOf, { done: {}, failed: {} });
+  assert.deepEqual(asks.map((a) => [a.desk, a.text]), [["scriptwriter", "write 5 hooks for reel 14 #scriptwriter"]], "Editor has no agent; the unrouted and ticked ones are skipped");
+  assert.deepEqual(asksToWork(text, agentOf, { done: { [asks[0].id]: { at: "x", file: "y" } }, failed: {} }), []);
+  assert.equal(asksToWork(text, agentOf, { done: {}, failed: { [asks[0].id]: 1 } }).length, 1, "one failure: retried");
+  assert.equal(asksToWork(text, agentOf, { done: {}, failed: { [asks[0].id]: 2 } }).length, 0, "two failures: left for you");
+});
+
+test("agents run read-only, with their own instructions, and are told not to invent or act", () => {
+  assert.equal(agentInstructions("---\nname: creative-lead\ntools: Read, Write\n---\n\nYou are the Creative lead."), "You are the Creative lead.");
+  const args = claudeArgs("P", "I");
+  assert.deepEqual(args.slice(0, 4), ["-p", "P", "--output-format", "json"]);
+  assert.equal(args[args.indexOf("--allowedTools") + 1], "Read,Grep,Glob");
+  for (const t of ["Bash", "Edit", "Write", "WebFetch"]) assert.ok(args[args.indexOf("--disallowedTools") + 1].split(",").includes(t), t);
+  assert.deepEqual(TOOLS, ["Read", "Grep", "Glob"]);
+  assert.ok(BLOCKED.includes("Bash"));
+  const prompt = promptFor({ id: "1", desk: "scriptwriter", text: "write 5 hooks" }, "Scriptwriter", "creative-lead");
+  assert.match(prompt, /\[TO CONFIRM\]/);
+  assert.match(prompt, /Never say you sent, posted, scheduled or changed anything/);
 });

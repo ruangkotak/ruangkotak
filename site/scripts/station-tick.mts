@@ -77,6 +77,7 @@ async function runJob(id: string): Promise<JobResult> {
     result = { ok: false, message: `crashed: ${(err as Error).message}` };
   }
   for (const g of result.gates ?? []) await beat(env, { ...g, account: ctx.job.account });
+  if (result.reels?.length) await beat(env, { reels: result.reels.slice(0, 12), account: ctx.job.account });
   await beat(env, result.ok ? { jobId: id, state: "ok", message: result.message, attention: result.attention } : { jobId: id, state: "fail", exitCode: 1, message: result.message });
   console.log(`${stamp()} ${id}: ${result.ok ? "ok" : "FAIL"} · ${result.message}${result.attention ? ` · needs you: ${result.attention}` : ""}`);
   return result;

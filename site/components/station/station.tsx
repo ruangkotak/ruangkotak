@@ -3,6 +3,7 @@
 import { Bell, Broadcast, Handshake, ListChecks, UsersThree } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/station";
+import { AccountPanel } from "./account";
 import { Clients } from "./clients";
 import { TelegramPanel } from "./telegram";
 import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsYouList, Pips, TopBar } from "./parts";
@@ -111,6 +112,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
         {tab === "station" && (
           <>
+            {snap.account && <AccountPanel p={snap.account} now={now} client={client} />}
             <Gates gates={snap.gates} now={now} />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
               {snap.departments.map((d) => (

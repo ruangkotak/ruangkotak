@@ -10,15 +10,16 @@
     { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": "client-demo-final-check", "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
     { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
+    { "id": "drafts", "label": "Drafts", "detail": "agent drafts waiting for your approval", "reviewer": "router", "job": "agent-work", "slaHours": 24 },
     { "id": "invoice", "label": "Invoice", "detail": "unpaid invoices", "reviewer": "billing-clerk", "job": "invoice-chase", "slaHours": 72 }
   ],
   "departments": [
     {
       "id": "cmo", "no": "02", "name": "CMO", "client": true,
       "desks": [
-        { "id": "strategist", "name": "Strategist" },
-        { "id": "scriptwriter", "name": "Scriptwriter" },
-        { "id": "card-writer", "name": "Card Writer" },
+        { "id": "strategist", "name": "Strategist", "agent": "social-lead" },
+        { "id": "scriptwriter", "name": "Scriptwriter", "agent": "creative-lead" },
+        { "id": "card-writer", "name": "Card Writer", "agent": "creative-lead" },
         { "id": "performance-analyst", "name": "Performance Analyst", "agent": "media-buyer" },
         { "id": "funnel-operator", "name": "Funnel Operator", "agent": "social-lead" },
         { "id": "scrape-agent", "name": "Scrape Agent" },
@@ -31,10 +32,10 @@
       "id": "cdo", "no": "03", "name": "CDO", "client": true,
       "desks": [
         { "id": "art-director", "name": "Art Director", "agent": "creative-lead" },
-        { "id": "designer", "name": "Designer" },
+        { "id": "designer", "name": "Designer", "agent": "creative-lead" },
         { "id": "editor", "name": "Editor" },
         { "id": "motion-designer", "name": "Motion Designer" },
-        { "id": "caption-editor", "name": "Caption Editor" },
+        { "id": "caption-editor", "name": "Caption Editor", "agent": "creative-lead" },
         { "id": "web-ui-designer", "name": "Web UI Designer" },
         { "id": "colorist", "name": "Colorist" },
         { "id": "sound-editor", "name": "Sound Editor" },
@@ -44,8 +45,8 @@
     {
       "id": "coo", "no": "04", "name": "COO", "client": false,
       "desks": [
-        { "id": "coo-lead", "name": "COO Lead" },
-        { "id": "dispatcher", "name": "Dispatcher" },
+        { "id": "coo-lead", "name": "COO Lead", "agent": "account-director" },
+        { "id": "dispatcher", "name": "Dispatcher", "agent": "account-director" },
         { "id": "staff-coord", "name": "Staff Coord" },
         { "id": "account-manager", "name": "Account Manager", "agent": "account-director" },
         { "id": "digest-editor", "name": "Digest Editor" },
@@ -92,6 +93,7 @@
     { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
     { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },
     { "id": "route-asks", "desk": "router", "schedule": "every 15m", "account": "internal" },
+    { "id": "agent-work", "desk": "router", "schedule": "every 15m", "account": "internal" },
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
     { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },

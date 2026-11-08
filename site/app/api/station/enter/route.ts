@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
   // Locally, open Station on http://localhost:3100: Next reports its origin as localhost, and the cookie belongs to the host.
   const to = new URL("/station", req.nextUrl.origin);
   if (scope.kind === "client") to.search = `${new URLSearchParams({ view: "client", account: scope.account })}`;
+  // ?to=alerts (or jobs, agents, clients) opens that tab: links in Telegram and in the access file use it.
+  const tab = q.get("to");
+  if (tab && ["agents", "jobs", "alerts", "clients"].includes(tab)) to.hash = tab;
   const res = NextResponse.redirect(to, 303);
   // Lax, not Strict: a link opened from WhatsApp or email starts cross-site, and Strict would drop the cookie on the redirect back.
   res.cookies.set(COOKIE, value, {

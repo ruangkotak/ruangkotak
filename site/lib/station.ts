@@ -133,9 +133,16 @@ export function isDue(schedule: Schedule, e: TickEntry, now: Date): boolean {
 /** `attention`: something a successful run wants you to see (e.g. "2 overdue tasks"). It goes to Needs you without failing the job. */
 export type Run = { startAt?: string; endAt?: string; ok?: boolean; exitCode?: number; message?: string; attention?: string; source?: string };
 export type JobBeat = { kind: "job"; jobId: string; state: "start" | "ok" | "fail"; exitCode?: number; message?: string; attention?: string; source?: string };
-export type GateBeat = { kind: "gate"; gate: string; account: string; waiting: number; oldestAt?: string; source?: string };
-export type Beat = JobBeat | GateBeat;
-export type GateReading = { waiting: number; oldestAt?: string; at: string };
+/** A named item on a gate's checklist (e.g. a deliverable in final review), shown on the client's page. */
+export type GateItem = { label: string; at: string };
+export type GateBeat = { kind: "gate"; gate: string; account: string; waiting: number; oldestAt?: string; items?: GateItem[]; delivered?: GateItem[]; source?: string };
+/** One reel as Station keeps it: link, publish time, plays. */
+export type Reel = { url: string; at: string; views: number };
+/** The velocity job's scrape, so the account's page can show reels over time. */
+export type ReelsBeat = { kind: "reels"; account: string; reels: Reel[]; source?: string };
+export type Beat = JobBeat | GateBeat | ReelsBeat;
+export type GateReading = { waiting: number; oldestAt?: string; at: string; items?: GateItem[]; delivered?: GateItem[] };
+export type ReelSnapshot = { at: string; reels: Reel[] };
 
 export const KEEP_RUNS = 10;
 const SOURCE = /^[a-z0-9][a-z0-9-]{0,23}$/;
@@ -146,6 +153,26 @@ export function parseBeat(body: unknown, r: Registry): { ok: true; beat: Beat } 
   const b = body as Record<string, unknown>;
   const source = b.source === undefined ? undefined : typeof b.source === "string" && SOURCE.test(b.source) ? b.source : null;
   if (source === null) return { ok: false, error: "source must be 1-24 lowercase letters, digits or dashes" };
+  const isoOk = (v: unknown) => typeof v === "string" && !Number.isNaN(Date.parse(v));
+  const items = (v: unknown, max: number): GateItem[] | undefined | null => {
+    if (v === undefined) return undefined;
+    if (!Array.isArray(v) || v.length > max) return null;
+    const out = v.map((x) => (x && typeof x === "object" && typeof (x as GateItem).label === "string" && isoOk((x as GateItem).at)
+      ? { label: (x as GateItem).label.replace(/<!--|-->/g, "").replace(/\s+/g, " ").trim().slice(0, 100), at: new Date((x as GateItem).at).toISOString() } : null));
+    return out.every((x) => x && x.label) ? (out as GateItem[]) : null;
+  };
+  if (b.reels !== undefined) {
+    const account = b.account;
+    if (typeof account !== "string" || !r.accounts.some((a) => a.id === account && a.kind !== "internal")) return { ok: false, error: "unknown account" };
+    if (!Array.isArray(b.reels) || b.reels.length > 12) return { ok: false, error: "reels must be a list of at most 12" };
+    const reels: Reel[] = [];
+    for (const x of b.reels as Record<string, unknown>[]) {
+      if (!x || typeof x.url !== "string" || !/^https:\/\/(www\.)?instagram\.com\/[\w./-]{1,150}$/.test(x.url) || !isoOk(x.at) || !Number.isInteger(x.views) || (x.views as number) < 0)
+        return { ok: false, error: "each reel needs an instagram.com url, an ISO date and whole-number views" };
+      reels.push({ url: x.url, at: new Date(x.at as string).toISOString(), views: x.views as number });
+    }
+    return { ok: true, beat: { kind: "reels", account, reels, source } };
+  }
   if (b.gate !== undefined) {
     const gate = r.gates.find((g) => g.id === b.gate);
     if (!gate) return { ok: false, error: "unknown gate" };
@@ -153,7 +180,10 @@ export function parseBeat(body: unknown, r: Registry): { ok: true; beat: Beat } 
     if (typeof account !== "string" || !r.accounts.some((a) => a.id === account)) return { ok: false, error: "unknown account" };
     if (!Number.isInteger(b.waiting) || (b.waiting as number) < 0 || (b.waiting as number) > 100_000) return { ok: false, error: "waiting must be a whole number" };
     if (b.oldestAt !== undefined && (typeof b.oldestAt !== "string" || Number.isNaN(Date.parse(b.oldestAt)))) return { ok: false, error: "oldestAt must be an ISO date" };
-    return { ok: true, beat: { kind: "gate", gate: gate.id, account, waiting: b.waiting as number, oldestAt: b.oldestAt as string | undefined, source } };
+    const open = items(b.items, 15);
+    const delivered = items(b.delivered, 30);
+    if (open === null || delivered === null) return { ok: false, error: "items and delivered must be short lists of {label, at}" };
+    return { ok: true, beat: { kind: "gate", gate: gate.id, account, waiting: b.waiting as number, oldestAt: b.oldestAt as string | undefined, items: open, delivered, source } };
   }
   if (typeof b.jobId !== "string" || !r.jobs.some((j) => j.id === b.jobId)) return { ok: false, error: "unknown jobId" };
   if (b.state !== "start" && b.state !== "ok" && b.state !== "fail") return { ok: false, error: "state must be start, ok or fail" };
@@ -422,7 +452,54 @@ export type Snapshot = {
   log: StationEvent[];
   /** Owner view only: whether Telegram alerts are set up. */
   alerts?: boolean;
+  /** When viewing one personal or client account: its reels, review items and week. */
+  account?: AccountPanel;
 };
+
+export type AccountPanel = {
+  label: string;
+  checkedAt: string | null;
+  reels: (Reel & { perHour: number | null })[];
+  /** Median plays of the tracked reels at each check, oldest first. */
+  trend: { at: string; median: number }[];
+  week: { posted: number; playsGained: number | null; delivered: number; inReview: number | null };
+  review: { items: GateItem[]; delivered: GateItem[] };
+};
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0;
+};
+
+/** Pure: the account page from its reel snapshots (newest first) and its final-review reading. */
+export function accountPanel(label: string, snaps: ReelSnapshot[], finalGate: GateReading | undefined, now: Date): AccountPanel {
+  const WEEK = 7 * 86400_000;
+  const [cur, prev] = snaps;
+  const hours = cur && prev ? (Date.parse(cur.at) - Date.parse(prev.at)) / 3600_000 : 0;
+  const before = new Map((prev?.reels ?? []).map((r) => [r.url, r.views]));
+  const reels = (cur?.reels ?? []).map((r) => ({ ...r, perHour: hours > 0.5 && before.has(r.url) ? Math.max(0, Math.round((r.views - before.get(r.url)!) / hours)) : null }));
+  // Plays gained this week: against the snapshot nearest to 7 days ago (or the oldest kept), counting reels posted since in full.
+  const base = snaps.find((s) => now.getTime() - Date.parse(s.at) >= WEEK - 6 * 3600_000) ?? (snaps.length > 1 ? snaps.at(-1) : undefined);
+  let playsGained: number | null = null;
+  if (cur && base && base !== cur) {
+    const then = new Map(base.reels.map((r) => [r.url, r.views]));
+    playsGained = cur.reels.reduce((n, r) => n + (then.has(r.url) ? Math.max(0, r.views - then.get(r.url)!) : r.at > base.at ? r.views : 0), 0);
+  }
+  const recent = (xs?: GateItem[]) => (xs ?? []).filter((x) => now.getTime() - Date.parse(x.at) < 30 * 86400_000);
+  return {
+    label,
+    checkedAt: cur?.at ?? null,
+    reels,
+    trend: [...snaps].reverse().map((s) => ({ at: s.at, median: median(s.reels.map((r) => r.views)) })),
+    week: {
+      posted: reels.filter((r) => now.getTime() - Date.parse(r.at) < WEEK).length,
+      playsGained,
+      delivered: recent(finalGate?.delivered).filter((x) => now.getTime() - Date.parse(x.at) < WEEK).length,
+      inReview: finalGate ? finalGate.waiting : null,
+    },
+    review: { items: finalGate?.items ?? [], delivered: recent(finalGate?.delivered).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 10) },
+  };
+}
 
 export type SnapshotInput = {
   registry: Registry;
@@ -432,6 +509,8 @@ export type SnapshotInput = {
   gates: Record<string, GateReading>; // key: "<gate>:<account>"
   probes: Probe[];
   funnel: FunnelDay[] | null | "error";
+  /** The view account's reel snapshots, newest first (only when viewing one account). */
+  reels?: ReelSnapshot[];
   now: Date;
 };
 
@@ -512,12 +591,15 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
     funnel: funnelSource !== "site" ? { status: "no-read-path", days: [] } : input.funnel === "error" ? { status: "error", days: [] } : { status: input.funnel ? "ok" : "no-read-path", days: input.funnel ?? [] },
     needsYou,
     log: events.slice(0, LOG_LIMIT),
+    account: account && account.kind !== "internal" ? accountPanel(account.label, input.reels ?? [], input.gates[`final:${account.id}`], now) : undefined,
   };
 }
 
 /** The log line a beat leaves behind. */
 export function eventFor(beat: Beat, r: Registry, now: Date): StationEvent {
   const at = now.toISOString();
+  if (beat.kind === "reels")
+    return { at, dept: "cmo", desk: "performance-analyst", account: beat.account, level: "info", message: `${beat.reels.length} reels tracked`, source: beat.source };
   if (beat.kind === "gate") {
     const g = r.gates.find((x) => x.id === beat.gate)!;
     const dept = r.departments.find((d) => d.desks.some((k) => k.id === g.reviewer))!;

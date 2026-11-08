@@ -48,7 +48,8 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const cur: ReelSnapshot = { handle, at: new Date().toISOString(), reels: await scrapeReels(ctx.env.APIFY_TOKEN!, handle, REELS) };
     const result = velocity(prev, cur);
     if (cur.reels.length) writeSnapshot(ctx.stateDir, cur);
-    return result;
+    // Public reel stats go to Station for the account's own page (links, dates, plays; no captions).
+    return { ...result, reels: cur.reels.filter((r) => /^https:\/\/(www\.)?instagram\.com\//.test(r.url)) };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
   }
