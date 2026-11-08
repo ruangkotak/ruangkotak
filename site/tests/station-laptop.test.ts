@@ -17,6 +17,8 @@ import { chase } from "../scripts/station/jobs/invoice-chase.mts";
 import { costReport } from "../scripts/station/jobs/cost-watch.mts";
 import { books } from "../scripts/station/jobs/books-summary.mts";
 import { upsertRow, weekTotals } from "../scripts/station/jobs/kpi-weekly.mts";
+import { payrollCheck } from "../scripts/station/jobs/payroll-check.mts";
+import { PAYROLL_TEMPLATE } from "../scripts/station/ledger.mts";
 import { readFileSync } from "node:fs";
 import { digest, mytDay, parseDay, parseTasks } from "../scripts/station/jobs/reminder-check.mts";
 
@@ -319,9 +321,40 @@ test("the KPI note gets one row per week, replaced if the job runs twice that da
   const w = weekTotals([{ day: "a", home_view: 10, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 }, { day: "b", home_view: 5 }]);
   assert.deepEqual(w, { home_view: 15, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 });
   const one = upsertRow("", "| 2026-11-09 | 15 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
-  assert.match(one, /Payroll: no read path yet/);
+  assert.match(one, /Payroll: see Finance\.md/);
   const again = upsertRow(one, "| 2026-11-09 | 16 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
   assert.equal(again.split("\n").filter((l) => l.startsWith("| 2026-11-09")).length, 1);
   const next = upsertRow(again, "| 2026-11-16 | 20 | 5 | 4 | 3 | 2 | RM 7,000 |", "2026-11-16");
   assert.deepEqual(next.split("\n").filter((l) => /^\| 2026/.test(l)).map((l) => l.slice(2, 12)), ["2026-11-09", "2026-11-16"]);
+});
+
+// ---------- payroll ----------
+
+const PAYROLL = `# Payroll
+- [ ] Aina (editor) · RM 2,500 · for Nov 2026 · due 2026-11-10
+- [ ] Faiz (shoot, freelance) · RM 800 · due 2026-11-05
+- [ ] Mei (captions) · RM 400 · due 2026-11-30
+- [x] Faiz (shoot, freelance) · RM 600 · due 2026-11-02 · paid 2026-11-01
+- [x] Aina (editor) · RM 2,500 · for Oct 2026 · paid 2026-10-31
+`;
+
+test("payroll check: unpaid totals, due-soon and late payouts go to Needs you, never a name", () => {
+  const { invoices, unreadable } = parseInvoices(PAYROLL, "2026-11-08");
+  const r = payrollCheck(invoices, unreadable, "2026-11-08");
+  assert.equal(r.message, "3 payouts unpaid · RM 3,700 · 1 due within 3 days · 1 late · paid this month RM 600");
+  assert.equal(r.attention, "1 payout late (RM 800); 1 payout due within 3 days (RM 2,500)");
+  for (const name of ["Aina", "Faiz", "Mei", "editor"]) assert.ok(!JSON.stringify(r).includes(name), name);
+  assert.equal(payrollCheck([], 0, "2026-11-08").attention, undefined);
+  assert.deepEqual(parseInvoices(withoutComments(PAYROLL_TEMPLATE), "2026-11-08"), { invoices: [], unreadable: 0 });
+});
+
+test("the books summary nets out payroll when there is any, and stays as before when there is none", () => {
+  const { invoices } = parseInvoices(INVOICES, "2026-11-08");
+  const { costs } = parseCosts(COSTS, "2026-11-08");
+  const { invoices: payroll } = parseInvoices(PAYROLL, "2026-11-08");
+  const { result, note } = books(invoices, costs, "2026-11-08", "x", payroll);
+  assert.match(result.message, / · payroll RM 600$/);
+  assert.match(note, /\| Payroll paid \| RM 600 \| RM 2,500 \|/);
+  assert.match(note, /\| Paid minus costs and payroll \| RM 4,340 \+ −\$49 \| −\$49 \+ −RM 1,560 \|/);
+  assert.doesNotMatch(books(invoices, costs, "2026-11-08", "x").note, /Payroll/);
 });

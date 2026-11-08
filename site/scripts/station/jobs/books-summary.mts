@@ -1,10 +1,10 @@
 // Controller, Monday 09:30: the books at a glance.
-// From invoices.md and costs.md, writes <vault>/Station/Finance.md (replaced each run): paid this month and last,
+// From invoices.md, costs.md and payroll.md, writes <vault>/Station/Finance.md (replaced each run): paid this month and last,
 // invoiced this month, outstanding, monthly costs, and what is left after costs. Station gets the one-line summary.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
-import { COSTS_TEMPLATE, INVOICES_TEMPLATE, monthly, parseCosts, parseInvoices, readOrCreate, total, withoutComments, type Cost, type Invoice, type Money } from "../ledger.mts";
+import { COSTS_TEMPLATE, INVOICES_TEMPLATE, PAYROLL_TEMPLATE, monthly, parseCosts, parseInvoices, readOrCreate, total, withoutComments, type Cost, type Invoice, type Money } from "../ledger.mts";
 import { stationFolder } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
@@ -24,27 +24,34 @@ function net(paid: Money[], costs: Money[]) {
 }
 
 /** Pure: the Station result and the Finance note. */
-export function books(invoices: Invoice[], costs: Cost[], today: string, stamp: string) {
+/** `payroll` uses the same line format as invoices (see ledger.mts); paid payouts count in the month they were paid. */
+export function books(invoices: Invoice[], costs: Cost[], today: string, stamp: string, payroll: Invoice[] = []) {
   const ym = today.slice(0, 7);
   const last = prevMonth(ym);
   const paidIn = (m: string) => invoices.filter((i) => i.paid && i.paidOn?.startsWith(m)).map((i) => i.money);
+  const payrollIn = (m: string) => payroll.filter((p) => p.paid && p.paidOn?.startsWith(m)).map((p) => p.money);
   const invoiced = invoices.filter((i) => i.sent?.startsWith(ym)).map((i) => i.money);
   const outstanding = invoices.filter((i) => !i.paid).map((i) => i.money);
   const runRate = costs.map(monthly);
   const undated = invoices.filter((i) => i.paid && !i.paidOn).length;
   const month = MONTHS[Number(ym.slice(5, 7)) - 1].slice(0, 3);
-  const message = `${month}: ${total(paidIn(ym))} paid · ${total(invoiced)} invoiced · ${total(outstanding)} outstanding · costs ${total(runRate)}/mo`;
+  const message = `${month}: ${total(paidIn(ym))} paid · ${total(invoiced)} invoiced · ${total(outstanding)} outstanding · costs ${total(runRate)}/mo${payroll.length ? ` · payroll ${total(payrollIn(ym))}` : ""}`;
   const note = [
     `# Finance`,
     ``,
-    `${stamp} (Malaysia time), from invoices.md and costs.md. Rewritten every Monday; edit those files, not this note.`,
+    `${stamp} (Malaysia time), from invoices.md, costs.md and payroll.md. Rewritten every Monday; edit those files, not this note.`,
     ``,
     `| | ${monthName(ym)} (to date) | ${monthName(last)} |`,
     `| --- | --- | --- |`,
     `| Paid | ${total(paidIn(ym))} | ${total(paidIn(last))} |`,
     `| Invoiced | ${total(invoiced)} | ${total(invoices.filter((i) => i.sent?.startsWith(last)).map((i) => i.money))} |`,
     `| Costs per month | ${total(runRate)} | |`,
-    `| Paid minus a month of costs | ${net(paidIn(ym), runRate)} | ${net(paidIn(last), runRate)} |`,
+    ...(payroll.length
+      ? [
+          `| Payroll paid | ${total(payrollIn(ym))} | ${total(payrollIn(last))} |`,
+          `| Paid minus costs and payroll | ${net(paidIn(ym), [...runRate, ...payrollIn(ym)])} | ${net(paidIn(last), [...runRate, ...payrollIn(last)])} |`,
+        ]
+      : [`| Paid minus a month of costs | ${net(paidIn(ym), runRate)} | ${net(paidIn(last), runRate)} |`]),
     ``,
     `**Outstanding:** ${total(outstanding)} across ${outstanding.length} invoice${outstanding.length === 1 ? "" : "s"}.`,
     undated ? `\n${undated} paid invoice${undated === 1 ? " has" : "s have"} no "paid <date>", so ${undated === 1 ? "it is" : "they are"} not in any month above.` : "",
@@ -59,8 +66,9 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const today = mytDay(ctx.now);
     const { invoices } = parseInvoices(withoutComments(readOrCreate(join(folder, "invoices.md"), INVOICES_TEMPLATE)), today);
     const { costs } = parseCosts(withoutComments(readOrCreate(join(folder, "costs.md"), COSTS_TEMPLATE)), today);
+    const { invoices: payroll } = parseInvoices(withoutComments(readOrCreate(join(folder, "payroll.md"), PAYROLL_TEMPLATE)), today);
     const stamp = new Date(ctx.now.getTime() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ");
-    const { result, note } = books(invoices, costs, today, stamp);
+    const { result, note } = books(invoices, costs, today, stamp, payroll);
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, "Finance.md"), note);
     return result;

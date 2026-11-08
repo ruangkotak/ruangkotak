@@ -1,7 +1,6 @@
 // Payroll & KPI, Monday 10:00: one row a week of the numbers that matter.
 // Reads the site funnel for the last 7 days from Station itself (/api/station/state, owner key) and revenue paid this
-// month from invoices.md, then adds or updates this week's row in <vault>/Station/KPI.md. There is no payroll data
-// source, and the note says so rather than inventing one.
+// month from invoices.md, then adds or updates this week's row in <vault>/Station/KPI.md. Payroll lives in Finance.md.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
@@ -15,7 +14,7 @@ export type Week = Record<(typeof STEPS)[number], number>;
 const HEADER = `# KPI
 
 One row per week, added every Monday. Funnel numbers are the site's last 7 days; Paid is the month to date from invoices.md.
-Payroll: no read path yet.
+Payroll: see Finance.md (from payroll.md).
 
 | Week of | Home | Previews | Done | Reports | Applications | Paid (month to date) |
 | --- | --- | --- | --- | --- | --- | --- |
