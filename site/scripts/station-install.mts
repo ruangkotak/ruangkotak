@@ -4,6 +4,7 @@
 //        [--apify-token <token>] [--ig-keywords "AUDIT,KOTAK"]      (Instagram jobs; re-run any time to change settings)
 //        [--tasks ~/path/TASKS.md]                                (reminder-check; default: TASKS.md at the repo root or in the vault)
 //        [--ig-token <Instagram API token>] [--dm-send on|off]    (comment → DM: read via Instagram's API, and send)
+//        [--agents on|off]                                         (routed asks drafted by the desk's Claude agent)
 //   node --experimental-strip-types scripts/station-install.mts --uninstall
 //   add --dry-run to see what would change without changing it
 //
@@ -84,6 +85,8 @@ const settings: Record<string, string | undefined> = {
   // Instagram API (your own professional account): reading comments and, when --dm-send on, sending the DM.
   IG_ACCESS_TOKEN: flag("ig-token") ?? existing.IG_ACCESS_TOKEN,
   STATION_DM_SEND: flag("dm-send") ? (flag("dm-send") === "on" ? "1" : "0") : existing.STATION_DM_SEND,
+  // agent-work: hand routed asks to the desk's Claude agent (uses your Claude plan; off by default).
+  STATION_AGENTS: flag("agents") ? (flag("agents") === "on" ? "1" : "0") : existing.STATION_AGENTS,
 };
 
 // Check the key against Station before saving anything. The read endpoint takes the same owner key and writes nothing.

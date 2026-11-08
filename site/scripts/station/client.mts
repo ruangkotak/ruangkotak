@@ -75,5 +75,5 @@ export type JobResult = { ok: boolean; message: string; attention?: string; gate
 export type JobAccount = { id: string; label: string; instagram?: string };
 export type JobContext = {
   env: Env; repo: string; now: Date; job: { id: string; account: string }; account: JobAccount; stateDir: string;
-  registry: { departments: { id: string; desks: { id: string; name: string }[] }[] };
+  registry: { departments: { id: string; desks: { id: string; name: string; agent?: string }[] }[] };
 };

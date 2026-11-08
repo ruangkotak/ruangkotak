@@ -109,6 +109,23 @@ is a 404 to anyone without a key.
   Three failures in a row (or a run open over an hour) is **stuck** and lands
   in *Needs you*. Anything without a real data source shows `NO PROBE` or
   `no read path yet`, never a made-up number.
+- **Agents that draft the work:** with `--agents on`, asks the router sends
+  to a desk with an agent (creative-lead for scripts, cards, captions and
+  design briefs; social-lead for strategy, publishing and the funnel;
+  account-director for the COO desks; media-buyer; security-reviewer) are
+  handed to that agent every 15 minutes: Claude Code runs on your laptop in
+  print mode with the agent's own instructions and read-only tools (Read,
+  Grep, Glob; no shell, edits or web), at most 2 asks per run. The answer
+  lands in `<vault>/Station/Drafts/`, linked from the ask and listed in
+  `drafts-queue.md`; the **Drafts** gate counts drafts waiting for you
+  (24 h). Approving (ticking) sends, posts or publishes nothing. Video,
+  colour, sound and shoot desks have no agent and stay human. Uses your
+  Claude plan.
+- **Client pages:** a client's link (and your view filtered to one account)
+  opens on *This week* (reels posted, plays gained, delivered, in final
+  review), their reels with plays per hour and a trend line, and their
+  deliverables by name: in final review, then delivered once ticked. Names
+  come from `final-queue-<client>.md`, so write them for the client.
 - **Telegram alerts:** when something new lands in *Needs you* (a stuck
   job, a late invoice or payout, an overdue task, a gate past its window, the
   site down, a failed DM), Station sends one Telegram message through the
