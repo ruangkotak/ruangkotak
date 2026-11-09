@@ -21,9 +21,9 @@ export function MiniReport({ report: r, compact = false }: { report: Report; com
   const clip = (i: number, good: boolean) => {
     const v = r.videos[i];
     return (
-      <li key={i} className="grid grid-cols-[2.5rem_1fr] gap-3">
+      <li key={i} className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-3">
         <Cover src={v.cover} good={good} className="w-10" />
-        <div>
+        <div className="min-w-0">
           <p className="line-clamp-2 text-sm font-semibold leading-snug">
             {v.url ? (
               <a href={v.url} target="_blank" rel="noreferrer" className="underline decoration-line underline-offset-2 hover:decoration-ink">
@@ -101,7 +101,7 @@ export function MiniReport({ report: r, compact = false }: { report: Report; com
         <p className="mt-2 text-xs text-muted">The dashed line is your usual views. A bar past the line means that type beats your usual.</p>
       </section>
 
-      <section className="grid gap-8 border-t border-line py-6 md:grid-cols-2">
+      <section className="grid gap-8 border-t border-line py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <S className="mb-3 text-[15px] font-bold text-good">What worked</S>
           <ul className="grid gap-3">{r.top.map((i) => clip(i, true))}</ul>
@@ -112,7 +112,7 @@ export function MiniReport({ report: r, compact = false }: { report: Report; com
         </div>
       </section>
 
-      <section className="grid gap-8 border-t border-line py-6 md:grid-cols-2">
+      <section className="grid gap-8 border-t border-line py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div>
           <S className="mb-3 text-[15px] font-bold">What the pattern says</S>
           <ol className="grid list-decimal gap-3 pl-5 marker:text-muted">
