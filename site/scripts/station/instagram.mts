@@ -55,3 +55,34 @@ export async function refreshToken(env: Env): Promise<string> {
   if (!res.ok || !data.access_token) throw new Error(`token refresh: ${(data.error?.message ?? `HTTP ${res.status}`).slice(0, 120)}`);
   return data.access_token;
 }
+
+// ---------- the follow gate ----------
+
+/** Matches PAYLOAD_PREFIX in lib/ig-gate.ts, which reads the payload back when someone taps the button. */
+export const PAYLOAD_PREFIX = "rk1:";
+export const PAYLOAD_MAX = 1000; // Meta's limit for a postback payload
+
+/** The button carries both follow-up messages, so ruangkotak.com needs no copy of them: the link and the nudge. */
+export const gatePayload = (link: string, nudge: string, button: string) => `${PAYLOAD_PREFIX}${JSON.stringify({ l: link, n: nudge, b: button })}`;
+
+/** The one private reply to a comment, as a message with a single button. Tapping it reaches app/api/ig/webhook. */
+export async function sendGateReply(env: Env, igId: string, commentId: string, text: string, button: string, payload: string) {
+  return graph<{ recipient_id?: string; message_id?: string }>(env, `/${encodeURIComponent(igId)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      recipient: { comment_id: commentId },
+      message: { attachment: { type: "template", payload: { template_type: "button", text, buttons: [{ type: "postback", title: button, payload }] } } },
+    }),
+  });
+}
+
+/** Hands the current token to ruangkotak.com, where the webhook answers button taps. Owner key only. */
+export async function pushToken(env: Env, token: string) {
+  const res = await fetch(new URL("/api/ig/token", env.STATION_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-station-key": env.STATION_KEY ?? "" },
+    body: JSON.stringify({ token }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`token push to ${new URL(env.STATION_URL ?? "").host}: HTTP ${res.status}`);
+}

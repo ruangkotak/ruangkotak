@@ -10,12 +10,16 @@
 // a commenter within 7 days. Its line is ticked "DM sent". Never twice per comment (sent ids are kept even if you
 // untick), never your own comments, never the backlog from before sending was on, at most 20 per run. A failed send
 // stays unticked with the reason and goes to Needs you. The token is refreshed weekly and saved back to station.env.
+// Follow gate (on when Station/dm-gate.md has a "First DM:" line): the one reply instead carries a button. Tapping it
+// reaches ruangkotak.com/api/ig/webhook, which sends the dm-message.md link to followers and the "Not following:"
+// message (with the button again) to everyone else. The button carries both messages; the token is pushed there too.
 // Station gets counts only; names, comments and the message stay on the laptop.
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { apify, readSnapshot, scrapeReels, writeSnapshot } from "../apify.mts";
 import { setEnvValue, type JobContext, type JobResult } from "../client.mts";
-import { mediaComments, me, recentMedia, refreshToken, sendPrivateReply } from "../instagram.mts";
+import { gatePayload, mediaComments, me, PAYLOAD_MAX, pushToken, recentMedia, refreshToken, sendGateReply, sendPrivateReply } from "../instagram.mts";
 import { appendToQueue, checklistLine, clean, readQueueFile, stationFolder, tickLine } from "../queue.mts";
 import { withoutComments } from "../ledger.mts";
 
@@ -68,6 +72,34 @@ export function messageFrom(file: string): string | null {
   return text ? text.slice(0, 1000) : null;
 }
 
+export const GATE_TEMPLATE = `<!--
+Follow gate. With a "First DM:" line below (outside this comment), the reply to a keyword comment is that line plus a
+button. When they tap it, ruangkotak.com checks whether they follow you: followers get the message in dm-message.md,
+everyone else gets the "Not following:" line with the button again. Delete the lines to turn the gate off.
+{username} becomes their handle. The button title is at most 20 characters.
+Example:
+First DM: Hey {username}! Tap below and I'll send you the link 👇
+Button: Send me the link
+Not following: Almost there! Follow me, then tap the button again and it's yours.
+-->
+`;
+
+export type Gate = { first: string; button: string; nudge: string };
+
+/** The gate from dm-gate.md, null when it's off, or an error string when it's set up wrong. */
+export function gateFrom(file: string): Gate | string | null {
+  const text = withoutComments(file);
+  const line = (key: string) => text.match(new RegExp(`^\\s*${key}:[ \\t]*(.+)$`, "mi"))?.[1].trim() ?? "";
+  const first = line("First DM");
+  if (!first) return null;
+  const button = line("Button") || "Send me the link";
+  const nudge = line("Not following");
+  if (!nudge) return 'dm-gate.md has a "First DM:" line but no "Not following:" line';
+  if ([...button].length > 20) return `dm-gate.md button title is over 20 characters: "${button}"`;
+  if (first.length > 640 || nudge.length > 640) return "dm-gate.md messages must be 640 characters or less";
+  return { first, button, nudge };
+}
+
 export const fill = (template: string, c: Pick<Comment, "user">) => template.replaceAll("{username}", `@${c.user}`);
 
 /** Pure: which fresh keyword comments to DM this run, and which are too old to. */
@@ -93,6 +125,9 @@ async function viaApi(ctx: JobContext, now: number): Promise<{ posts: number; co
   return { posts: media.length, comments: out };
 }
 
+/** A post with no comments comes back from Apify as one error item ("no_items"): an empty post, not a bad shape. */
+export const withoutErrorItems = <T extends { error?: string }>(items: T[]) => items.filter((i) => !i.error);
+
 async function viaApify(ctx: JobContext, handle: string, now: number): Promise<{ posts: number; comments: Comment[] }> {
   const token = ctx.env.APIFY_TOKEN!;
   let snap = readSnapshot(ctx.stateDir, handle);
@@ -103,7 +138,7 @@ async function viaApify(ctx: JobContext, handle: string, now: number): Promise<{
   const posts = snap.reels.filter((r) => now - Date.parse(r.at) < RECENT_DAYS * DAY).slice(0, MAX_POSTS);
   const out: Comment[] = [];
   for (const p of posts) {
-    const items = await apify<ApifyComment>(token, "apify~instagram-comment-scraper", { directUrls: [p.url], resultsLimit: COMMENTS_PER_POST });
+    const items = withoutErrorItems(await apify<ApifyComment & { error?: string }>(token, "apify~instagram-comment-scraper", { directUrls: [p.url], resultsLimit: COMMENTS_PER_POST }));
     const comments = items.map((i) => ({ id: i.id ?? "", user: i.ownerUsername ?? i.owner?.username ?? "", text: i.text ?? "", at: i.timestamp ?? "", post: p.url, source: "apify" as const })).filter((c) => c.id && c.text);
     if (items.length && !comments.length) throw new Error(`comment data has an unexpected shape (fields: ${Object.keys(items[0]).slice(0, 8).join(",")})`);
     out.push(...comments.map((c) => ({ ...c, at: Number.isNaN(Date.parse(c.at)) ? new Date(now).toISOString() : new Date(c.at).toISOString() })));
@@ -113,7 +148,7 @@ async function viaApify(ctx: JobContext, handle: string, now: number): Promise<{
 
 // ---------- the run ----------
 
-type State = { seen: string[]; sent: string[]; refreshedAt?: string };
+type State = { seen: string[]; sent: string[]; refreshedAt?: string; pushed?: string };
 
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const handle = ctx.account.instagram!;
@@ -122,6 +157,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
   const folder = stationFolder(ctx.env, ctx.stateDir);
   const queue = join(folder, `dm-queue-${handle}.md`);
   const messageFile = join(folder, "dm-message.md");
+  const gateFile = join(folder, "dm-gate.md");
   const stateFile = join(ctx.stateDir, "ig", `dm-${handle}.json`);
   const legacySeen = join(ctx.stateDir, "ig", `dm-seen-${handle}.json`);
   const now = Date.now();
@@ -162,10 +198,30 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       mkdirSync(folder, { recursive: true });
       writeFileSync(messageFile, MESSAGE_TEMPLATE);
     }
+    if (!existsSync(gateFile)) writeFileSync(gateFile, GATE_TEMPLATE);
     const message = messageFrom(readFileSync(messageFile, "utf8"));
-    const sending = wantSend && api && !!message;
+    const gateRead = gateFrom(readFileSync(gateFile, "utf8"));
+    const gate = typeof gateRead === "object" ? gateRead : null;
+    const payload = gate && message ? gatePayload(message, gate.nudge, gate.button) : null;
+    const gateProblem = typeof gateRead === "string" ? gateRead
+      : payload && payload.length > PAYLOAD_MAX ? `dm-message.md and the "Not following:" line are too long to fit the button (${payload.length} of ${PAYLOAD_MAX} characters)`
+      : null;
+    const sending = wantSend && api && !!message && !gateProblem;
     if (wantSend && !api) notes.push("sending needs IG_ACCESS_TOKEN");
     if (wantSend && api && !message) notes.push("sending is on but dm-message.md is empty");
+    if (gateProblem) notes.push(gateProblem);
+
+    // The gate's webhook on ruangkotak.com sends with the same token: hand it over whenever it changes.
+    const tokenId = api ? createHash("sha256").update(ctx.env.IG_ACCESS_TOKEN!).digest("hex").slice(0, 16) : "";
+    if (gate && api && state.pushed !== tokenId) {
+      try {
+        await pushToken(ctx.env, ctx.env.IG_ACCESS_TOKEN!);
+        state.pushed = tokenId;
+        save();
+      } catch (err) {
+        notes.push((err as Error).message);
+      }
+    }
     const plan = planSends(fresh, { sending, sent: new Set(state.sent), owner, now });
     let sentCount = 0;
     const failures: string[] = [];
@@ -174,9 +230,10 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       const { id: igId } = await me(ctx.env);
       for (const c of plan.send) {
         try {
-          await sendPrivateReply(ctx.env, igId, c.id, fill(message!, c));
+          if (gate) await sendGateReply(ctx.env, igId, c.id, fill(gate.first, c), gate.button, payload!);
+          else await sendPrivateReply(ctx.env, igId, c.id, fill(message!, c));
           state.sent.push(c.id);
-          text = tickLine(text, c.id, `DM sent ${new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ")}`);
+          text = tickLine(text, c.id, `${gate ? "Button DM sent" : "DM sent"} ${new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ")}`);
           sentCount++;
         } catch (err) {
           failures.push((err as Error).message);
@@ -189,7 +246,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     }
 
     const q = readQueueFile(queue);
-    const mode = sending ? `sending on: ${sentCount} DM${sentCount === 1 ? "" : "s"} sent` : wantSend ? "sending blocked" : "sending off";
+    const mode = sending ? `${gate ? "follow gate " : ""}sending on: ${sentCount} DM${sentCount === 1 ? "" : "s"} sent` : wantSend ? "sending blocked" : "sending off";
     const parts = [
       posts ? `${posts} recent post${posts === 1 ? "" : "s"} · ${comments.length} comments read (${api ? "Instagram API" : "Apify"})` : `no posts in the last ${RECENT_DAYS} days`,
       `${fresh.length} new keyword comment${fresh.length === 1 ? "" : "s"}`,

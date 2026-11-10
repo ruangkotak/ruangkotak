@@ -6,7 +6,7 @@ import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
 import { describe } from "../scripts/station/jobs/sync-watchdog.mts";
 import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
-import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
+import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, withoutErrorItems, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { tickLine } from "../scripts/station/queue.mts";
 import { labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
@@ -447,4 +447,9 @@ test("readBoard counts posts with a Status line and ignores notes beside them", 
   writeFileSync(join(dir, "2026-11-13", "post.md"), "# Post\n**Status:** DRAFT\n");
   writeFileSync(join(dir, "2026-11-13", "shots.md"), "# Shot list, no status\n");
   assert.deepEqual(readBoard(dir).map((p) => p.file), ["2026-11-13/post.md"]);
+});
+
+test("ig-comment-dm drops Apify error items for posts with no comments", () => {
+  assert.deepEqual(withoutErrorItems([{ error: "no_items" }]), []);
+  assert.equal(withoutErrorItems([{ error: "no_items" }, {}]).length, 1);
 });
