@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, siteProbe,
+  alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
   applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
@@ -486,4 +486,15 @@ test("the owner's all-accounts view shows their own creator account's panel", ()
   assert.equal(s.account?.label, "@alanazizreview");
   assert.equal(s.account?.reels[0].views, 1600);
   assert.equal(snapshot({ mode: "client", account: "client-demo" }).account?.label, "Client demo");
+});
+
+test("reelTargets: a handle shown on two pages is scraped once, internal and handle-less accounts are skipped", () => {
+  const t = reelTargets([
+    { id: "internal", kind: "internal" },
+    { id: "alanazizreview", kind: "personal", instagram: "alanazizreview" },
+    { id: "alan-review", kind: "client", instagram: "alanazizreview" },
+    { id: "acme", kind: "client", instagram: "acme" },
+    { id: "no-ig", kind: "client" },
+  ]);
+  assert.deepEqual([...t], [["alanazizreview", ["alanazizreview", "alan-review"]], ["acme", ["acme"]]]);
 });
