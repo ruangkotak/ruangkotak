@@ -59,3 +59,13 @@ test("webhook signature", () => {
   assert.equal(validSignature(body, sig, undefined), false);
   assert.equal(validSignature(body, null, "secret"), false);
 });
+
+test("Facebook-login tokens go to graph.facebook.com, Instagram-login ones to graph.instagram.com", async () => {
+  const { hostFor } = await import("../lib/ig-gate.ts");
+  const { viaFacebook } = await import("../scripts/station/instagram.mts");
+  assert.equal(hostFor("EAAUxyz"), "https://graph.facebook.com/v23.0");
+  assert.equal(hostFor("IGAAxyz"), "https://graph.instagram.com");
+  assert.equal(viaFacebook("EAAUxyz"), true);
+  assert.equal(viaFacebook("IGAAxyz"), false);
+  assert.equal(viaFacebook(undefined), false);
+});

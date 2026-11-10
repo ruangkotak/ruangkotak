@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { apify, readSnapshot, scrapeReels, writeSnapshot } from "../apify.mts";
 import { setEnvValue, type JobContext, type JobResult } from "../client.mts";
-import { gatePayload, mediaComments, me, PAYLOAD_MAX, pushToken, recentMedia, refreshToken, sendGateReply, sendPrivateReply } from "../instagram.mts";
+import { gatePayload, viaFacebook, mediaComments, me, PAYLOAD_MAX, pushToken, recentMedia, refreshToken, sendGateReply, sendPrivateReply } from "../instagram.mts";
 import { appendToQueue, checklistLine, clean, readQueueFile, stationFolder, tickLine } from "../queue.mts";
 import { withoutComments } from "../ledger.mts";
 
@@ -29,6 +29,7 @@ export const requires = ["STATION_IG_KEYWORDS"];
 export const unavailable = (ctx: JobContext) =>
   !ctx.account.instagram ? `${ctx.account.label} has no instagram handle in the registry`
   : !ctx.env.IG_ACCESS_TOKEN && !ctx.env.APIFY_TOKEN ? "set IG_ACCESS_TOKEN (or APIFY_TOKEN to only read comments)"
+  : viaFacebook(ctx.env.IG_ACCESS_TOKEN) && !ctx.env.IG_USER_ID ? "a Facebook-login token needs IG_USER_ID (station-install.mts --ig-user)"
   : null;
 
 const RECENT_DAYS = 7;
@@ -172,8 +173,9 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       writeFileSync(stateFile, JSON.stringify({ ...state, seen: state.seen.slice(-SEEN_CAP), sent: state.sent.slice(-SEEN_CAP) }));
     };
 
-    // Keep the token alive: long-lived tokens last 60 days; refresh weekly and store the new one.
-    if (api && (!state.refreshedAt || now - Date.parse(state.refreshedAt) > REFRESH_DAYS * DAY)) {
+    // Keep the token alive: Instagram-login tokens last 60 days; refresh weekly and store the new one. Facebook-login
+    // system-user tokens never expire.
+    if (api && !viaFacebook(ctx.env.IG_ACCESS_TOKEN) && (!state.refreshedAt || now - Date.parse(state.refreshedAt) > REFRESH_DAYS * DAY)) {
       try {
         const fresh = await refreshToken(ctx.env);
         setEnvValue("IG_ACCESS_TOKEN", fresh);

@@ -3,7 +3,7 @@
 //   node --experimental-strip-types scripts/station-install.mts --key <STATION_KEY> [--vault ~/Notes] [--url https://ruangkotak.com]
 //        [--apify-token <token>] [--ig-keywords "AUDIT,KOTAK"]      (Instagram jobs; re-run any time to change settings)
 //        [--tasks ~/path/TASKS.md]                                (reminder-check; default: TASKS.md at the repo root or in the vault)
-//        [--ig-token <Instagram API token>] [--dm-send on|off]    (comment → DM: read via Instagram's API, and send)
+//        [--ig-token <Instagram API token>] [--ig-user <Instagram account ID>] [--dm-send on|off]    (comment → DM: read via Instagram's API, and send)
 //        [--agents on|off]                                         (routed asks drafted by the desk's Claude agent)
 //   node --experimental-strip-types scripts/station-install.mts --uninstall
 //   add --dry-run to see what would change without changing it
@@ -92,6 +92,8 @@ const settings: Record<string, string | undefined> = {
   STATION_TASKS_FILE: flag("tasks") ? resolve(flag("tasks")!.replace(/^~(?=$|\/)/, homedir())) : existing.STATION_TASKS_FILE,
   // Instagram API (your own professional account): reading comments and, when --dm-send on, sending the DM.
   IG_ACCESS_TOKEN: flag("ig-token") ?? existing.IG_ACCESS_TOKEN,
+  // Needed with a Facebook-login token (EAA…), which can't look up its own account: the number under the account in Meta's setup page.
+  IG_USER_ID: flag("ig-user") ?? existing.IG_USER_ID,
   STATION_DM_SEND: flag("dm-send") ? (flag("dm-send") === "on" ? "1" : "0") : existing.STATION_DM_SEND,
   // agent-work: hand routed asks to the desk's Claude agent (uses your Claude plan; off by default).
   STATION_AGENTS: flag("agents") ? (flag("agents") === "on" ? "1" : "0") : existing.STATION_AGENTS,

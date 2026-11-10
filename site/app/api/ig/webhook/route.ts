@@ -3,7 +3,8 @@ import { profileOf, replyFor, sendTo, tapsIn, validSignature } from "@/lib/ig-ga
 
 // Instagram webhook for the follow gate (see lib/ig-gate.ts).
 // GET: Meta's subscription check. Answers hub.challenge when hub.verify_token is IG_WEBHOOK_VERIFY_TOKEN.
-// POST: signed with IG_APP_SECRET (the Instagram app secret). Each tap on our button gets one reply: the link if the
+// POST: signed with IG_APP_SECRET (App settings → Basic → App secret, for a Facebook-login token; the Instagram app
+// secret for an Instagram-login one). Each tap on our button gets one reply: the link if the
 // person follows the account, else the "follow first" message with the button again. Token: the one Station's laptop
 // pushed (kept fresh), else IG_ACCESS_TOKEN. Nothing about the person is stored or logged.
 

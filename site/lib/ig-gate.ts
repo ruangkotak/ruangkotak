@@ -72,10 +72,12 @@ export function replyFor(tap: Tap, profile: { username?: string; is_user_follow_
 // ---------- Graph calls ----------
 
 type Env = Record<string, string | undefined>;
-const base = (env: Env) => `https://graph.instagram.com${env.IG_API_VERSION ? `/${env.IG_API_VERSION}` : ""}`;
+/** Facebook-login tokens (EAA…) go to graph.facebook.com, Instagram-login tokens (IGAA…) to graph.instagram.com. */
+export const hostFor = (token: string, version?: string) =>
+  token.startsWith("EAA") ? `https://graph.facebook.com/${version ?? "v23.0"}` : `https://graph.instagram.com${version ? `/${version}` : ""}`;
 
 async function graph<T>(env: Env, token: string, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${base(env)}${path}`, {
+  const res = await fetch(`${hostFor(token, env.IG_API_VERSION)}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${token}`, ...(init.body ? { "content-type": "application/json" } : {}) },
     signal: AbortSignal.timeout(10_000),
