@@ -7,7 +7,7 @@ import { SITE } from "./site";
 import { alertStore, clientStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, reelsDue, reelsMessage, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
+  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
   type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
@@ -223,26 +223,40 @@ export async function refreshReels(now = new Date()): Promise<string[]> {
   if (!process.env.APIFY_TOKEN) return done;
   try {
     const { registry } = await liveRegistry();
-    const accounts = registry.accounts.filter((a) => a.kind !== "internal" && a.instagram);
-    for (const a of accounts) {
-      if (done.length >= 3) break;
-      const snaps = await stationStore.reels(a.id);
-      if (!reelsDue(snaps, now) || !(await alertStore.lock(`reels:${a.id}`, 900))) continue;
-      const job = registry.jobs.find((j) => j.account === a.id && j.script === "ig-velocity");
-      const record = async (b: Beat) => {
-        if (job) await recordBeat(b, registry, new Date());
+    // One scrape per Instagram handle: a handle that is both your own account and a client's page is fetched once and
+    // the snapshot is stored for each account that shows it.
+    const byHandle = reelTargets(registry.accounts);
+    let scraped = 0;
+    for (const [handle, ids] of byHandle) {
+      if (scraped >= 3) break;
+      const before = new Map(await Promise.all(ids.map(async (id) => [id, await stationStore.reels(id)] as const)));
+      if (!ids.some((id) => reelsDue(before.get(id)!, now))) continue;
+      if (!(await alertStore.lock(`reels:${handle}`, 900))) continue;
+      scraped++;
+      const jobOf = (id: string) => registry.jobs.find((j) => j.account === id && j.script === "ig-velocity");
+      const record = async (id: string, b: Beat) => {
+        if (jobOf(id)) await recordBeat(b, registry, new Date());
       };
-      if (job) await record({ kind: "job", jobId: job.id, state: "start", source: "server" });
+      for (const id of ids) {
+        const job = jobOf(id);
+        if (job) await record(id, { kind: "job", jobId: job.id, state: "start", source: "server" });
+      }
       try {
-        const reels = (await latestReels(a.instagram!, 12)).slice(0, 12);
-        if (!reels.length) throw new Error(`no public reels returned for @${a.instagram}`);
+        const reels = (await latestReels(handle, 12)).slice(0, 12);
+        if (!reels.length) throw new Error(`no public reels returned for @${handle}`);
         const snap = { at: new Date().toISOString(), reels };
-        await stationStore.addReels(a.id, snap);
-        if (job) await record({ kind: "job", jobId: job.id, state: "ok", message: reelsMessage(a.instagram!, snap, snaps[0]), source: "server" });
-        done.push(a.id);
+        for (const id of ids) {
+          await stationStore.addReels(id, snap);
+          const job = jobOf(id);
+          if (job) await record(id, { kind: "job", jobId: job.id, state: "ok", message: reelsMessage(handle, snap, before.get(id)![0]), source: "server" });
+          done.push(id);
+        }
       } catch (err) {
-        console.error("[station] reels", a.id, err);
-        if (job) await record({ kind: "job", jobId: job.id, state: "fail", exitCode: 1, message: String((err as Error).message).slice(0, 160), source: "server" });
+        console.error("[station] reels", handle, err);
+        for (const id of ids) {
+          const job = jobOf(id);
+          if (job) await record(id, { kind: "job", jobId: job.id, state: "fail", exitCode: 1, message: String((err as Error).message).slice(0, 160), source: "server" });
+        }
       }
     }
   } catch (err) {

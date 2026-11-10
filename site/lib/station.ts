@@ -690,6 +690,16 @@ export const REELS_EVERY_MS = 6 * 3600_000;
 /** Pure: whether an account's reels are due a check (none yet, or the newest check is 6+ hours old). */
 export const reelsDue = (snaps: ReelSnapshot[], now: Date) => !snaps[0] || now.getTime() - Date.parse(snaps[0].at) >= REELS_EVERY_MS - 5 * 60_000;
 
+/** Pure: accounts grouped by Instagram handle, so a handle shown on two pages (yours and a client's) is scraped once. */
+export function reelTargets(accounts: { id: string; kind: string; instagram?: string }[]): Map<string, string[]> {
+  const byHandle = new Map<string, string[]>();
+  for (const a of accounts) {
+    if (a.kind === "internal" || !a.instagram) continue;
+    byHandle.set(a.instagram, [...(byHandle.get(a.instagram) ?? []), a.id]);
+  }
+  return byHandle;
+}
+
 /** Pure: the one-line run message for a reel check, against the previous check when there is one. */
 export function reelsMessage(handle: string, cur: ReelSnapshot, prev: ReelSnapshot | undefined): string {
   const newest = [...cur.reels].sort((a, b) => b.at.localeCompare(a.at))[0];

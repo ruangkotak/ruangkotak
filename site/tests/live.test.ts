@@ -1,8 +1,11 @@
 // Checks a running server (default: next start on :3100). Run `npm run build && npm start`, then `npm test`.
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test as nodeTest } from "node:test";
 
 const BASE = process.env.BASE_URL ?? "http://127.0.0.1:3100";
+// These tests need `next start` running. Without it they are skipped, not failed.
+const up = await fetch(BASE, { signal: AbortSignal.timeout(2000) }).then(() => true, () => false);
+const test = (name: string, fn: () => Promise<void> | void) => nodeTest(name, { skip: up ? false : `no server at ${BASE} (npm run build && npm start)` }, fn);
 const get = (path: string, accept?: string) => fetch(BASE + path, { headers: accept ? { Accept: accept } : {}, redirect: "manual" });
 
 test("home: Accept text/markdown returns Markdown with Vary: Accept", async () => {

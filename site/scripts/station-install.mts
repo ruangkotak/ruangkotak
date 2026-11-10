@@ -67,7 +67,15 @@ if (!key) {
   process.exit(2);
 }
 const vault = flag("vault") ? resolve(flag("vault")!.replace(/^~(?=$|\/)/, homedir())) : existing.STATION_VAULT_DIR;
-if (vault && !existsSync(vault)) {
+if (!vault) {
+  console.error(
+    "Pass --vault <your notes folder>, for example --vault ~/Documents/ruangkotak-notes.\n" +
+      "Station keeps Asks.md, the queues and the drafts in a Station/ folder inside it. Without one they would go to a hidden folder you would not find in Finder.\n" +
+      "Make the folder first if it does not exist: mkdir -p ~/Documents/ruangkotak-notes",
+  );
+  process.exit(2);
+}
+if (!existsSync(vault)) {
   console.error(`Vault folder not found: ${vault}`);
   process.exit(2);
 }

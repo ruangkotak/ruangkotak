@@ -12,7 +12,7 @@ import { labelOf, review as finalReview } from "../scripts/station/jobs/final-ch
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
-import { review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
+import { hasStatus, readBoard, review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
 import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks.mts";
 import { markNewLines, markerOf } from "../scripts/station/queue.mts";
 import { formatMoney, parseCosts, parseInvoices, parseMoney, total, withoutComments, INVOICES_TEMPLATE, COSTS_TEMPLATE } from "../scripts/station/ledger.mts";
@@ -200,6 +200,8 @@ test("post status is the first word after **Status:**", () => {
   assert.equal(statusOf("# Tue\n\n**Status:** DRAFT. Not published. Needs Alan's review."), "DRAFT");
   assert.equal(statusOf("**Status:** approved"), "APPROVED");
   assert.equal(statusOf("no status here"), "UNKNOWN");
+  assert.equal(hasStatus("**Status:** DRAFT"), true);
+  assert.equal(hasStatus("# Research notes, no status"), false);
 });
 
 test("the real post in content/ reads as a draft", () => {
@@ -434,4 +436,15 @@ test("agents run read-only, with their own instructions, and are told not to inv
   const prompt = promptFor({ id: "1", desk: "scriptwriter", text: "write 5 hooks" }, "Scriptwriter", "creative-lead");
   assert.match(prompt, /\[TO CONFIRM\]/);
   assert.match(prompt, /Never say you sent, posted, scheduled or changed anything/);
+});
+
+test("readBoard counts posts with a Status line and ignores notes beside them", async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = mkdtempSync(join(tmpdir(), "board-"));
+  mkdirSync(join(dir, "2026-11-13"));
+  writeFileSync(join(dir, "2026-11-13", "post.md"), "# Post\n**Status:** DRAFT\n");
+  writeFileSync(join(dir, "2026-11-13", "shots.md"), "# Shot list, no status\n");
+  assert.deepEqual(readBoard(dir).map((p) => p.file), ["2026-11-13/post.md"]);
 });
