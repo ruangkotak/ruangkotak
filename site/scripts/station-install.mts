@@ -124,8 +124,9 @@ if (!dry) mkdirSync(STATE_DIR, { recursive: true });
 
 // ---------- scheduler ----------
 
-// launchd and cron start with a bare PATH; git (Xcode tools or Homebrew) and node must be findable.
-const PATH = [dirname(NODE), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].join(":");
+// launchd and cron start with a bare PATH; git (Xcode tools or Homebrew), node and claude must be findable.
+// Claude Code's native installer puts `claude` in ~/.local/bin; without it agent-work is skipped as "not installed".
+const PATH = [dirname(NODE), join(homedir(), ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"].join(":");
 
 if (process.platform === "darwin") {
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
