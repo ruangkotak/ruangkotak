@@ -263,3 +263,25 @@ export const alertStore = REDIS
         return true;
       },
     };
+
+// The Instagram follow gate (app/api/ig): the access token the laptop pushes after each refresh, and a once-only
+// marker per button tap so a webhook Meta delivers twice never sends two messages. Nothing about the person is stored.
+const gi = globalThis as unknown as { __rkIg?: { token: string | null; once: Map<string, number> } };
+const imem = (gi.__rkIg ??= { token: null, once: new Map() });
+
+export const igStore = REDIS
+  ? {
+      token: async () => await redis<string | null>("GET", "ig:token"),
+      setToken: async (token: string) => void (await redis("SET", "ig:token", token)),
+      /** true the first time `key` is seen within `seconds`. */
+      once: async (key: string, seconds: number) => (await redis<string | null>("SET", `ig:once:${key}`, "1", "EX", seconds, "NX")) === "OK",
+    }
+  : {
+      token: async () => imem.token,
+      setToken: async (token: string) => void (imem.token = token),
+      once: async (key: string, seconds: number) => {
+        if ((imem.once.get(key) ?? 0) > Date.now()) return false;
+        imem.once.set(key, Date.now() + seconds * 1000);
+        return true;
+      },
+    };

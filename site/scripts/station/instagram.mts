@@ -1,14 +1,23 @@
 // The Instagram API with Instagram Login (graph.instagram.com), for your own professional account: read recent media and
 // comments, send a private reply (one DM to a commenter, within 7 days of the comment), refresh the long-lived token.
-// Needs IG_ACCESS_TOKEN in station.env (station-install.mts --ig-token). STATION_IG_API_VERSION pins a version
-// (e.g. v23.0); without it, calls go to the unversioned host and use the app's default version.
+// Needs IG_ACCESS_TOKEN in station.env (station-install.mts --ig-token). Two kinds of token work:
+// - Instagram login (IGAA…): graph.instagram.com, lasts 60 days, refreshed weekly.
+// - Facebook login (EAA…, a system-user token from "API setup with Unified login"): graph.facebook.com, never expires,
+//   and needs IG_USER_ID (--ig-user) since it can't look up the account itself. No Facebook Page needed.
+// STATION_IG_API_VERSION pins a version (e.g. v23.0); without it the Instagram host is unversioned and Facebook's is v23.0.
 // Errors carry Meta's message, never the token.
 import type { Env } from "./client.mts";
 
 export type IgMedia = { id: string; permalink?: string; timestamp?: string };
 export type IgComment = { id: string; text?: string; username?: string; timestamp?: string; from?: { username?: string } };
 
-const base = (env: Env) => `https://graph.instagram.com${env.STATION_IG_API_VERSION ? `/${env.STATION_IG_API_VERSION}` : ""}`;
+/** A Facebook-login token (EAA…) rather than an Instagram-login one (IGAA…). */
+export const viaFacebook = (token: string | undefined) => !!token?.startsWith("EAA");
+
+const base = (env: Env) =>
+  viaFacebook(env.IG_ACCESS_TOKEN)
+    ? `https://graph.facebook.com/${env.STATION_IG_API_VERSION ?? "v23.0"}`
+    : `https://graph.instagram.com${env.STATION_IG_API_VERSION ? `/${env.STATION_IG_API_VERSION}` : ""}`;
 
 async function graph<T>(env: Env, path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${base(env)}${path}`, {
@@ -25,7 +34,8 @@ async function graph<T>(env: Env, path: string, init: RequestInit = {}): Promise
 }
 
 export async function recentMedia(env: Env, limit = 10): Promise<IgMedia[]> {
-  return (await graph<{ data?: IgMedia[] }>(env, `/me/media?fields=id,permalink,timestamp&limit=${limit}`)).data ?? [];
+  const owner = viaFacebook(env.IG_ACCESS_TOKEN) ? encodeURIComponent((await me(env)).id) : "me";
+  return (await graph<{ data?: IgMedia[] }>(env, `/${owner}/media?fields=id,permalink,timestamp&limit=${limit}`)).data ?? [];
 }
 
 export async function mediaComments(env: Env, mediaId: string, limit = 50): Promise<IgComment[]> {
@@ -34,6 +44,10 @@ export async function mediaComments(env: Env, mediaId: string, limit = 50): Prom
 
 /** Your professional account's Instagram ID and handle, as the API sees them (IG_USER_ID overrides the lookup). */
 export async function me(env: Env): Promise<{ id: string; username?: string }> {
+  if (viaFacebook(env.IG_ACCESS_TOKEN)) {
+    if (!env.IG_USER_ID) throw new Error("a Facebook-login token needs IG_USER_ID (station-install.mts --ig-user <account ID>)");
+    return { id: env.IG_USER_ID };
+  }
   const r = await graph<{ user_id?: string; id?: string; username?: string }>(env, "/me?fields=user_id,username");
   const id = env.IG_USER_ID ?? r.user_id ?? r.id;
   if (!id) throw new Error("Instagram API: no account id for this token");
@@ -54,4 +68,35 @@ export async function refreshToken(env: Env): Promise<string> {
   const data = (await res.json().catch(() => ({}))) as { access_token?: string; error?: { message?: string } };
   if (!res.ok || !data.access_token) throw new Error(`token refresh: ${(data.error?.message ?? `HTTP ${res.status}`).slice(0, 120)}`);
   return data.access_token;
+}
+
+// ---------- the follow gate ----------
+
+/** Matches PAYLOAD_PREFIX in lib/ig-gate.ts, which reads the payload back when someone taps the button. */
+export const PAYLOAD_PREFIX = "rk1:";
+export const PAYLOAD_MAX = 1000; // Meta's limit for a postback payload
+
+/** The button carries both follow-up messages, so ruangkotak.com needs no copy of them: the link and the nudge. */
+export const gatePayload = (link: string, nudge: string, button: string) => `${PAYLOAD_PREFIX}${JSON.stringify({ l: link, n: nudge, b: button })}`;
+
+/** The one private reply to a comment, as a message with a single button. Tapping it reaches app/api/ig/webhook. */
+export async function sendGateReply(env: Env, igId: string, commentId: string, text: string, button: string, payload: string) {
+  return graph<{ recipient_id?: string; message_id?: string }>(env, `/${encodeURIComponent(igId)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({
+      recipient: { comment_id: commentId },
+      message: { attachment: { type: "template", payload: { template_type: "button", text, buttons: [{ type: "postback", title: button, payload }] } } },
+    }),
+  });
+}
+
+/** Hands the current token to ruangkotak.com, where the webhook answers button taps. Owner key only. */
+export async function pushToken(env: Env, token: string) {
+  const res = await fetch(new URL("/api/ig/token", env.STATION_URL), {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-station-key": env.STATION_KEY ?? "" },
+    body: JSON.stringify({ token }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`token push to ${new URL(env.STATION_URL ?? "").host}: HTTP ${res.status}`);
 }
