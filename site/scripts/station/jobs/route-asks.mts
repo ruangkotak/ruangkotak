@@ -89,14 +89,14 @@ export function route(text: string, desks: DeskRef[], now: string) {
 }
 
 export const asksFile = (ctx: JobContext) => join(stationFolder(ctx.env, ctx.stateDir), "Asks.md");
-const HEADER = `# Asks\n\nOne line per ask: "- [ ] cut the hook for reel 14 #editor". The router adds "→ Desk" every 15 minutes.\nUse a #desk or #department tag to choose; tick a line when it is done.\n\n`;
+export const ASKS_HEADER = `# Asks\n\nOne line per ask: "- [ ] cut the hook for reel 14 #editor". The router adds "→ Desk" every 15 minutes.\nUse a #desk or #department tag to choose; tick a line when it is done.\n\n`;
 
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const file = asksFile(ctx);
   try {
     if (!existsSync(file)) {
       mkdirSync(dirname(file), { recursive: true });
-      writeFileSync(file, HEADER);
+      writeFileSync(file, ASKS_HEADER);
     }
     const desks: DeskRef[] = ctx.registry.departments.flatMap((d) => d.desks.map((k) => ({ id: k.id, name: k.name, dept: d.id })));
     const r = route(readFileSync(file, "utf8"), desks, ctx.now.toISOString());

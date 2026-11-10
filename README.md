@@ -29,6 +29,10 @@ is a 404 to anyone without a key.
   for clients written into the registry file, like `client-demo`.
 - **Edit what exists:** `site/data/station/registry.json` (accounts,
   departments, desks, jobs, gates). Cron is Malaysia time.
+- **Make the notes folder (once):** from `site/`, run
+  `node --experimental-strip-types scripts/station-vault.mts ~/Documents/ruangkotak-notes`.
+  It creates `Station/` with the starter files (Asks, DM message, invoices, costs, payroll) and a TASKS.md, and never
+  overwrites a file that exists.
 - **Wire your laptop (once):** from `site/`, run
 
       node --experimental-strip-types scripts/station-install.mts --key <STATION_KEY> --vault ~/path/to/notes
