@@ -213,9 +213,9 @@ test("the board review counts the week, the drafts, and flags drafts publishing 
   const p = (day: string, status: string): Post => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T00:00:00.000Z` });
   const posts = [p("2026-11-01", "DRAFT"), p("2026-11-08", "DRAFT"), p("2026-11-09", "APPROVED"), p("2026-11-11", "DRAFT"), p("2026-11-20", "SCHEDULED")];
   const r = review(posts, "2026-11-08");
-  assert.equal(r.message, "next 7 days: 3 posts on 3 of 7 days · 2 drafts waiting for review · 1 past draft never marked published");
+  assert.equal(r.message, "next 7 days: 3 posts on 3 of 7 days · 2 drafts waiting for review · 1 past draft never marked published · 2 approved, not posted yet");
   assert.equal(r.attention, "1 draft publishing within a day is not approved");
-  assert.deepEqual(r.gates, [{ gate: "review", waiting: 2, oldestAt: "2026-11-08T00:00:00.000Z" }]);
+  assert.deepEqual(r.gates, [{ gate: "review", waiting: 2, oldestAt: "2026-11-08T00:00:00.000Z" }, { gate: "post", waiting: 2, oldestAt: "2026-11-09T00:00:00.000Z" }]);
   assert.equal(review([p("2026-11-12", "APPROVED")], "2026-11-08").attention, undefined);
 });
 
@@ -482,4 +482,13 @@ test("a Done press ticks one named line, or everything that was waiting when it 
   assert.match(all.text, /- \[ \] Reel 3 /);
   assert.match(all.text, /- \[ \] typed by hand/);
   assert.deepEqual(applyMark(text, { at: "2026-11-07T09:00:00.000Z", label: "No such reel" }, "x"), { text, ticked: 0 });
+});
+
+test("the board counts approved posts that are not marked published, and flags a missed posting date", () => {
+  const p = (day: string, status: string): Post => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T01:00:00.000Z` });
+  const r = review([p("2026-11-06", "APPROVED"), p("2026-11-09", "SCHEDULED"), p("2026-11-05", "PUBLISHED"), p("2026-11-10", "DRAFT")], "2026-11-08");
+  assert.deepEqual(r.gates, [{ gate: "review", waiting: 1, oldestAt: "2026-11-10T01:00:00.000Z" }, { gate: "post", waiting: 2, oldestAt: "2026-11-06T01:00:00.000Z" }]);
+  assert.match(r.message, /2 approved, not posted yet/);
+  assert.equal(r.attention, "1 approved post past its posting date");
+  assert.equal(review([p("2026-11-05", "LIVE")], "2026-11-08").gates![1].waiting, 0);
 });

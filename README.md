@@ -32,8 +32,10 @@ is a 404 to anyone without a key.
   and drafts checklists have **Clear all**: the press takes the item off the
   queue at once and the laptop's `needs-me-sync` job ticks the line within
   about 5 minutes. Invoices, content review, prices and links have no button
-  and are cleared where they live. Post is not counted yet (nothing
-  reports a reel as posted). Clients never see this tab.
+  and are cleared where they live. Post counts the posts on your content
+  board that are approved but not yet marked `PUBLISHED`; set the status once
+  a post is live. A job's warning about its own gate joins that gate's line
+  instead of showing twice, and system items say where to fix them. Clients never see this tab.
 - **Stage avatars:** each stage has a small box character (Scout, Host,
   Maker, Courier, Clerk). A yellow `!` means work is waiting on you, a red
   `×` means it is past its window, dimmed means the stage is not counted

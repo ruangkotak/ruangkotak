@@ -628,3 +628,33 @@ test("carousel: a script becomes a cover, body slides and an end page, eight at 
   assert.equal(new DataView(z.buffer).getUint16(z.length - 22 + 10, true), 1);
   assert.equal(z.length, 30 + 5 + 3 + 46 + 5 + 22);
 });
+
+// ---------- found by testing the live board ----------
+
+test("a job's warning about its own gate joins that gate's line, and system items say where to fix them", () => {
+  const failing3 = runsFrom([{ state: "fail" }, { state: "fail" }, { state: "fail" }]);
+  const s = snapshot({ mode: "owner", account: "all" }, {
+    gates: { "review:internal": { waiting: 2, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() }, "post:internal": { waiting: 1, oldestAt: minutes(-30).toISOString(), at: NOW.toISOString() } },
+    runs: { "board-completeness": runsFrom([{ state: "start" }, { state: "ok", attention: "2 drafts publishing within a day are not approved" }]), "ig-velocity-6h": failing3 },
+    probes: [{ id: "apify", label: "Apify", status: "down", detail: "token refused (401)" }],
+  });
+  const review = s.needsMe!.find((n) => n.key === "gate:review:internal")!;
+  assert.match(review.detail, /2 drafts publishing within a day are not approved/);
+  assert.equal(review.overdue, true);
+  assert.match(review.where!, /Status.*APPROVED/);
+  assert.ok(!s.needsMe!.some((n) => n.key === "attention:board-completeness"), "not listed a second time");
+  assert.match(s.needsMe!.find((n) => n.key.startsWith("probe:apify"))!.where!, /APIFY_TOKEN/);
+  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Jobs tab");
+  // Post is a real stage now: approved posts not yet marked published.
+  assert.deepEqual(s.stages!.find((x) => x.id === "post")!.parts, [{ label: "Post", waiting: 1 }]);
+  assert.match(s.needsMe!.find((n) => n.key === "gate:post:internal")!.where!, /PUBLISHED/);
+  assert.equal(s.needsMe!.find((n) => n.key === "gate:post:internal")!.clear, undefined);
+});
+
+test("a client with a price of 0 is not counted as paying", () => {
+  const free: ClientRecord = { ...kopi, openedAt: NOW.toISOString(), price: 0, perMonth: 6 };
+  const s = buildSnapshot({ registry: withClients(shipped, [free]), view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients: [free], now: NOW });
+  assert.deepEqual(s.money, { monthly: 0, priced: 0, clients: 1, invoices: undefined });
+  assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /no paying client yet/);
+  assert.ok(!s.needsMe!.some((n) => n.key.startsWith("price:")), "an explicit 0 is a decision, not a missing price");
+});

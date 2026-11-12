@@ -130,7 +130,7 @@ function Stat({ label, value, tone, hatch, small }: { label: string; value: numb
 }
 
 // Literal class names, so Tailwind sees them.
-const GATE_COLS: Record<number, string> = { 4: "lg:grid-cols-4", 5: "lg:grid-cols-5", 6: "lg:grid-cols-3" };
+const GATE_COLS: Record<number, string> = { 4: "lg:grid-cols-4", 5: "lg:grid-cols-5", 6: "lg:grid-cols-3", 7: "lg:grid-cols-4", 8: "lg:grid-cols-4" };
 
 export function Gates({ gates, now }: { gates: GateView[]; now: number }) {
   if (!gates.length) return null;

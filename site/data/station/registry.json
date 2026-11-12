@@ -7,6 +7,7 @@
   "gates": [
     { "id": "review", "label": "Review", "detail": "content drafts waiting for your review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 48 },
     { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": null, "script": "final-check", "slaHours": 48 },
+    { "id": "post", "label": "Post", "detail": "approved posts not marked published", "reviewer": "publisher", "job": "board-completeness", "ownerOnly": true, "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
     { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
     { "id": "drafts", "label": "Drafts", "detail": "agent drafts waiting for your approval", "reviewer": "router", "job": "agent-work", "slaHours": 24 },
