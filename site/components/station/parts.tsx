@@ -3,7 +3,7 @@
 import {
   ArrowDown, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
 } from "@phosphor-icons/react";
-import type { DeptView, DeskState, GateView, JobView, NeedsYou, Probe, Snapshot, StationEvent } from "@/lib/station";
+import type { DeptView, DeskState, GateView, JobView, NeedsMe, NeedsYou, Probe, Snapshot, StageView, StationEvent } from "@/lib/station";
 
 // ---------- time ----------
 
@@ -278,6 +278,63 @@ export function Log({ events, showSource }: { events: StationEvent[]; showSource
           ))}
         </ol>
       ) : <p className="mt-2 text-[12px] text-muted">No events yet. Jobs write here when they POST to /api/station/beat.</p>}
+    </section>
+  );
+}
+
+// ---------- five stages and Needs me (owner only) ----------
+
+const shortDay = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
+export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
+  return (
+    <section aria-label="The five stages" className="st-card px-3.5 py-3">
+      <div className="label mb-2.5">Stages</div>
+      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {stages.map((s) => (
+          <li key={s.id} className={`st-tile px-3 py-2.5 ${s.overdue ? "st-desk" : ""}`} data-state={s.overdue ? "stuck" : undefined}>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-[12px] tracking-[0.08em] uppercase"><span className="num mr-1.5 text-muted">{s.no}</span>{s.name}</span>
+              <span className={`num text-[20px] leading-none ${s.overdue ? "text-bad" : s.waiting ? "text-mark" : "text-muted"}`}>{s.waiting ?? "–"}</span>
+            </div>
+            <div className="mt-1 text-[11px] text-muted">
+              {s.waiting === null ? (s.parts.length ? "no read path yet" : "not counted yet") : s.waiting === 0 ? "nothing waiting" : `${s.waiting} waiting${s.oldestAt ? ` · oldest ${dur(now - Date.parse(s.oldestAt))}` : ""}`}
+            </div>
+            {s.parts.length > 0 && <div className="mt-0.5 text-[11px] text-muted">{s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(" · ")}</div>}
+            {s.note && <div className="mt-0.5 text-[11px] leading-snug text-muted">{s.note}</div>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export function NeedsMeList({ items, now }: { items: NeedsMe[]; now: number }) {
+  return (
+    <section aria-labelledby="needs-me" className="st-card px-3.5 py-3">
+      <h2 id="needs-me" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
+        Needs me · <span className={items.length ? "text-mark" : "text-good"}>{items.length}</span>
+      </h2>
+      {items.length ? (
+        <ul className="mt-2 divide-y divide-line">
+          {items.map((n) => (
+            <li key={n.key} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 py-2.5">
+              <div className="min-w-0">
+                <div className="label">{n.stage === "system" ? "System" : n.stage}</div>
+                <div className="mt-1 text-[13.5px] break-words">{n.title}</div>
+                <div className="text-[11.5px] text-muted">{n.detail}</div>
+                {n.where && <div className="mono mt-0.5 text-[11px] break-all text-muted">act in: {n.where}</div>}
+              </div>
+              <div className={`mono self-start text-right text-[11px] whitespace-nowrap ${n.overdue ? "text-bad" : "text-muted"}`}>
+                {n.due && <div>{n.overdue ? "was due" : "due"} {shortDay(n.due)}</div>}
+                {n.since && <div>waiting {dur(now - Date.parse(n.since))}</div>}
+                {n.overdue && !n.due && n.stage !== "system" && <div>past its window</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="mt-2 text-[12px] text-muted">Nothing is waiting on you.</p>}
+      <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">Nearest due date first, then the longest wait. Station only shows this list: tick the line in the named file, or use the Clients tab, to clear an item.</p>
     </section>
   );
 }

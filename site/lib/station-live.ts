@@ -145,7 +145,7 @@ const panelAccount = (r: Registry, view: View) =>
   view.account !== "all" ? view.account : view.mode === "owner" ? r.accounts.find((a) => a.kind === "personal" && a.instagram)?.id : undefined;
 
 export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
-  const { registry } = await liveRegistry();
+  const { registry, clients } = await liveRegistry();
   const [runs, events, gates, seen, reels] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
@@ -158,7 +158,7 @@ export async function getSnapshot(view: View, now = new Date()): Promise<Snapsho
     view.mode === "owner" ? probes(seen, now) : Promise.resolve([]),
     wantsFunnel ? dailyCounts(7).catch((err) => (console.error("[station] funnel", err), "error" as const)) : Promise.resolve(null),
   ]);
-  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, reels, now });
+  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, reels, clients, now });
   return view.mode === "owner" ? { ...snap, alerts: telegramReady() } : snap;
 }
 

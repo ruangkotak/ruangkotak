@@ -17,7 +17,8 @@ export type Desk = { id: string; name: string; agent?: string; noReadPath?: bool
 export type Department = { id: string; no: string; name: string; client: boolean; desks: Desk[] };
 /** `script` names the laptop job file when several jobs share one (default: the job id). */
 export type Job = { id: string; desk: string; schedule: string; account: string; script?: string };
-export type Gate = { id: string; label: string; detail: string; reviewer: string; job: string | null; slaHours: number };
+/** `script` names the job script that reviews the gate when no single job does (one job per client, e.g. final-check). */
+export type Gate = { id: string; label: string; detail: string; reviewer: string; job: string | null; script?: string; slaHours: number };
 export type Registry = { accounts: Account[]; gates: Gate[]; departments: Department[]; jobs: Job[] };
 
 /** Problems with a registry, as readable lines. Empty means it is usable. */
@@ -134,7 +135,8 @@ export function isDue(schedule: Schedule, e: TickEntry, now: Date): boolean {
 export type Run = { startAt?: string; endAt?: string; ok?: boolean; exitCode?: number; message?: string; attention?: string; source?: string };
 export type JobBeat = { kind: "job"; jobId: string; state: "start" | "ok" | "fail"; exitCode?: number; message?: string; attention?: string; source?: string };
 /** A named item on a gate's checklist (e.g. a deliverable in final review), shown on the client's page. */
-export type GateItem = { label: string; at: string };
+/** `due` (when the draft goes to the client) and `post` (the posting date) are YYYY-MM-DD, read from the line when it has them. */
+export type GateItem = { label: string; at: string; due?: string; post?: string };
 export type GateBeat = { kind: "gate"; gate: string; account: string; waiting: number; oldestAt?: string; items?: GateItem[]; delivered?: GateItem[]; source?: string };
 /** One reel as Station keeps it: link, publish time, plays. */
 export type Reel = { url: string; at: string; views: number };
@@ -154,11 +156,12 @@ export function parseBeat(body: unknown, r: Registry): { ok: true; beat: Beat } 
   const source = b.source === undefined ? undefined : typeof b.source === "string" && SOURCE.test(b.source) ? b.source : null;
   if (source === null) return { ok: false, error: "source must be 1-24 lowercase letters, digits or dashes" };
   const isoOk = (v: unknown) => typeof v === "string" && !Number.isNaN(Date.parse(v));
+  const day = (k: "due" | "post", x: unknown) => (typeof (x as GateItem)[k] === "string" && /^\d{4}-\d{2}-\d{2}$/.test((x as GateItem)[k]!) ? { [k]: (x as GateItem)[k] } : {});
   const items = (v: unknown, max: number): GateItem[] | undefined | null => {
     if (v === undefined) return undefined;
     if (!Array.isArray(v) || v.length > max) return null;
     const out = v.map((x) => (x && typeof x === "object" && typeof (x as GateItem).label === "string" && isoOk((x as GateItem).at)
-      ? { label: (x as GateItem).label.replace(/<!--|-->/g, "").replace(/\s+/g, " ").trim().slice(0, 100), at: new Date((x as GateItem).at).toISOString() } : null));
+      ? { label: (x as GateItem).label.replace(/<!--|-->/g, "").replace(/\s+/g, " ").trim().slice(0, 100), at: new Date((x as GateItem).at).toISOString(), ...day("due", x), ...day("post", x) } : null));
     return out.every((x) => x && x.label) ? (out as GateItem[]) : null;
   };
   if (b.reels !== undefined) {
@@ -337,6 +340,8 @@ export function cookieScope(value: string | null | undefined, env: Env, r: Regis
 export type ClientRecord = {
   id: string; label: string; instagram?: string; createdAt: string; keyHash: string;
   status: "active" | "paused"; openedAt?: string; lastSeenAt?: string;
+  /** What was agreed: RM per reel and reels per month. Owner only; never sent to the client or the laptop. */
+  price?: number; perMonth?: number;
 };
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,30}$/;
@@ -402,6 +407,10 @@ export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: 
       id: "final", label: "Final review checklist ready", done: !!finalRun, at: finalRun,
       note: finalRun ? `${finalGate?.waiting ?? 0} waiting · add deliverables to final-queue-${c.id}.md` : "created on the next weekday 18:00 run",
     },
+    {
+      id: "price", label: "Price agreed", done: c.price !== undefined,
+      note: c.price !== undefined ? `RM${c.price} a reel${c.perMonth ? ` · ${c.perMonth} a month` : ""}` : "set it below; nothing can be invoiced without it",
+    },
   ];
 }
 
@@ -454,6 +463,10 @@ export type Snapshot = {
   alerts?: boolean;
   /** When viewing one personal or client account: its reels, review items and week. */
   account?: AccountPanel;
+  /** Owner view only: the five stages, the one queue of what waits on you, and the money agreed with clients. */
+  stages?: StageView[];
+  needsMe?: NeedsMe[];
+  money?: Money;
 };
 
 export type AccountPanel = {
@@ -511,6 +524,8 @@ export type SnapshotInput = {
   funnel: FunnelDay[] | null | "error";
   /** The view account's reel snapshots, newest first (only when viewing one account). */
   reels?: ReelSnapshot[];
+  /** Clients added from Station, for the Onboard stage and the money (owner view only). */
+  clients?: ClientRecord[];
   now: Date;
 };
 
@@ -524,6 +539,8 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   const depts = r.departments.filter((d) => !client || d.client);
   const deptIds = new Set(depts.map((d) => d.id));
   const deptOfDesk = new Map(r.departments.flatMap((d) => d.desks.map((k) => [k.id, d.id] as const)));
+  const accountIds = new Set(r.accounts.map((a) => a.id));
+  const scriptOf = new Map(r.jobs.map((j) => [j.id, j.script ?? j.id] as const));
 
   const jobs = r.jobs
     .filter((j) => inAccount(j.account) && deptIds.has(deptOfDesk.get(j.desk)!))
@@ -542,13 +559,15 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   const gates: GateView[] = r.gates
     .filter((g) => deptIds.has(deptOfDesk.get(g.reviewer)!))
     .map((g) => {
-      const readings = Object.entries(input.gates).filter(([k]) => k.startsWith(`${g.id}:`) && inAccount(k.slice(g.id.length + 1))).map(([, v]) => v);
+      // Readings for an account that is no longer in the registry (a removed client) are left out.
+      const readings = Object.entries(input.gates).filter(([k]) => k.startsWith(`${g.id}:`) && inAccount(k.slice(g.id.length + 1)) && accountIds.has(k.slice(g.id.length + 1))).map(([, v]) => v);
       const waiting = readings.length ? readings.reduce((s, x) => s + x.waiting, 0) : null;
       const oldestAt = readings.map((x) => x.oldestAt).filter((x): x is string => !!x).sort()[0];
       const readAt = readings.map((x) => x.at).sort().at(-1);
       const reviewer = r.departments.flatMap((d) => d.desks).find((k) => k.id === g.reviewer)!;
-      const job = g.job ? r.jobs.find((j) => j.id === g.job) : undefined;
-      const reviewJob = job ? jobView(job, r, input.runs[job.id] ?? [], now) : undefined;
+      // One named job, or (a gate reviewed by one job per client) whichever job with that script runs next.
+      const reviewJob = g.job ? jobs.find((j) => j.id === g.job) ?? (r.jobs.some((j) => j.id === g.job) ? jobView(r.jobs.find((j) => j.id === g.job)!, r, input.runs[g.job] ?? [], now) : undefined)
+        : g.script ? jobs.filter((j) => scriptOf.get(j.id) === g.script && j.nextAt).sort((a, b) => a.nextAt!.localeCompare(b.nextAt!))[0] : undefined;
       const overdue = !!(waiting && oldestAt && now.getTime() - Date.parse(oldestAt) > g.slaHours * 3600_000);
       return {
         id: g.id, label: g.label, detail: g.detail, reviewer: reviewer.name, reviewerDept: deptOfDesk.get(g.reviewer)!,
@@ -569,6 +588,9 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
       key: `gate:${g.id}`, kind: "gate" as const, title: `${g.label} gate over its ${g.slaHours}h review window`, detail: `${g.waiting} waiting, oldest ${ago(Date.parse(g.oldestAt!), now)}`, dept: g.reviewerDept,
     })),
   ];
+
+  const pipeline = client ? undefined
+    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, now });
 
   const feed = events[0];
   const account = view.account === "all" ? null : r.accounts.find((a) => a.id === view.account);
@@ -595,7 +617,119 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
     needsYou,
     log: events.slice(0, LOG_LIMIT),
     account: panel ? accountPanel(panel.label, input.reels ?? [], input.gates[`final:${panel.id}`], now) : undefined,
+    ...pipeline,
   };
+}
+
+// ---------- five stages and the Needs me queue ----------
+// The same readings the gates use, regrouped by where a piece of work is: Audience, Onboard, Make, Post, Paid.
+// Owner only. Nothing new is stored: stages and Needs me are derived from gates, clients and jobs on every snapshot.
+
+export type StageId = "audience" | "onboard" | "make" | "post" | "paid";
+export type StageView = {
+  id: StageId; no: string; name: string; waiting: number | null; oldestAt?: string; overdue: boolean;
+  parts: { label: string; waiting: number | null }[]; note?: string;
+};
+/** One thing waiting on the owner. `where` names the file or tab to act in: Station itself changes nothing. */
+export type NeedsMe = { key: string; stage: StageId | "system"; title: string; detail: string; since?: string; due?: string; overdue: boolean; where?: string };
+export type Money = { monthly: number; priced: number; clients: number; invoices?: string };
+
+const STAGES: { id: StageId; name: string; gates: string[] }[] = [
+  { id: "audience", name: "Audience", gates: ["dm", "brief"] },
+  { id: "onboard", name: "Onboard", gates: [] },
+  { id: "make", name: "Make", gates: ["review", "drafts", "final"] },
+  { id: "post", name: "Post", gates: [] },
+  { id: "paid", name: "Paid", gates: ["invoice"] },
+];
+const STAGE_OF_GATE = new Map(STAGES.flatMap((s) => s.gates.map((g) => [g, s.id] as const)));
+
+/** The checklist behind a gate, as a path inside the notes folder. */
+const gateFile = (gate: string, a: Account): string | undefined =>
+  gate === "dm" ? `Station/dm-queue-${a.instagram ?? a.id}.md`
+  : gate === "brief" ? "Station/brief-queue.md"
+  : gate === "drafts" ? "Station/drafts-queue.md"
+  : gate === "final" ? `Station/final-queue-${a.id}.md`
+  : gate === "invoice" ? "Station/invoices.md"
+  : undefined;
+
+/** Today in Malaysia, as YYYY-MM-DD. */
+export const mytDate = (now: Date) => new Date(now.getTime() + TZ).toISOString().slice(0, 10);
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Checks a client's price per reel (RM) and reels per month. Blank clears the value. */
+export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { ok: true; value: { price?: number; perMonth?: number } } | { ok: false; error: string } {
+  const num = (v: unknown) => (v === undefined || v === null || v === "" ? undefined : Number(v));
+  const price = num(input.price), perMonth = num(input.perMonth);
+  if (price !== undefined && !(Number.isFinite(price) && price >= 0 && price <= 1_000_000)) return { ok: false, error: "The price per reel must be a number in RM." };
+  if (perMonth !== undefined && !(Number.isInteger(perMonth) && perMonth >= 1 && perMonth <= 60)) return { ok: false, error: "Reels per month must be a whole number from 1 to 60." };
+  return { ok: true, value: { price: price === undefined ? undefined : Math.round(price * 100) / 100, perMonth } };
+}
+
+export type PipelineInput = {
+  registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[];
+  inAccount: (account: string) => boolean; needsYou: NeedsYou[]; invoiceNote?: string; now: Date;
+};
+
+/** Pure: the five stages, the one queue of what waits on the owner, and the money agreed with clients. */
+export function buildPipeline(input: PipelineInput): { stages: StageView[]; needsMe: NeedsMe[]; money: Money } {
+  const { registry: r, now } = input;
+  const today = mytDate(now);
+  const accountOf = (id: string) => r.accounts.find((a) => a.id === id);
+  const clients = input.clients.filter((c) => c.status === "active" && input.inAccount(c.id));
+  const needsMe: NeedsMe[] = [];
+
+  for (const g of r.gates) {
+    const stage = STAGE_OF_GATE.get(g.id);
+    if (!stage) continue;
+    for (const [key, reading] of Object.entries(input.gates)) {
+      if (!key.startsWith(`${g.id}:`) || !reading.waiting) continue;
+      const account = accountOf(key.slice(g.id.length + 1));
+      if (!account || !input.inAccount(account.id)) continue;
+      const late = (at?: string) => !!at && now.getTime() - Date.parse(at) > g.slaHours * 3600_000;
+      const where = gateFile(g.id, account);
+      const named = g.id === "final" ? reading.items ?? [] : [];
+      for (const item of named)
+        needsMe.push({
+          key: `${key}:${item.label}`, stage, title: `Final review: ${item.label}`, detail: `${account.label}${item.post ? ` · posts ${item.post}` : ""}`,
+          since: item.at, due: item.due, overdue: item.due ? item.due < today : late(item.at), where,
+        });
+      const rest = reading.waiting - named.length;
+      if (rest > 0)
+        needsMe.push({ key: `gate:${key}`, stage, title: `${cap(g.detail)}: ${rest}`, detail: account.kind === "internal" ? g.label : `${g.label} · ${account.label}`, since: reading.oldestAt, overdue: late(reading.oldestAt), where });
+    }
+  }
+  for (const c of clients) {
+    if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab" });
+    if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab" });
+  }
+  for (const n of input.needsYou) if (n.kind !== "gate") needsMe.push({ key: n.key, stage: "system", title: n.title, detail: n.detail, overdue: true });
+  needsMe.sort((a, b) => Number(b.overdue) - Number(a.overdue) || (a.due ?? "9").localeCompare(b.due ?? "9") || (a.since ?? "9").localeCompare(b.since ?? "9"));
+
+  const delivered = Object.entries(input.gates)
+    .filter(([k]) => k.startsWith("final:") && accountOf(k.slice(6)) && input.inAccount(k.slice(6)))
+    .flatMap(([, v]) => v.delivered ?? [])
+    .filter((d) => now.getTime() - Date.parse(d.at) < 7 * 86400_000).length;
+  const priced = clients.filter((c) => c.price !== undefined);
+  const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote };
+
+  const stages: StageView[] = STAGES.map((s, i) => {
+    const base = { id: s.id, no: `0${i + 1}`, name: s.name };
+    if (s.id === "onboard") {
+      const noPrice = clients.filter((c) => c.price === undefined), unopened = clients.filter((c) => !c.openedAt);
+      const open = clients.filter((c) => c.price === undefined || !c.openedAt);
+      return { ...base, waiting: open.length, oldestAt: open.map((c) => c.createdAt).sort()[0], overdue: false, parts: [{ label: "No price yet", waiting: noPrice.length }, { label: "Link not opened", waiting: unopened.length }] };
+    }
+    if (s.id === "post") return { ...base, waiting: null, overdue: false, parts: [], note: `${delivered} passed final review in the last 7 days · posting is not tracked yet` };
+    const views = input.gateViews.filter((g) => s.gates.includes(g.id));
+    const read = views.filter((g) => g.waiting !== null);
+    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no client has a price yet" : undefined, money.invoices].filter(Boolean).join(" · ") || undefined : undefined;
+    return {
+      ...base, waiting: read.length ? read.reduce((n, g) => n + g.waiting!, 0) : null, oldestAt: views.map((g) => g.oldestAt).filter((x): x is string => !!x).sort()[0],
+      overdue: views.some((g) => g.overdue), parts: views.map((g) => ({ label: g.label, waiting: g.waiting })), note,
+    };
+  });
+  return { stages, needsMe, money };
 }
 
 /** The log line a beat leaves behind. */

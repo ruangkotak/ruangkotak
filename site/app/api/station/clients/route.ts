@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { hashKey, newClientKey, onboarding, validateClient, type ClientRecord } from "@/lib/station";
+import { clientTerms, hashKey, newClientKey, onboarding, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
@@ -55,7 +55,10 @@ export async function POST(req: NextRequest) {
     if (body.action === "update") {
       const v = validateClient({ label: body.label ?? c.label, slug: c.id, instagram: body.instagram ?? c.instagram ?? "" }, new Set());
       if (!v.ok) return json({ ok: false, error: v.error }, 400);
-      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram });
+      // Price and reels per month change only when the form sends them; a blank value clears it.
+      const terms = clientTerms({ price: "price" in body ? body.price : c.price, perMonth: "perMonth" in body ? body.perMonth : c.perMonth });
+      if (!terms.ok) return json({ ok: false, error: terms.error }, 400);
+      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value });
       return json({ ok: true });
     }
     if (body.action === "remove") {

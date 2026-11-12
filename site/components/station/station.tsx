@@ -1,22 +1,23 @@
 "use client";
 
-import { Bell, Broadcast, Handshake, ListChecks, UsersThree } from "@phosphor-icons/react";
+import { Bell, Broadcast, Handshake, ListChecks, Tray } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/station";
 import { AccountPanel } from "./account";
 import { Clients } from "./clients";
 import { TelegramPanel } from "./telegram";
-import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsYouList, Pips, TopBar } from "./parts";
+import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pips, Stages, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
 const TABS = [
+  { id: "needs", label: "Needs me", Icon: Tray }, // owner only: the one queue, and where the owner lands
   { id: "station", label: "Station", Icon: Broadcast },
-  { id: "agents", label: "Agents", Icon: UsersThree },
-  { id: "jobs", label: "Jobs", Icon: ListChecks },
+  { id: "jobs", label: "Jobs", Icon: ListChecks }, // jobs, then the desks and agents behind them
   { id: "alerts", label: "Alerts", Icon: Bell },
   { id: "clients", label: "Clients", Icon: Handshake }, // owner only
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
+const OWNER_ONLY = new Set<Tab>(["needs", "clients"]);
 
 // Where each department sits on wide screens (12 columns). Phones stack everything in one column.
 const SPAN: Record<string, string> = {
@@ -31,7 +32,8 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   const [snap, setSnap] = useState(initial);
   const [online, setOnline] = useState(true);
   const [now, setNow] = useState(() => Date.parse(initial.now)); // server time first, so the first render matches
-  const [tab, setTab] = useState<Tab>("station");
+  const home: Tab = canSwitch ? "needs" : "station";
+  const [tab, setTab] = useState<Tab>(home);
   const query = useRef(queryOf(initial.view));
 
   const load = useCallback(async () => {
@@ -46,8 +48,9 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   }, []);
 
   useEffect(() => {
-    const fromHash = location.hash.slice(1);
-    if (TABS.some((t) => t.id === fromHash) && (fromHash !== "clients" || canSwitch)) setTab(fromHash as Tab);
+    const hash = location.hash.slice(1);
+    const fromHash = (hash === "agents" ? "jobs" : hash) as Tab; // the Agents tab moved into Jobs
+    if (TABS.some((t) => t.id === fromHash) && (!OWNER_ONLY.has(fromHash) || canSwitch)) setTab(fromHash);
     setNow(Date.now());
     const tick = setInterval(() => setNow(Date.now()), 10_000);
     // Poll only while the tab is visible; catch up at once when it comes back.
@@ -68,7 +71,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
   const pick = (t: Tab) => {
     setTab(t);
-    history.replaceState(null, "", `${location.pathname}${location.search}${t === "station" ? "" : `#${t}`}`);
+    history.replaceState(null, "", `${location.pathname}${location.search}${t === home ? "" : `#${t}`}`);
     window.scrollTo({ top: 0 });
   };
 
@@ -82,6 +85,9 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   const showAccount = !client && snap.view.account === "all";
   const allJobs = snap.departments.flatMap((d) => d.jobs);
   const alerts = snap.needsYou.length;
+  const waiting = snap.needsMe?.length ?? 0;
+  // The queue belongs to the owner view. While previewing a client page, the Needs me tab shows that page instead.
+  const shown: Tab = tab === "needs" && !snap.needsMe ? "station" : tab;
 
   return (
     <div className="rk-station min-h-[100dvh] bg-bg text-ink">
@@ -110,8 +116,16 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           )}
         </nav>
 
-        {tab === "station" && (
+        {shown === "needs" && snap.stages && snap.needsMe && (
           <>
+            <Stages stages={snap.stages} now={now} />
+            <NeedsMeList items={snap.needsMe} now={now} />
+          </>
+        )}
+
+        {shown === "station" && (
+          <>
+            {snap.stages && <Stages stages={snap.stages} now={now} />}
             {snap.account && <AccountPanel p={snap.account} now={now} client={client} />}
             <Gates gates={snap.gates} now={now} />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -128,8 +142,8 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </>
         )}
 
-        {tab === "agents" && (
-          <section className="grid gap-3 md:grid-cols-2">
+        {shown === "jobs" && (
+          <section aria-label="Desks and agents" className="order-last grid gap-3 md:grid-cols-2">
             {snap.departments.map((d) => (
               <div key={d.id} className="st-card px-3.5 py-3">
                 <h2 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">{d.no}</span>{d.name}</h2>
@@ -156,7 +170,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </section>
         )}
 
-        {tab === "jobs" && (
+        {shown === "jobs" && (
           <section className="st-card overflow-hidden">
             <ul className="divide-y divide-line">
               {allJobs.sort((a, b) => (a.nextAt ?? "~").localeCompare(b.nextAt ?? "~")).map((j) => {
@@ -179,9 +193,9 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </section>
         )}
 
-        {tab === "clients" && canSwitch && <Clients onChanged={load} />}
+        {shown === "clients" && canSwitch && <Clients onChanged={load} />}
 
-        {tab === "alerts" && (
+        {shown === "alerts" && (
           <>
             {snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
             <NeedsYouList items={snap.needsYou} />
@@ -200,14 +214,15 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
       </main>
 
       <nav aria-label="Station sections" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <ul className={`mx-auto grid max-w-[640px] ${canSwitch ? "grid-cols-5" : "grid-cols-4"}`}>
-          {TABS.filter((t) => t.id !== "clients" || canSwitch).map(({ id, label, Icon }) => (
+        <ul className={`mx-auto grid max-w-[640px] ${canSwitch ? "grid-cols-5" : "grid-cols-3"}`}>
+          {TABS.filter((t) => !OWNER_ONLY.has(t.id) || canSwitch).map(({ id, label, Icon }) => (
             <li key={id}>
               <button onClick={() => pick(id)} aria-current={tab === id ? "page" : undefined}
                 className={`relative flex min-h-[56px] w-full flex-col items-center justify-center gap-1 text-[10.5px] tracking-[0.1em] uppercase ${tab === id ? "text-ink" : "text-muted"}`}>
                 <Icon size={18} weight={tab === id ? "fill" : "regular"} aria-hidden />
                 {label}
                 {id === "alerts" && alerts > 0 && <span className="num absolute top-2 right-[calc(50%-20px)] rounded-full bg-bad px-1.5 text-[9.5px] leading-[15px] text-on-solid">{alerts}</span>}
+                {id === "needs" && waiting > 0 && <span className="num absolute top-2 right-[calc(50%-20px)] rounded-full bg-[var(--mark)] px-1.5 text-[9.5px] leading-[15px] text-on-solid">{waiting}</span>}
               </button>
             </li>
           ))}
