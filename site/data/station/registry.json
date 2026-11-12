@@ -90,6 +90,7 @@
     { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
     { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },
     { "id": "route-asks", "desk": "router", "schedule": "every 15m", "account": "internal" },
+    { "id": "needs-me-sync", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "agent-work", "desk": "router", "schedule": "every 15m", "account": "internal" },
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },

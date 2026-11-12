@@ -69,6 +69,19 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
     };
   }, [load]);
 
+  /** A Done press on Needs me: remember it on Station, then reload. Returns the error to show, or null. */
+  const done = useCallback(async (n: { key: string }) => {
+    try {
+      const res = await fetch("/api/station/done", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: n.key }), credentials: "same-origin" });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) return data.error ?? `Station answered ${res.status}`;
+      await load();
+      return null;
+    } catch {
+      return "Could not reach Station. Nothing was changed.";
+    }
+  }, [load]);
+
   const pick = (t: Tab) => {
     setTab(t);
     history.replaceState(null, "", `${location.pathname}${location.search}${t === home ? "" : `#${t}`}`);
@@ -119,7 +132,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
         {shown === "needs" && snap.stages && snap.needsMe && (
           <>
             <Stages stages={snap.stages} now={now} />
-            <NeedsMeList items={snap.needsMe} now={now} />
+            <NeedsMeList items={snap.needsMe} now={now} onDone={done} />
           </>
         )}
 

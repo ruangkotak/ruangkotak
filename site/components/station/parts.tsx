@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import {
-  ArrowDown, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
+  ArrowDown, Check, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
 } from "@phosphor-icons/react";
 import type { DeptView, DeskState, GateView, JobView, NeedsMe, NeedsYou, Probe, Snapshot, StageView, StationEvent } from "@/lib/station";
 
@@ -309,7 +310,16 @@ export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
   );
 }
 
-export function NeedsMeList({ items, now }: { items: NeedsMe[]; now: number }) {
+export function NeedsMeList({ items, now, onDone }: { items: NeedsMe[]; now: number; onDone?: (n: NeedsMe) => Promise<string | null> }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const press = async (n: NeedsMe) => {
+    if (!onDone) return;
+    if (n.clear === "all" && !window.confirm(`Clear everything waiting here?\n\n${n.title}\n\nEvery line waiting right now gets ticked in ${n.where ?? "its file"}. Nothing is sent to anyone.`)) return;
+    setBusy(n.key);
+    setError(await onDone(n));
+    setBusy(null);
+  };
   return (
     <section aria-labelledby="needs-me" className="st-card px-3.5 py-3">
       <h2 id="needs-me" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
@@ -323,7 +333,12 @@ export function NeedsMeList({ items, now }: { items: NeedsMe[]; now: number }) {
                 <div className="label">{n.stage === "system" ? "System" : n.stage}</div>
                 <div className="mt-1 text-[13.5px] break-words">{n.title}</div>
                 <div className="text-[11.5px] text-muted">{n.detail}</div>
-                {n.where && <div className="mono mt-0.5 text-[11px] break-all text-muted">act in: {n.where}</div>}
+                {n.where && <div className="mono mt-0.5 text-[11px] break-all text-muted">{n.clear ? "ticks a line in" : "act in"}: {n.where}</div>}
+                {n.clear && onDone && (
+                  <button type="button" disabled={busy !== null} onClick={() => press(n)} className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">
+                    <Check size={14} aria-hidden /> {busy === n.key ? "Saving…" : n.clear === "all" ? "Clear all" : "Done"}
+                  </button>
+                )}
               </div>
               <div className={`mono self-start text-right text-[11px] whitespace-nowrap ${n.overdue ? "text-bad" : "text-muted"}`}>
                 {n.due && <div>{n.overdue ? "was due" : "due"} {shortDay(n.due)}</div>}
@@ -334,7 +349,8 @@ export function NeedsMeList({ items, now }: { items: NeedsMe[]; now: number }) {
           ))}
         </ul>
       ) : <p className="mt-2 text-[12px] text-muted">Nothing is waiting on you.</p>}
-      <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">Nearest due date first, then the longest wait. Station only shows this list: tick the line in the named file, or use the Clients tab, to clear an item.</p>
+      {error && <p className="mt-2 text-[12px] text-bad" role="alert">{error}</p>}
+      <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">Nearest due date first, then the longest wait. Done takes the item off this list at once; your laptop ticks the line in the notes within about 5 minutes, while its jobs are running. Items without a button are cleared where they live.</p>
     </section>
   );
 }

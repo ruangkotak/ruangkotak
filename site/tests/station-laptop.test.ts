@@ -9,6 +9,7 @@ import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, withoutErrorItems, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { tickLine } from "../scripts/station/queue.mts";
 import { datesOf, labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
+import { applyMark } from "../scripts/station/jobs/needs-me-sync.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
@@ -460,4 +461,25 @@ test("final review lines can carry a due date and a posting date", () => {
   assert.deepEqual(datesOf("- [ ] Reel 5 due soon"), {});
   const r = finalReview("- [ ] Reel 3 · due 2026-11-20 <!-- rk:id=a at=2026-11-07T01:00:00Z -->", { open: {}, delivered: [] }, new Date("2026-11-07T09:00:00Z"));
   assert.deepEqual(r.items, [{ label: "Reel 3 · due 2026-11-20", at: "2026-11-07T01:00:00Z", due: "2026-11-20" }]);
+});
+
+test("a Done press ticks one named line, or everything that was waiting when it was pressed", () => {
+  const text = [
+    "# Final review",
+    "- [ ] Reel 1 · due 2026-11-20 <!-- rk:id=a at=2026-11-07T01:00:00.000Z -->",
+    "- [ ] Reel 2 <!-- rk:id=b at=2026-11-07T02:00:00.000Z -->",
+    "- [x] Reel 0 <!-- rk:id=z at=2026-11-01T02:00:00.000Z -->",
+    "- [ ] typed by hand, not stamped yet",
+    "- [ ] Reel 3 <!-- rk:id=c at=2026-11-07T09:30:00.000Z -->",
+  ].join("\n");
+  const one = applyMark(text, { at: "2026-11-07T09:00:00.000Z", label: "Reel 2" }, "done in Station 2026-11-07 17:00");
+  assert.equal(one.ticked, 1);
+  assert.match(one.text, /- \[x\] Reel 2 · done in Station 2026-11-07 17:00 <!-- rk:id=b /);
+  assert.match(one.text, /- \[ \] Reel 1 /);
+  // No label: every stamped line waiting at the time of the press. The later one and the hand-typed one stay open.
+  const all = applyMark(text, { at: "2026-11-07T09:00:00.000Z" }, "done in Station");
+  assert.equal(all.ticked, 2);
+  assert.match(all.text, /- \[ \] Reel 3 /);
+  assert.match(all.text, /- \[ \] typed by hand/);
+  assert.deepEqual(applyMark(text, { at: "2026-11-07T09:00:00.000Z", label: "No such reel" }, "x"), { text, ticked: 0 });
 });

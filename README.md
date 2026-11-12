@@ -22,7 +22,11 @@ is a 404 to anyone without a key.
   Post, Paid) and one queue of everything waiting on you, nearest due date
   first. Both are built from the same gate readings, clients and jobs as the
   rest of the page; nothing new is stored. Each item names the file or tab to
-  act in: Station only shows the list. Post is not counted yet (nothing
+  act in. A named final-review item has a **Done** button and the DM, brief
+  and drafts checklists have **Clear all**: the press takes the item off the
+  queue at once and the laptop's `needs-me-sync` job ticks the line within
+  about 5 minutes. Invoices, content review, prices and links have no button
+  and are cleared where they live. Post is not counted yet (nothing
   reports a reel as posted). Clients never see this tab.
 - **Dates:** a final-review line can carry `due 2026-11-20` (draft to the
   client) and `post 2026-11-25`. Needs me sorts by the due date and marks a
@@ -71,6 +75,7 @@ is a 404 to anyone without a key.
 
   | `board-completeness` | CMO Reviewer | 09:00 | reads `content/<date>/*.md` and their `**Status:**` line; the **Review** gate counts drafts dated today or later; a draft publishing within a day that isn't approved goes to *Needs you* |
   | `<client>-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
+  | `needs-me-sync` | Router | every 5m | carries out the Done presses from Needs me: ticks the matching lines in the checklist files and re-reads a final-review file at once; presses wait on Station while the laptop is off |
   | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
 
   | `invoice-chase` | Billing Clerk | 10:00 weekdays | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you* |
