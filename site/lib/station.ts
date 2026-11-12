@@ -526,6 +526,8 @@ export type SnapshotInput = {
   reels?: ReelSnapshot[];
   /** Clients added from Station, for the Onboard stage and the money (owner view only). */
   clients?: ClientRecord[];
+  /** Done presses on Needs me (owner view only). */
+  done?: DoneMarks;
   now: Date;
 };
 
@@ -590,7 +592,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   ];
 
   const pipeline = client ? undefined
-    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, now });
+    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, done: input.done, now });
 
   const feed = events[0];
   const account = view.account === "all" ? null : r.accounts.find((a) => a.id === view.account);
@@ -631,7 +633,24 @@ export type StageView = {
   parts: { label: string; waiting: number | null }[]; note?: string;
 };
 /** One thing waiting on the owner. `where` names the file or tab to act in: Station itself changes nothing. */
-export type NeedsMe = { key: string; stage: StageId | "system"; title: string; detail: string; since?: string; due?: string; overdue: boolean; where?: string };
+/** `clear`: what a Done press does. "item" ticks this one line; "all" ticks every line waiting at that moment. Absent: act where it lives. */
+export type NeedsMe = { key: string; stage: StageId | "system"; title: string; detail: string; since?: string; due?: string; overdue: boolean; where?: string; clear?: "item" | "all" };
+/** Done presses: Needs me key -> when it was pressed, and whether the laptop has ticked the line yet. */
+export type DoneMarks = Record<string, { at: string; applied?: boolean }>;
+export const DONE_KEEP_MS = 7 * 86400_000;
+/** Gates whose checklist a press may clear as a whole. Invoices (a payment) and content review are decided where they live. */
+const CLEAR_ALL = new Set(["dm", "brief", "drafts"]);
+
+/** The parts of a clearable Needs me key: "gate:<gate>:<account>" (a whole checklist) or "final:<account>:<label>" (one line). */
+export function parseDoneKey(key: string): { gate: string; account: string; label?: string } | null {
+  const all = /^gate:([a-z]+):([a-z0-9][a-z0-9-]*)$/.exec(key);
+  if (all) return CLEAR_ALL.has(all[1]) ? { gate: all[1], account: all[2] } : null;
+  const one = /^final:([a-z0-9][a-z0-9-]*):(.+)$/.exec(key);
+  return one ? { gate: "final", account: one[1], label: one[2] } : null;
+}
+
+/** The checklist file (name only) a press is carried out in, for the laptop. */
+export const doneFile = (gate: string, a: Account) => gateFile(gate, a)?.replace(/^Station\//, "");
 export type Money = { monthly: number; priced: number; clients: number; invoices?: string };
 
 const STAGES: { id: StageId; name: string; gates: string[] }[] = [
@@ -668,7 +687,7 @@ export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { o
 
 export type PipelineInput = {
   registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[];
-  inAccount: (account: string) => boolean; needsYou: NeedsYou[]; invoiceNote?: string; now: Date;
+  inAccount: (account: string) => boolean; needsYou: NeedsYou[]; invoiceNote?: string; done?: DoneMarks; now: Date;
 };
 
 /** Pure: the five stages, the one queue of what waits on the owner, and the money agreed with clients. */
@@ -692,11 +711,11 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
       for (const item of named)
         needsMe.push({
           key: `${key}:${item.label}`, stage, title: `Final review: ${item.label}`, detail: `${account.label}${item.post ? ` · posts ${item.post}` : ""}`,
-          since: item.at, due: item.due, overdue: item.due ? item.due < today : late(item.at), where,
+          since: item.at, due: item.due, overdue: item.due ? item.due < today : late(item.at), where, clear: "item",
         });
       const rest = reading.waiting - named.length;
       if (rest > 0)
-        needsMe.push({ key: `gate:${key}`, stage, title: `${cap(g.detail)}: ${rest}`, detail: account.kind === "internal" ? g.label : `${g.label} · ${account.label}`, since: reading.oldestAt, overdue: late(reading.oldestAt), where });
+        needsMe.push({ key: `gate:${key}`, stage, title: `${cap(g.detail)}: ${rest}`, detail: account.kind === "internal" ? g.label : `${g.label} · ${account.label}`, since: reading.oldestAt, overdue: late(reading.oldestAt), where, clear: CLEAR_ALL.has(g.id) ? "all" : undefined });
     }
   }
   for (const c of clients) {
@@ -704,6 +723,10 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab" });
   }
   for (const n of input.needsYou) if (n.kind !== "gate") needsMe.push({ key: n.key, stage: "system", title: n.title, detail: n.detail, overdue: true });
+  // A pressed item stays off the queue while what it covered is still what is waiting (the laptop ticks the file a
+  // little later). Anything that arrived after the press shows again.
+  const pressed = (n: NeedsMe) => { const m = input.done?.[n.key]; return !!m && (!n.since || n.since <= m.at); };
+  for (let i = needsMe.length - 1; i >= 0; i--) if (pressed(needsMe[i])) needsMe.splice(i, 1);
   needsMe.sort((a, b) => Number(b.overdue) - Number(a.overdue) || (a.due ?? "9").localeCompare(b.due ?? "9") || (a.since ?? "9").localeCompare(b.since ?? "9"));
 
   const delivered = Object.entries(input.gates)

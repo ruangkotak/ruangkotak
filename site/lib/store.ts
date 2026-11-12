@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, ClientRecord, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, ClientRecord, DoneMarks, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -262,6 +262,35 @@ export const alertStore = REDIS
         amem.locks.set(name, Date.now() + seconds * 1000);
         return true;
       },
+    };
+
+// ---------- Station: Done presses on Needs me ----------
+// st:done = hash of Needs me key -> { at, applied }. The laptop ticks the line and marks it applied.
+const gd = globalThis as unknown as { __rkDone?: DoneMarks };
+const dmem = (gd.__rkDone ??= {});
+
+export const doneStore = REDIS
+  ? {
+      all: async (): Promise<DoneMarks> => {
+        const flat = await redis<string[] | null>("HGETALL", "st:done");
+        const out: DoneMarks = {};
+        for (let i = 0; flat && i < flat.length; i += 2) out[flat[i]] = JSON.parse(flat[i + 1]);
+        return out;
+      },
+      add: async (key: string, at: string) => void (await redis("HSET", "st:done", key, JSON.stringify({ at }))),
+      applied: async (keys: string[]) => {
+        for (const key of keys) {
+          const m = parse<DoneMarks[string]>(await redis<string | null>("HGET", "st:done", key));
+          if (m) await redis("HSET", "st:done", key, JSON.stringify({ ...m, applied: true }));
+        }
+      },
+      remove: async (keys: string[]) => void (keys.length && (await redis("HDEL", "st:done", ...keys))),
+    }
+  : {
+      all: async (): Promise<DoneMarks> => ({ ...dmem }),
+      add: async (key: string, at: string) => void (dmem[key] = { at }),
+      applied: async (keys: string[]) => keys.forEach((k) => dmem[k] && (dmem[k] = { ...dmem[k], applied: true })),
+      remove: async (keys: string[]) => keys.forEach((k) => delete dmem[k]),
     };
 
 // The Instagram follow gate (app/api/ig): the access token the laptop pushes after each refresh, and a once-only

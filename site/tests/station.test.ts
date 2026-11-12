@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, clientTerms, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  applyBeat, buildSnapshot, clientTerms, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -567,4 +567,33 @@ test("client terms: a price in RM and whole reels per month, blank clears", () =
   assert.equal(clientTerms({ price: "abc" }).ok, false);
   assert.equal(clientTerms({ price: -1 }).ok, false);
   assert.equal(clientTerms({ price: 500, perMonth: 2.5 }).ok, false);
+});
+
+// ---------- Done presses on Needs me ----------
+
+test("Done: only checklists and named final items can be cleared, and a press hides what was waiting then", () => {
+  const r = withClients(shipped, [{ ...kopi, openedAt: NOW.toISOString(), price: 500, perMonth: 4 }]);
+  const gates = {
+    "drafts:internal": { waiting: 2, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() },
+    "invoice:internal": { waiting: 1, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() },
+    "final:kopi-kita": { waiting: 1, at: NOW.toISOString(), items: [{ label: "Reel 1", at: minutes(-30).toISOString() }] },
+  };
+  const build = (done = {}) => buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [], done, now: NOW }).needsMe!;
+  assert.deepEqual(build().map((n) => [n.key, n.clear]), [["gate:drafts:internal", "all"], ["gate:invoice:internal", undefined], ["final:kopi-kita:Reel 1", "item"]]);
+  // Pressed after the lines were waiting: gone from the queue. The count on the gate is the laptop's to update.
+  const at = NOW.toISOString();
+  assert.deepEqual(build({ "gate:drafts:internal": { at }, "final:kopi-kita:Reel 1": { at, applied: true } }).map((n) => n.key), ["gate:invoice:internal"]);
+  // Pressed before these lines arrived: they show again.
+  assert.equal(build({ "gate:drafts:internal": { at: minutes(-90).toISOString() } }).length, 3);
+});
+
+test("Done keys name a checklist file and nothing else", () => {
+  assert.deepEqual(parseDoneKey("gate:drafts:internal"), { gate: "drafts", account: "internal" });
+  assert.deepEqual(parseDoneKey("final:kopi-kita:Reel 3 v2 · due 2026-11-20"), { gate: "final", account: "kopi-kita", label: "Reel 3 v2 · due 2026-11-20" });
+  for (const bad of ["gate:invoice:internal", "gate:review:internal", "price:kopi-kita", "link:kopi-kita", "job:sync-watchdog", "final:../x:y"]) assert.equal(parseDoneKey(bad), null, bad);
+  const account = (id: string, instagram?: string) => ({ id, label: id, kind: "client" as const, funnel: null, instagram });
+  assert.equal(doneFile("final", account("kopi-kita")), "final-queue-kopi-kita.md");
+  assert.equal(doneFile("dm", account("alanazizreview", "alanazizreview")), "dm-queue-alanazizreview.md");
+  assert.equal(doneFile("drafts", account("internal")), "drafts-queue.md");
+  assert.equal(doneFile("review", account("internal")), undefined);
 });
