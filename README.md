@@ -18,15 +18,28 @@ is a 404 to anyone without a key.
 
 - **Open it:** `https://ruangkotak.com/station?key=<STATION_KEY>`. The key is
   swapped for a 30-day session cookie and removed from the URL.
+- **Needs me (where you land):** the five stages (Audience, Onboard, Make,
+  Post, Paid) and one queue of everything waiting on you, nearest due date
+  first. Both are built from the same gate readings, clients and jobs as the
+  rest of the page; nothing new is stored. Each item names the file or tab to
+  act in: Station only shows the list. Post is not counted yet (nothing
+  reports a reel as posted). Clients never see this tab.
+- **Dates:** a final-review line can carry `due 2026-11-20` (draft to the
+  client) and `post 2026-11-25`. Needs me sorts by the due date and marks a
+  missed one.
+- **Money:** each client card has *Price per reel (RM)* and *Reels per
+  month*. A client without a price shows in Needs me and the Onboard stage;
+  the Paid stage shows the monthly total agreed. Only the owner sees it.
 - **Add a client:** open the **Clients** tab, enter their name and
   Instagram handle, and press *Add client*. Station shows their private link
   once, with a ready-to-send WhatsApp message. Their reel velocity and
   final-review jobs start on your laptop by themselves: no deploy, no env
   vars. Each client card tracks onboarding (link opened, first velocity run,
-  final-review checklist ready) and has *New link* (the old one stops at
+  final-review checklist ready, price agreed) and has *New link* (the old one stops at
   once), *Pause/Resume* and *Remove*. Only a hash of each key is stored.
 - **Client link (manual, older way):** `/station?key=<CLIENT_KEY_<SLUG>>&account=<slug>`
-  for clients written into the registry file, like `client-demo`.
+  for clients written into the registry file. None ships there now: the old
+  `client-demo` account was removed.
 - **Edit what exists:** `site/data/station/registry.json` (accounts,
   departments, desks, jobs, gates). Cron is Malaysia time.
 - **Make the notes folder (once):** from `site/`, run
@@ -57,7 +70,7 @@ is a 404 to anyone without a key.
   | `brief-sweep` | Dispatcher | 07:00 Mon–Sat | new monthly applications from the site go into `<vault>/Station/brief-queue.md`; the **Brief** gate counts unticked ones (24h window) |
 
   | `board-completeness` | CMO Reviewer | 09:00 | reads `content/<date>/*.md` and their `**Status:**` line; the **Review** gate counts drafts dated today or later; a draft publishing within a day that isn't approved goes to *Needs you* |
-  | `client-demo-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
+  | `<client>-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
   | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
 
   | `invoice-chase` | Billing Clerk | 10:00 weekdays | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you* |

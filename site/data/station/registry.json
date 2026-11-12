@@ -2,12 +2,11 @@
   "$comment": "Station registry: the source of truth for accounts, departments, desks, jobs and gates. Schedules are cron (Malaysia time, UTC+8) or 'every <n>m|h'. A job runs on the laptop when site/scripts/station/jobs/<script or id>.mts exists; an account's 'instagram' handle feeds the Instagram jobs. Edit by hand; /api/station/beat rejects job ids that are not listed here.",
   "accounts": [
     { "id": "internal", "label": "RUANGKOTAK", "kind": "internal", "funnel": "site" },
-    { "id": "alanazizreview", "label": "@alanazizreview", "kind": "personal", "funnel": null, "instagram": "alanazizreview" },
-    { "id": "client-demo", "label": "Client demo", "kind": "client", "funnel": null }
+    { "id": "alanazizreview", "label": "@alanazizreview", "kind": "personal", "funnel": null, "instagram": "alanazizreview" }
   ],
   "gates": [
     { "id": "review", "label": "Review", "detail": "content drafts waiting for your review", "reviewer": "cmo-reviewer", "job": "board-completeness", "slaHours": 48 },
-    { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": "client-demo-final-check", "slaHours": 48 },
+    { "id": "final", "label": "Final", "detail": "deliverables waiting for final review", "reviewer": "cdo-reviewer", "job": null, "script": "final-check", "slaHours": 48 },
     { "id": "dm", "label": "DM", "detail": "keyword comments waiting for a DM", "reviewer": "funnel-operator", "job": "ig-comment-dm", "slaHours": 4 },
     { "id": "brief", "label": "Brief", "detail": "applications waiting for a reply", "reviewer": "dispatcher", "job": "brief-sweep", "slaHours": 24 },
     { "id": "drafts", "label": "Drafts", "detail": "agent drafts waiting for your approval", "reviewer": "router", "job": "agent-work", "slaHours": 24 },
@@ -87,8 +86,6 @@
     { "id": "ig-comment-dm", "desk": "funnel-operator", "schedule": "every 15m", "account": "alanazizreview" },
     { "id": "ig-velocity-6h", "desk": "performance-analyst", "schedule": "0 */6 * * *", "account": "alanazizreview", "script": "ig-velocity" },
     { "id": "board-completeness", "desk": "cmo-reviewer", "schedule": "0 9 * * *", "account": "internal" },
-    { "id": "client-demo-velocity", "desk": "performance-analyst", "schedule": "30 */6 * * *", "account": "client-demo", "script": "ig-velocity" },
-    { "id": "client-demo-final-check", "desk": "cdo-reviewer", "schedule": "0 18 * * 1-5", "account": "client-demo", "script": "final-check" },
     { "id": "vault-conflict-scan", "desk": "librarian", "schedule": "every 30m", "account": "internal" },
     { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
     { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },

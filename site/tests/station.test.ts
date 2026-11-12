@@ -3,12 +3,23 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  applyBeat, buildSnapshot, clientTerms, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
 
-const registry = JSON.parse(readFileSync(new URL("../data/station/registry.json", import.meta.url), "utf8")) as Registry;
+const shipped = JSON.parse(readFileSync(new URL("../data/station/registry.json", import.meta.url), "utf8")) as Registry;
+// The shipped file has no demo client any more. These tests still need a client written into the registry file, so add one.
+const registry: Registry = {
+  ...shipped,
+  accounts: [...shipped.accounts, { id: "client-demo", label: "Client demo", kind: "client", funnel: null }],
+  gates: shipped.gates.map((g) => (g.id === "final" ? { ...g, job: "client-demo-final-check" } : g)),
+  jobs: [
+    ...shipped.jobs,
+    { id: "client-demo-velocity", desk: "performance-analyst", schedule: "30 */6 * * *", account: "client-demo", script: "ig-velocity" },
+    { id: "client-demo-final-check", desk: "cdo-reviewer", schedule: "0 18 * * 1-5", account: "client-demo", script: "final-check" },
+  ],
+};
 const NOW = new Date("2026-11-07T09:00:00Z"); // 17:00 in Malaysia
 const env = { STATION_KEY: "owner-secret-123", [clientKeyName("client-demo")]: "client-secret-456" };
 const job = (id: string) => registry.jobs.find((j) => j.id === id)!;
@@ -33,7 +44,9 @@ function snapshot(view: View, over: Partial<SnapshotInput> = {}) {
 // ---------- registry ----------
 
 test("the shipped registry is consistent", () => {
+  assert.deepEqual(checkRegistry(shipped), []);
   assert.deepEqual(checkRegistry(registry), []);
+  assert.ok(!shipped.accounts.some((a) => a.kind === "client"), "no demo client ships in the registry file");
 });
 
 test("the registry check catches a job on a missing desk", () => {
@@ -350,12 +363,12 @@ test("key hashes never leave the server: not in the laptop's registry, not in an
 
 test("onboarding steps follow what Station has seen", () => {
   const fresh = onboarding(kopi, {}, {});
-  assert.deepEqual(fresh.map((s) => [s.id, s.done]), [["link", true], ["opened", false], ["velocity", false], ["final", false]]);
+  assert.deepEqual(fresh.map((s) => [s.id, s.done]), [["link", true], ["opened", false], ["velocity", false], ["final", false], ["price", false]]);
   const runs = {
     "kopi-kita-velocity": applyBeat([], { kind: "job", jobId: "kopi-kita-velocity", state: "ok" }, NOW),
     "kopi-kita-final-check": applyBeat([], { kind: "job", jobId: "kopi-kita-final-check", state: "ok" }, NOW),
   };
-  const later = onboarding({ ...kopi, openedAt: NOW.toISOString() }, runs, { "final:kopi-kita": { waiting: 2, at: NOW.toISOString() } });
+  const later = onboarding({ ...kopi, openedAt: NOW.toISOString(), price: 500, perMonth: 4 }, runs, { "final:kopi-kita": { waiting: 2, at: NOW.toISOString() } });
   assert.ok(later.every((s) => s.done));
   assert.match(later[3].note!, /2 waiting · add deliverables to final-queue-kopi-kita\.md/);
   assert.match(onboarding({ ...kopi, instagram: undefined }, {}, {})[2].note!, /Instagram handle/);
@@ -497,4 +510,61 @@ test("reelTargets: a handle shown on two pages is scraped once, internal and han
     { id: "no-ig", kind: "client" },
   ]);
   assert.deepEqual([...t], [["alanazizreview", ["alanazizreview", "alan-review"]], ["acme", ["acme"]]]);
+});
+
+// ---------- five stages, Needs me, dates and money ----------
+
+test("the five stages and Needs me are built from gates and clients, owner only", () => {
+  const priced: ClientRecord = { ...kopi, openedAt: NOW.toISOString(), price: 500, perMonth: 4 };
+  const fresh: ClientRecord = { ...kopi, id: "new-co", label: "New Co" };
+  const r = withClients(shipped, [priced, fresh]);
+  const gates = {
+    "drafts:internal": { waiting: 3, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() },
+    "final:kopi-kita": {
+      waiting: 2, at: NOW.toISOString(),
+      items: [{ label: "Reel 2", at: minutes(-30).toISOString(), due: "2026-11-20" }, { label: "Reel 1", at: minutes(-30).toISOString(), due: "2026-11-06", post: "2026-11-10" }],
+      delivered: [{ label: "Reel 0", at: minutes(-600).toISOString() }],
+    },
+    "final:gone-client": { waiting: 9, at: NOW.toISOString() }, // a removed client's old reading
+    "invoice:internal": { waiting: 0, at: NOW.toISOString() },
+  };
+  const input = { registry: r, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced, fresh], now: NOW };
+  const s = buildSnapshot({ ...input, view: { mode: "owner", account: "all" } });
+  assert.deepEqual(s.stages!.map((x) => [x.id, x.waiting]), [["audience", null], ["onboard", 1], ["make", 5], ["post", null], ["paid", 0]]);
+  assert.equal(s.gates.find((g) => g.id === "final")!.waiting, 2, "the removed client's reading is not counted");
+  // Past its due date comes first, then the next due date, then the oldest wait.
+  assert.deepEqual(s.needsMe!.map((n) => n.title), [
+    "Final review: Reel 1", "Final review: Reel 2", "Agent drafts waiting for your approval: 3", "Set the price for New Co", "Send New Co their private link",
+  ]);
+  assert.deepEqual([s.needsMe![0].overdue, s.needsMe![0].due, s.needsMe![0].where], [true, "2026-11-06", "Station/final-queue-kopi-kita.md"]);
+  assert.match(s.needsMe![0].detail, /posts 2026-11-10/);
+  assert.equal(s.needsMe![1].overdue, false);
+  assert.deepEqual(s.money, { monthly: 2000, priced: 1, clients: 2, invoices: undefined });
+  assert.match(s.stages!.find((x) => x.id === "post")!.note!, /^1 passed final review/);
+  assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /RM2,000 a month agreed with 1 of 2 clients/);
+  // The Final gate is reviewed by one job per client: its next review is the soonest of them.
+  assert.ok(s.gates.find((g) => g.id === "final")!.nextReviewAt);
+  // A client never gets the owner's queue or the money.
+  const c = buildSnapshot({ ...input, view: { mode: "client", account: "kopi-kita" } });
+  assert.deepEqual([c.stages, c.needsMe, c.money], [undefined, undefined, undefined]);
+  assert.ok(!JSON.stringify(c).includes("500"));
+});
+
+test("a stuck job reaches Needs me as a system item", () => {
+  const s = snapshot({ mode: "owner", account: "all" }, { runs: { "sync-watchdog": runsFrom([{ state: "start" }], minutes(-90)) } });
+  assert.deepEqual(s.needsMe!.map((n) => [n.stage, n.overdue]), [["system", true]]);
+});
+
+test("gate items keep well-formed due and post dates and drop anything else", () => {
+  const r = parseBeat({ gate: "final", account: "client-demo", waiting: 1, items: [{ label: "Reel 3", at: "2026-11-07T01:00:00Z", due: "2026-11-20", post: "next week" }] }, registry);
+  assert.ok(r.ok && r.beat.kind === "gate");
+  assert.deepEqual(r.beat.items, [{ label: "Reel 3", at: "2026-11-07T01:00:00.000Z", due: "2026-11-20" }]);
+});
+
+test("client terms: a price in RM and whole reels per month, blank clears", () => {
+  assert.deepEqual(clientTerms({ price: "500", perMonth: "4" }), { ok: true, value: { price: 500, perMonth: 4 } });
+  assert.deepEqual(clientTerms({ price: "", perMonth: null }), { ok: true, value: { price: undefined, perMonth: undefined } });
+  assert.equal(clientTerms({ price: "abc" }).ok, false);
+  assert.equal(clientTerms({ price: -1 }).ok, false);
+  assert.equal(clientTerms({ price: 500, perMonth: 2.5 }).ok, false);
 });

@@ -8,7 +8,7 @@ import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, withoutErrorItems, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
 import { tickLine } from "../scripts/station/queue.mts";
-import { labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
+import { datesOf, labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
@@ -452,4 +452,12 @@ test("readBoard counts posts with a Status line and ignores notes beside them", 
 test("ig-comment-dm drops Apify error items for posts with no comments", () => {
   assert.deepEqual(withoutErrorItems([{ error: "no_items" }]), []);
   assert.equal(withoutErrorItems([{ error: "no_items" }, {}]).length, 1);
+});
+
+test("final review lines can carry a due date and a posting date", () => {
+  assert.deepEqual(datesOf("- [ ] Reel 3 v2 · due 2026-11-20 · post 2026-11-25 <!-- rk:id=a at=2026-11-07T01:00:00Z -->"), { due: "2026-11-20", post: "2026-11-25" });
+  assert.deepEqual(datesOf("- [ ] Reel 4 · draft 2026-11-21"), { due: "2026-11-21" });
+  assert.deepEqual(datesOf("- [ ] Reel 5 due soon"), {});
+  const r = finalReview("- [ ] Reel 3 · due 2026-11-20 <!-- rk:id=a at=2026-11-07T01:00:00Z -->", { open: {}, delivered: [] }, new Date("2026-11-07T09:00:00Z"));
+  assert.deepEqual(r.items, [{ label: "Reel 3 · due 2026-11-20", at: "2026-11-07T01:00:00Z", due: "2026-11-20" }]);
 });

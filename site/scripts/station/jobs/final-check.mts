@@ -16,13 +16,20 @@ const KEEP_DELIVERED_DAYS = 30;
 export const labelOf = (line: string) =>
   clean(line.replace(/^\s*[-*] \[[ xX]\] /, "").replace(/<!--[\s\S]*?-->/g, "").replace(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2} · /, "")).slice(0, 100);
 
+/** Dates written on a line: "due 2026-11-20" (when the draft goes to the client) and "post 2026-11-25" (the posting date). */
+export function datesOf(line: string): { due?: string; post?: string } {
+  const due = /\b(?:due|draft)\s+(\d{4}-\d{2}-\d{2})\b/i.exec(line)?.[1];
+  const post = /\bpost(?:ing|s)?\s+(\d{4}-\d{2}-\d{2})\b/i.exec(line)?.[1];
+  return { ...(due ? { due } : {}), ...(post ? { post } : {}) };
+}
+
 /**
  * Pure: the open items (shown to the client by name) and what was delivered. A line counts as delivered the first run
  * it is seen ticked after having been open; a deleted line is not a delivery.
  */
 export function review(text: string, known: { open: Record<string, string>; delivered: { id: string; label: string; at: string }[] }, now: Date) {
   const open: Record<string, string> = {};
-  const items: { label: string; at: string }[] = [];
+  const items: { label: string; at: string; due?: string; post?: string }[] = [];
   const delivered = [...known.delivered];
   for (const line of text.split("\n")) {
     const item = checklistItem(line);
@@ -30,7 +37,7 @@ export function review(text: string, known: { open: Record<string, string>; deli
     if (!item || !id || !item.marker?.at) continue;
     if (!item.ticked) {
       open[id] = labelOf(line);
-      items.push({ label: open[id], at: item.marker.at });
+      items.push({ label: open[id], at: item.marker.at, ...datesOf(line) });
     } else if (known.open[id] && !delivered.some((d) => d.id === id)) delivered.push({ id, label: labelOf(line), at: now.toISOString() });
   }
   const cutoff = now.getTime() - KEEP_DELIVERED_DAYS * 86400_000;
@@ -40,7 +47,7 @@ export function review(text: string, known: { open: Record<string, string>; deli
 export const queueFor = (ctx: JobContext) => join(stationFolder(ctx.env, ctx.stateDir), `final-queue-${ctx.account.id}.md`);
 
 const header = (label: string) =>
-  `# Final review: ${label}\n\nOne line per deliverable waiting for final review, e.g. "- [ ] Reel 3 v2". Tick it once it passes.\nThe client sees these names on their Station page ("in final review", then "delivered" once ticked), so write them for the client.\nStation stamps new lines with a hidden marker so the Final gate knows how long each has waited.\n\n`;
+  `# Final review: ${label}\n\nOne line per deliverable waiting for final review, e.g. "- [ ] Reel 3 v2". Tick it once it passes.\nAdd dates when you have them: "- [ ] Reel 3 v2 · due 2026-11-20 · post 2026-11-25" (due = draft to the client). Needs me sorts by the due date.\nThe client sees these names on their Station page ("in final review", then "delivered" once ticked), so write them for the client.\nStation stamps new lines with a hidden marker so the Final gate knows how long each has waited.\n\n`;
 
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const file = queueFor(ctx);

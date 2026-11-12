@@ -134,6 +134,9 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [handle, setHandle] = useState(c.instagram ?? "");
+  const [price, setPrice] = useState(c.price === undefined ? "" : String(c.price));
+  const [perMonth, setPerMonth] = useState(c.perMonth === undefined ? "" : String(c.perMonth));
+  const monthly = c.price !== undefined && c.perMonth ? c.price * c.perMonth : null;
   const act = async (action: string, extra: Record<string, unknown> = {}, confirmText?: string) => {
     if (confirmText && !window.confirm(confirmText)) return;
     setBusy(action);
@@ -193,6 +196,27 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         </form>
       )}
 
+      {!paused && (
+        <form
+          className="mt-2.5 flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            act("update", { price, perMonth });
+          }}
+        >
+          <label className="flex flex-col gap-1 text-[12px]">
+            Price per reel (RM)
+            <input className="field !min-h-[40px] sm:w-[140px]" type="number" min={0} step="any" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="not set" />
+          </label>
+          <label className="flex flex-col gap-1 text-[12px]">
+            Reels per month
+            <input className="field !min-h-[40px] sm:w-[120px]" type="number" min={1} max={60} step={1} inputMode="numeric" value={perMonth} onChange={(e) => setPerMonth(e.target.value)} placeholder="not set" />
+          </label>
+          <button type="submit" disabled={!!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save price</button>
+          <span className="pb-2.5 text-[11.5px] text-muted">{monthly !== null ? `RM${monthly.toLocaleString("en-MY")} a month · only you see this` : "only you see this"}</span>
+        </form>
+      )}
+
       {error && <p className="mt-2 text-[12px] text-bad" role="alert">{error}</p>}
       <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line pt-2.5">
         {!paused && (
@@ -241,7 +265,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-col gap-3">
       {issued ? <IssuedLink issued={issued} onDone={() => setIssued(null)} /> : <AddClient onAdded={(i) => (setIssued(i), changed())} />}
       {error && <p className="text-[12px] text-bad" role="alert">Could not load clients: {error}</p>}
-      {clients && !clients.length && <p className="text-[12px] text-muted">No clients added from Station yet. Clients set up in the registry file (like Client demo) are not listed here.</p>}
+      {clients && !clients.length && <p className="text-[12px] text-muted">No clients added from Station yet. Add the first one above.</p>}
       <ul className="grid gap-3 lg:grid-cols-2">
         {clients?.map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} />)}
       </ul>
