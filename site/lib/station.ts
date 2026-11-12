@@ -18,7 +18,8 @@ export type Department = { id: string; no: string; name: string; client: boolean
 /** `script` names the laptop job file when several jobs share one (default: the job id). */
 export type Job = { id: string; desk: string; schedule: string; account: string; script?: string };
 /** `script` names the job script that reviews the gate when no single job does (one job per client, e.g. final-check). */
-export type Gate = { id: string; label: string; detail: string; reviewer: string; job: string | null; script?: string; slaHours: number };
+/** `ownerOnly`: a gate about the owner's own work (their content board), never shown on a client's page. */
+export type Gate = { id: string; label: string; detail: string; reviewer: string; job: string | null; script?: string; ownerOnly?: boolean; slaHours: number };
 export type Registry = { accounts: Account[]; gates: Gate[]; departments: Department[]; jobs: Job[] };
 
 /** Problems with a registry, as readable lines. Empty means it is usable. */
@@ -580,7 +581,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   });
 
   const gates: GateView[] = r.gates
-    .filter((g) => deptIds.has(deptOfDesk.get(g.reviewer)!))
+    .filter((g) => deptIds.has(deptOfDesk.get(g.reviewer)!) && !(client && g.ownerOnly))
     .map((g) => {
       // Readings for an account that is no longer in the registry (a removed client) are left out.
       const readings = Object.entries(input.gates).filter(([k]) => k.startsWith(`${g.id}:`) && inAccount(k.slice(g.id.length + 1)) && accountIds.has(k.slice(g.id.length + 1))).map(([, v]) => v);
@@ -671,14 +672,14 @@ export function parseDoneKey(key: string): { gate: string; account: string; labe
 }
 
 /** The checklist file (name only) a press is carried out in, for the laptop. */
-export const doneFile = (gate: string, a: Account) => gateFile(gate, a)?.replace(/^Station\//, "");
+export const doneFile = (gate: string, a: Account) => (CLEAR_ALL.has(gate) || gate === "final" ? gateFile(gate, a)?.replace(/^Station\//, "") : undefined);
 export type Money = { monthly: number; priced: number; clients: number; invoices?: string };
 
 const STAGES: { id: StageId; name: string; gates: string[] }[] = [
   { id: "audience", name: "Audience", gates: ["dm", "brief"] },
   { id: "onboard", name: "Onboard", gates: [] },
   { id: "make", name: "Make", gates: ["review", "drafts", "final"] },
-  { id: "post", name: "Post", gates: [] },
+  { id: "post", name: "Post", gates: ["post"] },
   { id: "paid", name: "Paid", gates: ["invoice"] },
 ];
 const STAGE_OF_GATE = new Map(STAGES.flatMap((s) => s.gates.map((g) => [g, s.id] as const)));
@@ -690,6 +691,15 @@ const gateFile = (gate: string, a: Account): string | undefined =>
   : gate === "drafts" ? "Station/drafts-queue.md"
   : gate === "final" ? `Station/final-queue-${a.id}.md`
   : gate === "invoice" ? "Station/invoices.md"
+  : gate === "review" ? "content/<date>/ · change **Status:** to APPROVED"
+  : gate === "post" ? "content/<date>/ · change **Status:** to PUBLISHED once it is live"
+  : undefined;
+
+/** Where a system item is fixed, when there is one obvious place. */
+const systemFix = (key: string): string | undefined =>
+  key.startsWith("probe:apify") ? "new APIFY_TOKEN: on the laptop (station-install.mts --apify-token) and in Vercel's env vars"
+  : key.startsWith("probe:laptop") || key === "laptop:quiet" ? "the laptop: wake it, or resume its scheduled jobs"
+  : key.startsWith("job:") || key.startsWith("attention:") ? "Jobs tab"
   : undefined;
 
 /** Today in Malaysia, as YYYY-MM-DD. */
@@ -743,7 +753,20 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab" });
     if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab" });
   }
-  for (const n of input.needsYou) if (n.kind !== "gate") needsMe.push({ key: n.key, stage: "system", title: n.title, detail: n.detail, overdue: true });
+  for (const n of input.needsYou) {
+    if (n.kind === "gate") continue; // a gate past its window is already on the queue, marked overdue
+    // A job's own warning about a gate it reads (e.g. drafts publishing tomorrow) joins that gate's line instead of
+    // standing beside it as a second item about the same thing.
+    const job = n.key.startsWith("attention:") ? n.key.slice("attention:".length) : null;
+    const gateIds = job ? r.gates.filter((g) => g.job === job).map((g) => g.id) : [];
+    const twin = needsMe.find((m) => gateIds.some((id) => m.key.startsWith(`gate:${id}:`)));
+    if (twin) {
+      twin.detail = `${twin.detail} · ${n.title.replace(/^[^:]+: /, "")}`;
+      twin.overdue = true;
+      continue;
+    }
+    needsMe.push({ key: n.key, stage: "system", title: n.title, detail: n.detail, overdue: true, where: systemFix(n.key) });
+  }
   // A pressed item stays off the queue while what it covered is still what is waiting (the laptop ticks the file a
   // little later). Anything that arrived after the press shows again.
   const pressed = (n: NeedsMe) => { const m = input.done?.[n.key]; return !!m && (!n.since || n.since <= m.at); };
@@ -754,7 +777,7 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     .filter(([k]) => k.startsWith("final:") && accountOf(k.slice(6)) && input.inAccount(k.slice(6)))
     .flatMap(([, v]) => v.delivered ?? [])
     .filter((d) => now.getTime() - Date.parse(d.at) < 7 * 86400_000).length;
-  const priced = clients.filter((c) => c.price !== undefined);
+  const priced = clients.filter((c) => !!c.price); // a price of 0 is a client you do not charge
   const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote };
 
   const stages: StageView[] = STAGES.map((s, i) => {
@@ -764,10 +787,10 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
       const open = clients.filter((c) => c.price === undefined || !c.openedAt);
       return { ...base, waiting: open.length, oldestAt: open.map((c) => c.createdAt).sort()[0], overdue: false, parts: [{ label: "No price yet", waiting: noPrice.length }, { label: "Link not opened", waiting: unopened.length }] };
     }
-    if (s.id === "post") return { ...base, waiting: null, overdue: false, parts: [], note: `${delivered} passed final review in the last 7 days · posting is not tracked yet` };
     const views = input.gateViews.filter((g) => s.gates.includes(g.id));
     const read = views.filter((g) => g.waiting !== null);
-    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no client has a price yet" : undefined, money.invoices].filter(Boolean).join(" · ") || undefined : undefined;
+    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no paying client yet" : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
+      : s.id === "post" ? `${delivered} passed final review in the last 7 days` : undefined;
     return {
       ...base, waiting: read.length ? read.reduce((n, g) => n + g.waiting!, 0) : null, oldestAt: views.map((g) => g.oldestAt).filter((x): x is string => !!x).sort()[0],
       overdue: views.some((g) => g.overdue), parts: views.map((g) => ({ label: g.label, waiting: g.waiting })), note,

@@ -4,6 +4,7 @@
 // APPROVED, READY, SCHEDULED and PUBLISHED count as done; anything else is a draft waiting for review.
 // A file with no **Status:** line is a note (research, shot list), not a post, and is not counted.
 // Station's Review gate counts drafts dated today or later. A draft publishing within a day goes to Needs you.
+// The Post gate counts posts that are approved but not yet marked PUBLISHED (or POSTED, LIVE).
 // Only counts and dates leave the laptop, never titles or copy.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,8 @@ import type { JobContext, JobResult } from "../client.mts";
 import { mytDay } from "./reminder-check.mts";
 
 const DONE = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE"]);
+/** Out in the world. Anything done but not live is approved and still waiting to be posted. */
+const LIVE = new Set(["PUBLISHED", "POSTED", "LIVE"]);
 const WEEK = 7;
 
 export type Post = { day: string; file: string; status: string; changedAt: string };
@@ -38,18 +41,26 @@ export function review(posts: Post[], today: string): JobResult {
   const urgent = drafts.filter((p) => p.day <= addDays(today, 1));
   const stale = posts.filter((p) => p.day < today && isDraft(p));
   const covered = new Set(week.map((p) => p.day)).size;
+  const toPost = posts.filter((p) => DONE.has(p.status) && !LIVE.has(p.status));
+  const missed = toPost.filter((p) => p.day < today);
 
   const parts = [
     `next ${WEEK} days: ${plural(week.length, "post")} on ${covered} of ${WEEK} days`,
     `${plural(drafts.length, "draft")} waiting for review`,
   ];
   if (stale.length) parts.push(`${plural(stale.length, "past draft")} never marked published`);
+  if (toPost.length) parts.push(`${toPost.length} approved, not posted yet`);
   const oldestAt = drafts.map((p) => p.changedAt).sort()[0];
+  const attention = [
+    urgent.length && `${plural(urgent.length, "draft")} publishing within a day ${urgent.length === 1 ? "is" : "are"} not approved`,
+    missed.length && `${plural(missed.length, "approved post")} past ${missed.length === 1 ? "its" : "their"} posting date`,
+  ].filter(Boolean).join("; ");
   return {
     ok: true,
     message: parts.join(" · "),
-    attention: urgent.length ? `${plural(urgent.length, "draft")} publishing within a day ${urgent.length === 1 ? "is" : "are"} not approved` : undefined,
-    gates: [{ gate: "review", waiting: drafts.length, oldestAt }],
+    attention: attention || undefined,
+    // Post: approved (or ready, scheduled) and not yet marked PUBLISHED. Set the status once it is live to clear it.
+    gates: [{ gate: "review", waiting: drafts.length, oldestAt }, { gate: "post", waiting: toPost.length, oldestAt: toPost.map((p) => p.changedAt).sort()[0] }],
   };
 }
 

@@ -41,7 +41,7 @@ export function setEnvValue(key: string, value: string) {
 }
 
 /** Sends one beat. Never throws: a beat that cannot be delivered is logged and the job carries on. */
-export async function beat(env: Env, body: Record<string, unknown>): Promise<boolean> {
+export async function beat(env: Env, body: Record<string, unknown>, tries = 2): Promise<boolean> {
   try {
     const res = await fetch(new URL("/api/station/beat", env.STATION_URL), {
       method: "POST",
@@ -52,6 +52,11 @@ export async function beat(env: Env, body: Record<string, unknown>): Promise<boo
     if (!res.ok) console.error(`[station] beat refused: ${res.status} ${(await res.text()).slice(0, 200)}`);
     return res.ok;
   } catch (err) {
+    // A network blip (waking from sleep, a dropped connection) is worth one more go; a refusal above is not.
+    if (tries > 1) {
+      await new Promise((r) => setTimeout(r, 1500));
+      return beat(env, body, tries - 1);
+    }
     console.error(`[station] beat not delivered: ${(err as Error).message}`);
     return false;
   }
