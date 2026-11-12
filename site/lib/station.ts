@@ -839,7 +839,7 @@ export function alertable(items: NeedsYou[], laptopSeenAt: string | undefined, n
 export function alertText(plan: ReturnType<typeof planAlerts>, link: string): string | null {
   const news = [...plan.raised, ...plan.updated];
   if (!news.length && !plan.resolved.length) return null;
-  const lines = [news.length ? `Station needs you (${news.length})` : "Station: cleared"];
+  const lines = [news.length ? `KNOX needs you (${news.length})` : "KNOX: cleared"];
   for (const n of news) lines.push(`• ${n.title}${n.detail ? ` (${n.detail.slice(0, 120)})` : ""}`);
   if (plan.resolved.length) {
     if (news.length) lines.push("", "Resolved");

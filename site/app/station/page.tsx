@@ -6,7 +6,7 @@ import { getSnapshot, scopeOf, viewFor } from "@/lib/station-live";
 import "./station.css";
 
 // Private operations board. Not in the sitemap, never indexed, and a 404 to anyone without the owner or a client key.
-export const metadata = { title: "Station | RUANGKOTAK", robots: { index: false, follow: false } };
+export const metadata = { title: "KNOX Mission Control | RUANGKOTAK", robots: { index: false, follow: false } };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;

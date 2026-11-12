@@ -14,7 +14,7 @@ const slugify = (s: string) =>
 async function call(body: Record<string, unknown>) {
   const res = await fetch("/api/station/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin" });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; key?: string };
-  if (!res.ok || !data.ok) throw new Error(data.error ?? `Station answered ${res.status}`);
+  if (!res.ok || !data.ok) throw new Error(data.error ?? `KNOX answered ${res.status}`);
   return data;
 }
 
@@ -41,7 +41,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 /** The link and a ready-to-send message, shown once after Add or New link. */
 function IssuedLink({ issued, onDone }: { issued: Issued; onDone: () => void }) {
   const link = `${location.origin}/station?account=${encodeURIComponent(issued.id)}&key=${encodeURIComponent(issued.key)}`;
-  const message = `Hi ${issued.label}, here is your private RUANGKOTAK Station link: ${link}\n\nIt shows your content jobs and what is waiting in final review, updated through the day. Please keep it to yourself: anyone with the link can see your page.`;
+  const message = `Hi ${issued.label}, here is your private RUANGKOTAK KNOX Mission Control link: ${link}\n\nIt shows your content jobs and what is waiting in final review, updated through the day. Please keep it to yourself: anyone with the link can see your page.`;
   return (
     <section className="st-card px-3.5 py-3" style={{ borderColor: "var(--mark)" }} aria-live="polite">
       <h2 className="text-[13px]" style={{ fontWeight: 500 }}>{issued.fresh ? `${issued.label} is set up` : `New link for ${issued.label}`}</h2>
@@ -91,7 +91,7 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
         }
       }}
     >
-      <h2 className="flex items-center gap-2 text-[13px]" style={{ fontWeight: 500 }}><UserPlus size={16} aria-hidden /> Add a client</h2>
+      <h2 className="flex items-center gap-2 text-[13px]" style={{ fontWeight: 500 }}><UserPlus size={16} aria-hidden /> KNOX Add a client</h2>
       <p className="mt-1 text-[12px] text-muted">
         They get a private link to their own page: their content jobs and what is waiting in final review. Their reel velocity
         and final-review jobs start on your laptop by themselves; no deploy, no settings to change.
@@ -230,7 +230,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         <button type="button" disabled={!!busy} onClick={() => act(paused ? "resume" : "pause", {}, paused ? undefined : `Pause ${c.label}? Their link stops working and their jobs stop until you resume.`)} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] text-muted hover:text-ink disabled:opacity-40">
           {paused ? <PlayCircle size={14} aria-hidden /> : <PauseCircle size={14} aria-hidden />} {paused ? "Resume" : "Pause"}
         </button>
-        <button type="button" disabled={!!busy} onClick={() => act("remove", {}, `Remove ${c.label} from Station? Their link and jobs stop for good. Files in your vault are kept.`)} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] text-bad hover:underline disabled:opacity-40">
+        <button type="button" disabled={!!busy} onClick={() => act("remove", {}, `Remove ${c.label} from KNOX? Their link and jobs stop for good. Files in your vault are kept.`)} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] px-2.5 text-[12px] text-bad hover:underline disabled:opacity-40">
           <Trash size={14} aria-hidden /> Remove
         </button>
       </div>
@@ -246,7 +246,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/station/clients", { cache: "no-store", credentials: "same-origin" });
-      if (!res.ok) throw new Error(`Station answered ${res.status}`);
+      if (!res.ok) throw new Error(`KNOX answered ${res.status}`);
       setClients(((await res.json()) as { clients: Client[] }).clients);
       setError(null);
     } catch (err) {
@@ -265,7 +265,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
     <div className="flex flex-col gap-3">
       {issued ? <IssuedLink issued={issued} onDone={() => setIssued(null)} /> : <AddClient onAdded={(i) => (setIssued(i), changed())} />}
       {error && <p className="text-[12px] text-bad" role="alert">Could not load clients: {error}</p>}
-      {clients && !clients.length && <p className="text-[12px] text-muted">No clients added from Station yet. Add the first one above.</p>}
+      {clients && !clients.length && <p className="text-[12px] text-muted">No clients added to KNOX yet. Add the first one above.</p>}
       <ul className="grid gap-3 lg:grid-cols-2">
         {clients?.map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} />)}
       </ul>

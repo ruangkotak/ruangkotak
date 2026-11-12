@@ -47,7 +47,7 @@ function Update({ p, now }: { p: Panel; now: number }) {
   return (
     <div className="st-card px-3.5 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="label">Update to send</span>
+        <span className="label">KNOX Update to send</span>
         <button
           type="button"
           onClick={async () => {
@@ -75,7 +75,7 @@ export function AccountPanel({ p, now, client }: { p: Panel; now: number; client
       <h2 id="account-panel" className="sr-only">{p.label}</h2>
       <div className="st-card px-3.5 py-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="label">This week</span>
+          <span className="label">KNOX This week</span>
           <span className="text-[11px] text-muted">{p.checkedAt ? `reels checked ${dur(now - Date.parse(p.checkedAt))} ago` : "reels not checked yet"}</span>
         </div>
         <div className="mt-2.5 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -88,7 +88,7 @@ export function AccountPanel({ p, now, client }: { p: Panel; now: number; client
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         <div className="st-card px-3.5 py-3">
-          <span className="label">{client ? "Your reels" : `${p.label} · reels`}</span>
+          <span className="label">KNOX {client ? "Your reels" : `${p.label} · reels`}</span>
           {p.reels.length ? (
             <>
               <div className="mt-2.5"><Trend points={p.trend} /></div>
@@ -111,7 +111,7 @@ export function AccountPanel({ p, now, client }: { p: Panel; now: number; client
         </div>
 
         <div className="st-card px-3.5 py-3">
-          <span className="label">In final review</span>
+          <span className="label">KNOX In final review</span>
           {p.review.items.length ? (
             <ul className="mt-2 flex flex-col gap-1.5">
               {p.review.items.map((x, i) => (
@@ -122,7 +122,7 @@ export function AccountPanel({ p, now, client }: { p: Panel; now: number; client
               ))}
             </ul>
           ) : <p className="mt-2 text-[12px] text-muted">Nothing waiting for final review.</p>}
-          <span className="label mt-4 block">Delivered recently</span>
+          <span className="label mt-4 block">KNOX Delivered recently</span>
           {p.review.delivered.length ? (
             <ul className="mt-2 flex flex-col gap-1.5">
               {p.review.delivered.map((x, i) => (
