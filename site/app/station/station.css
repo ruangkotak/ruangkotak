@@ -53,3 +53,30 @@
 }
 @keyframes st-spin { to { transform: rotate(360deg); } }
 @keyframes st-pulse { 50% { opacity: 0.35; } }
+
+/* Stage avatars: one small box per stage (kotak = box). State is carried by the flag, the border and the label,
+   never by colour or motion alone. */
+.st-bot { position: relative; display: inline-block; width: 34px; height: 36px; flex: none; color: var(--bot, var(--muted)); }
+.st-bot-body { position: absolute; inset: 0 0 7px 0; border: 2px solid currentColor; border-radius: 8px; background: var(--surface); }
+.st-bot-body i { position: absolute; top: 9px; width: 5px; height: 7px; border-radius: 2px; background: currentColor; }
+.st-bot-body i:first-child { left: 7px; } .st-bot-body i:last-child { right: 7px; }
+.st-bot-legs i { position: absolute; bottom: 0; width: 5px; height: 7px; border-radius: 0 0 2px 2px; background: currentColor; }
+.st-bot-legs i:first-child { left: 8px; } .st-bot-legs i:last-child { right: 8px; }
+.st-bot-flag { position: absolute; z-index: 1; top: -8px; right: -8px; width: 16px; height: 16px; border-radius: 50%; font: 700 10.5px/16px ui-monospace, Menlo, monospace; text-align: center; color: var(--on-solid); display: none; }
+.st-bot[data-state="waiting"] .st-bot-flag { display: block; background: var(--mark); }
+.st-bot[data-state="late"] .st-bot-flag { display: block; background: var(--bad); }
+.st-bot[data-state="late"] .st-bot-body { border-style: dashed; }
+.st-bot[data-state="asleep"] { opacity: 0.45; }
+.st-bot[data-state="asleep"] .st-bot-body i { height: 2px; top: 13px; }
+@media (prefers-reduced-motion: no-preference) {
+  .st-bot[data-state="idle"] .st-bot-body i, .st-bot[data-state="waiting"] .st-bot-body i { animation: st-blink 4.2s infinite; }
+  .st-bot[data-state="waiting"] .st-bot-body { animation: st-nod 0.9s ease-in-out infinite alternate; }
+  /* A stage that just handed work on: one short walk towards the next stage and back. */
+  .st-bot[data-moved] { animation: st-walk 1.6s ease-in-out; }
+  .st-bot[data-moved] .st-bot-legs i:first-child { animation: st-step 0.3s infinite alternate; }
+  .st-bot[data-moved] .st-bot-legs i:last-child { animation: st-step 0.3s infinite alternate-reverse; }
+}
+@keyframes st-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes st-nod { to { transform: translateY(-2px); } }
+@keyframes st-walk { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(26px); } }
+@keyframes st-step { to { height: 3px; } }

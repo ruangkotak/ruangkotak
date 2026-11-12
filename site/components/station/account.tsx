@@ -1,7 +1,8 @@
 "use client";
 
-import { ArrowUpRight, CheckCircle, HourglassMedium } from "@phosphor-icons/react";
-import type { AccountPanel as Panel } from "@/lib/station";
+import { ArrowUpRight, Check, CheckCircle, Copy, HourglassMedium } from "@phosphor-icons/react";
+import { useState } from "react";
+import { clientUpdate, type AccountPanel as Panel } from "@/lib/station";
 import { dur } from "./parts";
 
 const compact = (n: number) =>
@@ -36,6 +37,34 @@ function Trend({ points }: { points: Panel["trend"] }) {
         <span>{day(last.at)} · {compact(last.median)}</span>
       </figcaption>
     </figure>
+  );
+}
+
+/** Owner only: the week as plain text, to copy into a message. You send it yourself. */
+function Update({ p, now }: { p: Panel; now: number }) {
+  const [copied, setCopied] = useState(false);
+  const text = clientUpdate(p, new Date(now));
+  return (
+    <div className="st-card px-3.5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="label">Update to send</span>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1800);
+            } catch {}
+          }}
+          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
+        >
+          {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {copied ? "Copied" : "Copy update"}
+        </button>
+      </div>
+      <pre className="mono mt-2 rounded-[6px] border border-line bg-[var(--raised)] px-2.5 py-2 text-[11.5px] leading-[1.55] whitespace-pre-wrap break-words">{text}</pre>
+      <p className="mt-2 text-[11px] text-muted">Only you see this box. It uses the same numbers as this page; add your own words before sending.</p>
+    </div>
   );
 }
 
@@ -106,6 +135,7 @@ export function AccountPanel({ p, now, client }: { p: Panel; now: number; client
           ) : <p className="mt-2 text-[12px] text-muted">Nothing delivered in the last 30 days{client ? " yet" : ""}.</p>}
         </div>
       </div>
+      {!client && <Update p={p} now={now} />}
     </section>
   );
 }
