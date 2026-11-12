@@ -28,6 +28,19 @@ is a 404 to anyone without a key.
   about 5 minutes. Invoices, content review, prices and links have no button
   and are cleared where they live. Post is not counted yet (nothing
   reports a reel as posted). Clients never see this tab.
+- **Stage avatars:** each stage has a small box character (Scout, Host,
+  Maker, Courier, Clerk). A yellow `!` means work is waiting on you, a red
+  `×` means it is past its window, dimmed means the stage is not counted
+  yet. When a stage's count drops between two reads, its avatar takes one
+  short walk.
+- **Update to send:** viewing one account as the owner shows its week as
+  plain text with a Copy button. It uses only what the client page already
+  shows, never prices. You send it yourself.
+- **Carousel studio:** `/station/carousel` (owner only, linked beside the
+  account pills). Paste a script, one line per slide, add product photos,
+  pick one of five grid backgrounds and six colours, then download up to 8
+  PNGs (1080 × 1350) as a zip and copy the caption and hashtags. Everything
+  is drawn in the browser: nothing is uploaded or stored.
 - **Dates:** a final-review line can carry `due 2026-11-20` (draft to the
   client) and `post 2026-11-25`. Needs me sorts by the due date and marks a
   missed one.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown, Check, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
 } from "@phosphor-icons/react";
@@ -287,7 +287,39 @@ export function Log({ events, showSource }: { events: StationEvent[]; showSource
 
 const shortDay = (ymd: string) => new Date(`${ymd}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
+// One avatar per stage. Scout finds, Host sets up, Maker makes, Courier posts, Clerk bills.
+const STAGE_BOT: Record<StageView["id"], { name: string; color: string }> = {
+  audience: { name: "Scout", color: "#8fc98a" }, onboard: { name: "Host", color: "#7fb8d8" }, make: { name: "Maker", color: "#fff347" },
+  post: { name: "Courier", color: "#d9a36a" }, paid: { name: "Clerk", color: "#c9a3e0" },
+};
+const BOT_WORD = { late: "past its window", asleep: "not counting yet", waiting: "waiting on you", idle: "nothing waiting" } as const;
+
+function StageBot({ s, moved }: { s: StageView; moved: boolean }) {
+  const bot = STAGE_BOT[s.id];
+  const state = s.overdue ? "late" : s.waiting === null ? "asleep" : s.waiting > 0 ? "waiting" : "idle";
+  return (
+    <span className="st-bot" data-state={state} data-moved={moved || undefined} style={{ "--bot": bot.color } as React.CSSProperties} role="img" aria-label={`${bot.name}: ${BOT_WORD[state]}`}>
+      <span className="st-bot-flag" aria-hidden>{state === "late" ? "×" : "!"}</span>
+      <span className="st-bot-body" aria-hidden><i /><i /></span>
+      <span className="st-bot-legs" aria-hidden><i /><i /></span>
+    </span>
+  );
+}
+
 export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
+  // When a stage's count drops between two reads, its avatar takes one short walk: work moved on.
+  const before = useRef<Record<string, number | null>>({});
+  const [moved, setMoved] = useState<string[]>([]);
+  const counts = stages.map((s) => `${s.id}:${s.waiting}`).join(",");
+  useEffect(() => {
+    const went = stages.filter((s) => { const was = before.current[s.id]; return typeof was === "number" && s.waiting !== null && s.waiting < was; }).map((s) => s.id);
+    before.current = Object.fromEntries(stages.map((s) => [s.id, s.waiting]));
+    if (!went.length) return;
+    setMoved(went);
+    const t = setTimeout(() => setMoved([]), 1700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts]);
   return (
     <section aria-label="The five stages" className="st-card px-3.5 py-3">
       <div className="label mb-2.5">Stages</div>
@@ -298,10 +330,14 @@ export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
               <span className="text-[12px] tracking-[0.08em] uppercase"><span className="num mr-1.5 text-muted">{s.no}</span>{s.name}</span>
               <span className={`num text-[20px] leading-none ${s.overdue ? "text-bad" : s.waiting ? "text-mark" : "text-muted"}`}>{s.waiting ?? "–"}</span>
             </div>
-            <div className="mt-1 text-[11px] text-muted">
-              {s.waiting === null ? (s.parts.length ? "no read path yet" : "not counted yet") : s.waiting === 0 ? "nothing waiting" : `${s.waiting} waiting${s.oldestAt ? ` · oldest ${dur(now - Date.parse(s.oldestAt))}` : ""}`}
+            <div className="mt-2.5 flex items-center gap-2.5">
+              <StageBot s={s} moved={moved.includes(s.id)} />
+              <div className="min-w-0 text-[11px] text-muted">
+                <div className="text-ink">{STAGE_BOT[s.id].name}</div>
+                {s.waiting === null ? (s.parts.length ? "no read path yet" : "not counted yet") : s.waiting === 0 ? "nothing waiting" : `${s.waiting} waiting${s.oldestAt ? ` · oldest ${dur(now - Date.parse(s.oldestAt))}` : ""}`}
+              </div>
             </div>
-            {s.parts.length > 0 && <div className="mt-0.5 text-[11px] text-muted">{s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(" · ")}</div>}
+            {s.parts.length > 0 && <div className="mt-2 text-[11px] text-muted">{s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(" · ")}</div>}
             {s.note && <div className="mt-0.5 text-[11px] leading-snug text-muted">{s.note}</div>}
           </li>
         ))}

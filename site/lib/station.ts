@@ -514,6 +514,27 @@ export function accountPanel(label: string, snaps: ReelSnapshot[], finalGate: Ga
   };
 }
 
+/**
+ * Pure: a short update for one account, in plain text, ready to copy and send. Built only from what the page already
+ * shows the client: the week, what is in final review and what was delivered. No prices.
+ */
+export function clientUpdate(p: AccountPanel, now: Date): string {
+  const day = (iso: string) => new Date(Date.parse(iso) + TZ).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  const top = [...p.reels].sort((a, b) => b.views - a.views)[0];
+  const list = (xs: GateItem[], dated: boolean) => xs.map((x) => `  • ${x.label}${dated ? ` (${day(x.at)})` : ""}`);
+  return [
+    `${p.label} · update for the 7 days to ${day(now.toISOString())}`,
+    "",
+    `Reels posted: ${p.week.posted}`,
+    `Plays gained across tracked reels: ${p.week.playsGained === null ? "not enough checks yet" : `+${p.week.playsGained.toLocaleString("en-MY")}`}`,
+    `Passed final review: ${p.week.delivered}`,
+    `Waiting in final review: ${p.review.items.length}`,
+    ...list(p.review.items, false),
+    ...(p.review.delivered.length ? ["", "Delivered in the last 30 days:", ...list(p.review.delivered, true)] : []),
+    ...(top ? ["", `Most played reel: ${top.views.toLocaleString("en-MY")} plays · ${top.url}`] : []),
+  ].join("\n");
+}
+
 export type SnapshotInput = {
   registry: Registry;
   view: View;

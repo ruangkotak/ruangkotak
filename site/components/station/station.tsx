@@ -120,6 +120,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
                   {a.label}
                 </button>
               ))}
+              {canSwitch && <a href="/station/carousel" className="px-2 py-1 text-[12px] text-muted underline underline-offset-2 hover:text-ink">carousel studio</a>}
               {snap.view.account !== "all" && snap.accounts.find((a) => a.id === snap.view.account)?.kind !== "internal" && (
                 <button onClick={() => switchTo(`view=client&account=${encodeURIComponent(snap.view.account)}`)} className="px-2 py-1 text-[12px] text-muted underline underline-offset-2 hover:text-ink">
                   preview as client

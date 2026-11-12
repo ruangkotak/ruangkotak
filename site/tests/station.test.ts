@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, clientTerms, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -596,4 +596,35 @@ test("Done keys name a checklist file and nothing else", () => {
   assert.equal(doneFile("dm", account("alanazizreview", "alanazizreview")), "dm-queue-alanazizreview.md");
   assert.equal(doneFile("drafts", account("internal")), "drafts-queue.md");
   assert.equal(doneFile("review", account("internal")), undefined);
+});
+
+test("the update to send uses only what the client page already shows", () => {
+  const panel = accountPanel("Kopi Kita", [{ at: NOW.toISOString(), reels: [{ url: "https://www.instagram.com/reel/A/", at: minutes(-60).toISOString(), views: 1200 }, { url: "https://www.instagram.com/reel/B/", at: minutes(-90).toISOString(), views: 300 }] }],
+    { waiting: 1, at: NOW.toISOString(), items: [{ label: "Reel 3", at: NOW.toISOString() }], delivered: [{ label: "Reel 2", at: minutes(-120).toISOString() }] }, NOW);
+  const text = clientUpdate(panel, NOW);
+  assert.match(text, /^Kopi Kita · update for the 7 days to 7 Nov/);
+  assert.match(text, /Reels posted: 2\nPlays gained across tracked reels: not enough checks yet\nPassed final review: 1\nWaiting in final review: 1\n  • Reel 3/);
+  assert.match(text, /Delivered in the last 30 days:\n  • Reel 2 \(7 Nov\)/);
+  assert.match(text, /Most played reel: 1,200 plays · https:\/\/www\.instagram\.com\/reel\/A\//);
+  assert.ok(!/RM|price/i.test(text));
+});
+
+// ---------- carousel studio (pure parts) ----------
+
+test("carousel: a script becomes a cover, body slides and an end page, eight at most", async () => {
+  const { assignPhotos, captionFrom, slidesFrom, zip, MAX_SLIDES } = await import("../lib/carousel.ts");
+  const slides = slidesFrom("HOOK: stop buying mics\nfirst point\nAVOID: weak hook\n\nsecond point\nCTA: comment SETUP", "@kopikita");
+  assert.deepEqual(slides.map((s) => [s.kind, s.head]), [["cover", "Stop buying mics"], ["body", "First point"], ["body", "Second point"], ["end", "Comment SETUP"]]);
+  assert.equal(slides.at(-1)!.body, "Follow @kopikita for more");
+  assert.equal(slidesFrom(Array.from({ length: 20 }, (_, i) => `line ${i}`).join("\n"), "").length, MAX_SLIDES);
+  assert.deepEqual(slidesFrom("", "").map((s) => s.kind), ["cover", "end"]);
+  assert.equal(captionFrom(slides), "Stop buying mics\n\n→ First point\n→ Second point\n\nComment SETUP");
+  // Photos fill the slides in order and never land on the end page.
+  assert.deepEqual(assignPhotos(slides, 2).map((s) => s.img), [0, 1, null, null]);
+  assert.deepEqual(assignPhotos(slides.map((s, i) => (i === 0 ? { ...s, img: 5 } : s)), 1).map((s) => s.img), [0, null, null, null]);
+  // The zip starts with a local file header and ends with the end-of-central-directory record for one file.
+  const z = zip([{ name: "a.png", data: new Uint8Array([1, 2, 3]) }]);
+  assert.deepEqual([...z.slice(0, 4)], [0x50, 0x4b, 0x03, 0x04]);
+  assert.equal(new DataView(z.buffer).getUint16(z.length - 22 + 10, true), 1);
+  assert.equal(z.length, 30 + 5 + 3 + 46 + 5 + 22);
 });
