@@ -10,7 +10,13 @@ deploys to production (Vercel Root Directory is `site`).
     npm install
     npm run dev        # http://localhost:3100
 
-## Station (private ops board)
+## KNOX Mission Control (private ops board, formerly Station)
+
+The board is shown as **KNOX Mission Control**, and every section heading on
+it starts with KNOX (KNOX Stages, KNOX CMO, KNOX Infra …). Only the visible
+name changed: the address is still `/station`, and the code, API routes, env
+vars, job ids and the `Station/` notes folder keep their names. The rest of
+this section still says "Station" when it means those.
 
 `/station` shows every department, desk, scheduled job, approval gate and
 infra probe on one screen, for @alanazizreview and for paying clients. It

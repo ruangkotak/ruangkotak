@@ -11,7 +11,7 @@ import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pi
 const POLL_MS = 30_000;
 const TABS = [
   { id: "needs", label: "Needs me", Icon: Tray }, // owner only: the one queue, and where the owner lands
-  { id: "station", label: "Station", Icon: Broadcast },
+  { id: "station", label: "Mission", Icon: Broadcast },
   { id: "jobs", label: "Jobs", Icon: ListChecks }, // jobs, then the desks and agents behind them
   { id: "alerts", label: "Alerts", Icon: Bell },
   { id: "clients", label: "Clients", Icon: Handshake }, // owner only
@@ -74,11 +74,11 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
     try {
       const res = await fetch("/api/station/done", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ key: n.key }), credentials: "same-origin" });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (!res.ok || !data.ok) return data.error ?? `Station answered ${res.status}`;
+      if (!res.ok || !data.ok) return data.error ?? `KNOX answered ${res.status}`;
       await load();
       return null;
     } catch {
-      return "Could not reach Station. Nothing was changed.";
+      return "Could not reach KNOX. Nothing was changed.";
     }
   }, [load]);
 
@@ -160,7 +160,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           <section aria-label="Desks and agents" className="order-last grid gap-3 md:grid-cols-2">
             {snap.departments.map((d) => (
               <div key={d.id} className="st-card px-3.5 py-3">
-                <h2 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">{d.no}</span>{d.name}</h2>
+                <h2 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">{d.no}</span>KNOX {d.name}</h2>
                 <ul className="mt-2 divide-y divide-line">
                   {d.desks.map((k) => {
                     const jobs = d.jobs.filter((j) => j.desk === k.id);
@@ -214,7 +214,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
             {snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
             <NeedsYouList items={snap.needsYou} />
             <section className="st-card px-3.5 py-3">
-              <h2 className="label">Late or failed once</h2>
+              <h2 className="label">KNOX Late or failed once</h2>
               <ul className="mt-2 flex flex-col gap-1.5 text-[12.5px]">
                 {allJobs.filter((j) => j.state === "failing" || j.state === "due").map((j) => (
                   <li key={j.id}><span className="mono">{j.id}</span> <span className="text-muted">· {j.deskName} · {j.reason ?? jobTag(j, now)}</span></li>
@@ -227,7 +227,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
         )}
       </main>
 
-      <nav aria-label="Station sections" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="KNOX Mission Control sections" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur pb-[env(safe-area-inset-bottom)]">
         <ul className={`mx-auto grid max-w-[640px] ${canSwitch ? "grid-cols-5" : "grid-cols-3"}`}>
           {TABS.filter((t) => !OWNER_ONLY.has(t.id) || canSwitch).map(({ id, label, Icon }) => (
             <li key={id}>

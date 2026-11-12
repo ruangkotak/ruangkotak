@@ -404,8 +404,8 @@ test("the message lists what is new, then what cleared, then the link", () => {
   const prev = { b: { title: "Billing Clerk: 1 invoice past due", at: NOW.toISOString() } };
   const plan = planAlerts([{ ...N("a", "Security Officer: credential-registry failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
   assert.equal(alertText(plan, "https://ruangkotak.com/station#alerts"),
-    "Station needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#alerts");
-  assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^Station: cleared\n✓ Billing Clerk/);
+    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#alerts");
+  assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^KNOX: cleared\n✓ Billing Clerk/);
 });
 
 test("a slow site and a laptop closed overnight are not alerts; a laptop quiet for 12 hours is", () => {

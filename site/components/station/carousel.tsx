@@ -87,8 +87,8 @@ export function Carousel() {
     <div className="rk-station min-h-[100dvh] bg-bg text-ink">
       <main className="mx-auto flex max-w-[1080px] flex-col gap-3 px-4 pt-4 pb-16 md:px-6">
         <header className="st-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3">
-          <h1 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>Carousel studio</h1>
-          <a href="/station" className="inline-flex min-h-[40px] items-center gap-1.5 text-[12px] text-muted hover:text-ink"><ArrowLeft size={14} aria-hidden /> Back to Station</a>
+          <h1 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX Carousel studio</h1>
+          <a href="/station" className="inline-flex min-h-[40px] items-center gap-1.5 text-[12px] text-muted hover:text-ink"><ArrowLeft size={14} aria-hidden /> Back to KNOX Mission Control</a>
         </header>
 
         <section className="st-card px-3.5 py-3">
@@ -107,7 +107,7 @@ export function Carousel() {
         </section>
 
         <section className="st-card px-3.5 py-3">
-          <div className="label mb-2.5">Slides · {deck.slides.length} of {MAX_SLIDES}</div>
+          <div className="label mb-2.5">KNOX Slides · {deck.slides.length} of {MAX_SLIDES}</div>
           <div ref={strip} className="flex gap-2.5 overflow-x-auto pb-1.5">
             {deck.slides.map((s, i) => (
               <button key={i} type="button" onClick={() => setSel(i)} aria-label={`Slide ${i + 1}: ${s.head}`} aria-pressed={i === sel} className={`shrink-0 rounded-[8px] border-2 ${i === sel ? "border-mark" : "border-line"}`}>
@@ -142,11 +142,11 @@ export function Carousel() {
 
         <div className="grid gap-3 lg:grid-cols-2">
           <section className="st-card px-3.5 py-3">
-            <div className="label mb-2">Background</div>
+            <div className="label mb-2">KNOX Background</div>
             <div className="flex flex-wrap gap-1.5">
               {BACKGROUNDS.map(([id, label]) => <button key={id} type="button" aria-pressed={deck.bg === id} className={pillClass(deck.bg === id)} onClick={() => setDeck((d) => ({ ...d, bg: id as Background }))}>{label}</button>)}
             </div>
-            <div className="label mt-3.5 mb-2">Colour</div>
+            <div className="label mt-3.5 mb-2">KNOX Colour</div>
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(PALETTES).map(([id, p]) => (
                 <button key={id} type="button" aria-pressed={deck.pal === id} className={pillClass(deck.pal === id)} onClick={() => setDeck((d) => ({ ...d, pal: id }))}>
@@ -174,7 +174,7 @@ export function Carousel() {
               <CopyButton text={tags} label="Copy hashtags" />
               <CopyButton text={[caption, tags].filter(Boolean).join("\n\n")} label="Copy both" />
             </div>
-            <p className="mt-2 text-[11px] text-muted">The caption starts as your slide headlines. Rewrite it in your own voice. Hashtags are yours to choose: Station does not guess them.</p>
+            <p className="mt-2 text-[11px] text-muted">The caption starts as your slide headlines. Rewrite it in your own voice. Hashtags are yours to choose: KNOX does not guess them.</p>
           </section>
         </div>
 

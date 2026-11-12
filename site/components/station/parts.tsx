@@ -102,6 +102,7 @@ export function TopBar({ s, now, online }: { s: Snapshot; now: number; online: b
   return (
     <header className="st-card grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 px-3.5 py-3 sm:flex sm:justify-between">
       <div className="flex items-center gap-2">
+        <h1 className="mr-1 text-[13px] uppercase" style={{ fontWeight: 600, letterSpacing: "0.1em" }}><span className="text-mark">KNOX</span> Mission Control</h1>
         <span className={`h-2 w-2 rounded-full ${online ? "st-pulse bg-good" : "bg-bad"}`} aria-hidden />
         <span className="text-[12px] tracking-[0.06em]">{online ? "ONLINE" : "OFFLINE"}</span>
         <span className="text-[11px] text-muted">{s.top.source ? `from ${s.top.source}` : s.view.mode === "client" ? "client view" : "no source yet"}</span>
@@ -135,7 +136,7 @@ export function Gates({ gates, now }: { gates: GateView[]; now: number }) {
   if (!gates.length) return null;
   return (
     <section aria-label="Approval gates" className="st-card px-3.5 py-3">
-      <div className="label mb-2.5">Gates</div>
+      <div className="label mb-2.5">KNOX Gates</div>
       <ul className={`grid gap-2 sm:grid-cols-2 ${GATE_COLS[gates.length] ?? "lg:grid-cols-3"}`}>
         {gates.map((g) => {
           const next = until(g.nextReviewAt, now);
@@ -168,7 +169,7 @@ function Funnel({ f }: { f: Snapshot["funnel"] }) {
   const top = Math.max(1, ...Object.values(week)); // scale to the biggest step: home views can be fewer (e.g. direct links)
   return (
     <div className="mt-3 border-t border-line pt-2.5">
-      <div className="label mb-1.5">Site funnel · 7 days</div>
+      <div className="label mb-1.5">KNOX Site funnel · 7 days</div>
       <ol className="grid grid-cols-5 gap-1.5">
         {FUNNEL.map(([k, name]) => (
           <li key={k} className="flex flex-col gap-1">
@@ -188,7 +189,7 @@ export function DeptCard({ d, now, funnel, showAccount, className = "" }: { d: D
     <section aria-labelledby={`dept-${d.id}`} className={`st-card @container min-w-0 px-3.5 py-3 ${className}`}>
       <div className="flex items-baseline justify-between gap-2">
         <h2 id={`dept-${d.id}`} className="text-[13px] tracking-[0.06em] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-          <span className="num mr-1.5 text-muted">{d.no}</span>{d.name}
+          <span className="num mr-1.5 text-muted">{d.no}</span>KNOX {d.name}
         </h2>
         <span className="label">Jobs</span>
       </div>
@@ -219,7 +220,7 @@ const PROBE_WORD = { ok: "OK", degraded: "DEGRADED", down: "DOWN", "no-probe": "
 export function Infra({ probes }: { probes: Probe[] }) {
   return (
     <section aria-labelledby="infra" className="st-card px-3.5 py-3">
-      <h2 id="infra" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">08</span>Infra</h2>
+      <h2 id="infra" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">08</span>KNOX Infra</h2>
       <ul className="mt-2.5 grid grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-6">
         {probes.map((p) => (
           <li key={p.id} className="st-tile st-desk px-2.5 py-2" data-state={p.status === "down" ? "stuck" : p.status === "no-probe" ? "no-read" : undefined}
@@ -241,7 +242,7 @@ export function NeedsYouList({ items, no = "09" }: { items: NeedsYou[]; no?: str
   return (
     <section aria-labelledby="needs" className="st-card px-3.5 py-3">
       <h2 id="needs" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-        <span className="num mr-1.5 text-muted">{no}</span>Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
+        <span className="num mr-1.5 text-muted">{no}</span>KNOX Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
       </h2>
       {items.length ? (
         <ul className="mt-2 flex flex-col gap-1.5">
@@ -264,7 +265,7 @@ export function Log({ events, showSource }: { events: StationEvent[]; showSource
   return (
     <section aria-labelledby="log" className="st-card px-3.5 py-3">
       <div className="flex items-baseline justify-between">
-        <h2 id="log" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">10</span>Log</h2>
+        <h2 id="log" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}><span className="num mr-1.5 text-muted">10</span>KNOX Log</h2>
         <span className="label flex items-center gap-1">newest at the bottom <ArrowDown size={10} aria-hidden /> · MYT</span>
       </div>
       {lines.length ? (
@@ -322,7 +323,7 @@ export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
   }, [counts]);
   return (
     <section aria-label="The five stages" className="st-card px-3.5 py-3">
-      <div className="label mb-2.5">Stages</div>
+      <div className="label mb-2.5">KNOX Stages</div>
       <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
         {stages.map((s) => (
           <li key={s.id} className={`st-tile px-3 py-2.5 ${s.overdue ? "st-desk" : ""}`} data-state={s.overdue ? "stuck" : undefined}>
@@ -359,7 +360,7 @@ export function NeedsMeList({ items, now, onDone }: { items: NeedsMe[]; now: num
   return (
     <section aria-labelledby="needs-me" className="st-card px-3.5 py-3">
       <h2 id="needs-me" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-        Needs me · <span className={items.length ? "text-mark" : "text-good"}>{items.length}</span>
+        KNOX Needs me · <span className={items.length ? "text-mark" : "text-good"}>{items.length}</span>
       </h2>
       {items.length ? (
         <ul className="mt-2 divide-y divide-line">
