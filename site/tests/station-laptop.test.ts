@@ -15,7 +15,7 @@ import { applyDecision } from "../scripts/station/jobs/draft-review.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
-import { hasStatus, readBoard, review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
+import { clientOf, hasStatus, readBoard, review, statusOf, type Post } from "../scripts/station/jobs/board-completeness.mts";
 import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks.mts";
 import { markNewLines, markerOf } from "../scripts/station/queue.mts";
 import { formatMoney, parseCosts, parseInvoices, parseMoney, total, withoutComments, INVOICES_TEMPLATE, COSTS_TEMPLATE } from "../scripts/station/ledger.mts";
@@ -518,4 +518,9 @@ test("a rejected draft is not waiting for review or to be posted", () => {
 test("draft paths cannot leave content/", () => {
   assert.equal(DRAFT_FILE.test("2026-11-13/post.md"), true);
   for (const bad of ["../x.md", "2026-11-13/../../x.md", "/etc/passwd", "2026-11-13/a/b.md", "2026-11-13/post.txt"]) assert.equal(DRAFT_FILE.test(bad), false, bad);
+});
+
+test("a draft's client is the first word after **Client:**", () => {
+  assert.equal(clientOf("**Pillar:** Reviews · **Audience:** Followers · **Client:** alan-review (final review in Station/x.md)\n"), "alan-review");
+  assert.equal(clientOf("**Pillar:** Reviews · **Platform:** YouTube"), "");
 });

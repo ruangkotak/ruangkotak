@@ -1,21 +1,20 @@
 "use client";
 
-import { Bell, Broadcast, Handshake, ListChecks, Tray } from "@phosphor-icons/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Snapshot } from "@/lib/station";
 import { AccountPanel } from "./account";
 import { Clients } from "./clients";
 import { TelegramPanel } from "./telegram";
 import { DraftReview } from "./drafts";
-import { DeptCard, dur, Gates, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pips, Stages, TopBar } from "./parts";
+import { DeptCard, dur, Gates, HealthStats, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pips, Stages, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
 const TABS = [
-  { id: "needs", label: "Needs me", Icon: Tray }, // owner only: the one queue, and where the owner lands
-  { id: "station", label: "Mission", Icon: Broadcast },
-  { id: "jobs", label: "Jobs", Icon: ListChecks }, // jobs, then the desks and agents behind them
-  { id: "alerts", label: "Alerts", Icon: Bell },
-  { id: "clients", label: "Clients", Icon: Handshake }, // owner only
+  { id: "needs", label: "Needs me" }, // owner only: the one queue, and where the owner lands
+  { id: "station", label: "Mission" },
+  { id: "jobs", label: "Jobs" }, // jobs, then the desks and agents behind them
+  { id: "alerts", label: "Alerts" },
+  { id: "clients", label: "Clients" }, // owner only
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 const OWNER_ONLY = new Set<Tab>(["needs", "clients"]);
@@ -105,8 +104,21 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
   return (
     <div className="rk-station min-h-[100dvh] bg-bg text-ink">
-      <main className="mx-auto flex max-w-[1280px] flex-col gap-3 px-4 pt-4 pb-28 md:px-6">
+      <main className="mx-auto flex max-w-[1280px] flex-col gap-3 px-4 pt-4 pb-10 md:px-6">
         <TopBar s={snap} now={now} online={online} />
+
+        <nav aria-label="KNOX Mission Control sections" className="flex flex-wrap items-center gap-1.5">
+          {TABS.filter((t) => !OWNER_ONLY.has(t.id) || canSwitch).map(({ id, label }) => {
+            const count = id === "alerts" ? alerts : id === "needs" ? waiting : 0;
+            return (
+              <button key={id} onClick={() => pick(id)} aria-current={shown === id ? "page" : undefined}
+                className={`rounded-full border px-3.5 py-1.5 text-[13px] ${shown === id ? "border-mark text-mark" : "border-line text-muted hover:text-ink"}`}>
+                {label}
+                {count > 0 && <span className={`num ml-1.5 ${id === "alerts" ? "text-bad" : "text-mark"}`}>{count}</span>}
+              </button>
+            );
+          })}
+        </nav>
 
         <nav aria-label="Account" className="flex flex-wrap items-center gap-1.5">
           {client ? (
@@ -141,6 +153,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
         {shown === "station" && (
           <>
+            {!client && <HealthStats s={snap} now={now} />}
             {snap.stages && <Stages stages={snap.stages} now={now} />}
             {snap.account && <AccountPanel p={snap.account} now={now} client={client} />}
             <Gates gates={snap.gates} now={now} />
@@ -229,21 +242,6 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
         )}
       </main>
 
-      <nav aria-label="KNOX Mission Control sections" className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-[color-mix(in_oklab,var(--bg)_88%,transparent)] backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        <ul className={`mx-auto grid max-w-[640px] ${canSwitch ? "grid-cols-5" : "grid-cols-3"}`}>
-          {TABS.filter((t) => !OWNER_ONLY.has(t.id) || canSwitch).map(({ id, label, Icon }) => (
-            <li key={id}>
-              <button onClick={() => pick(id)} aria-current={tab === id ? "page" : undefined}
-                className={`relative flex min-h-[56px] w-full flex-col items-center justify-center gap-1 text-[10.5px] tracking-[0.1em] uppercase ${tab === id ? "text-ink" : "text-muted"}`}>
-                <Icon size={18} weight={tab === id ? "fill" : "regular"} aria-hidden />
-                {label}
-                {id === "alerts" && alerts > 0 && <span className="num absolute top-2 right-[calc(50%-20px)] rounded-full bg-bad px-1.5 text-[9.5px] leading-[15px] text-on-solid">{alerts}</span>}
-                {id === "needs" && waiting > 0 && <span className="num absolute top-2 right-[calc(50%-20px)] rounded-full bg-[var(--mark)] px-1.5 text-[9.5px] leading-[15px] text-on-solid">{waiting}</span>}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </div>
   );
 }

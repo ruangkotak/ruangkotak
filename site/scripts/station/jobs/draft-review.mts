@@ -50,7 +50,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       .filter((p) => !WAITING.has(p.status))
       .sort((a, b) => b.day.localeCompare(a.day))
       .slice(0, DRAFT_LIST_MAX)
-      .map((p) => ({ file: p.file, day: p.day, title: p.title, status: p.status, preview: p.text.slice(0, DRAFT_PREVIEW_MAX), changedAt: p.changedAt }));
+      .map((p) => ({ file: p.file, day: p.day, title: p.title, client: p.client, status: p.status, preview: p.text.slice(0, DRAFT_PREVIEW_MAX), changedAt: p.changedAt }));
     const up = await fetch(url, { method: "POST", headers, body: JSON.stringify({ drafts }), signal: AbortSignal.timeout(15_000) });
     if (!up.ok) return { ok: false, message: `wrote ${written}, but KNOX refused the draft list (${up.status})` };
 

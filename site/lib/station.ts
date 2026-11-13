@@ -656,7 +656,7 @@ export type StageView = {
 };
 /** One thing waiting on the owner. `where` names the file or tab to act in: Station itself changes nothing. */
 /** `clear`: what a Done press does. "item" ticks this one line; "all" ticks every line waiting at that moment. Absent: act where it lives. */
-export type NeedsMe = { key: string; stage: StageId | "system"; title: string; detail: string; since?: string; due?: string; overdue: boolean; where?: string; clear?: "item" | "all" };
+export type NeedsMe = { key: string; stage: StageId | "system"; title: string; detail: string; since?: string; due?: string; overdue: boolean; where?: string; clear?: "item" | "all"; /** Whose it is: the account or client label, shown above the title. */ client?: string };
 /** Done presses: Needs me key -> when it was pressed, and whether the laptop has ticked the line yet. */
 export type DoneMarks = Record<string, { at: string; applied?: boolean }>;
 export const DONE_KEEP_MS = 7 * 86400_000;
@@ -665,7 +665,7 @@ export const DONE_KEEP_MS = 7 * 86400_000;
  * A content draft as the owner reads it on the Needs me tab. The text is the one deliberate exception to "counts, not
  * names" (like final-review labels): it is stored for the owner only and never appears in a client snapshot.
  */
-export type DraftView = { file: string; day: string; title: string; status: string; preview: string; changedAt: string };
+export type DraftView = { file: string; day: string; title: string; client: string; status: string; preview: string; changedAt: string };
 export type DraftDecision = "approve" | "reject";
 /** Approve / Reject presses on the drafts: file -> decision, and whether the laptop has rewritten the **Status:** line yet. */
 export type DraftMarks = Record<string, { decision: DraftDecision; at: string; applied?: boolean }>;
@@ -755,16 +755,16 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
       for (const item of named)
         needsMe.push({
           key: `${key}:${item.label}`, stage, title: `Final review: ${item.label}`, detail: `${account.label}${item.post ? ` · posts ${item.post}` : ""}`,
-          since: item.at, due: item.due, overdue: item.due ? item.due < today : late(item.at), where, clear: "item",
+          since: item.at, due: item.due, overdue: item.due ? item.due < today : late(item.at), where, clear: "item", client: account.label,
         });
       const rest = reading.waiting - named.length;
       if (rest > 0)
-        needsMe.push({ key: `gate:${key}`, stage, title: `${cap(g.detail)}: ${rest}`, detail: account.kind === "internal" ? g.label : `${g.label} · ${account.label}`, since: reading.oldestAt, overdue: late(reading.oldestAt), where, clear: CLEAR_ALL.has(g.id) ? "all" : undefined });
+        needsMe.push({ key: `gate:${key}`, stage, title: `${cap(g.detail)}: ${rest}`, detail: account.kind === "internal" ? g.label : `${g.label} · ${account.label}`, since: reading.oldestAt, overdue: late(reading.oldestAt), where, clear: CLEAR_ALL.has(g.id) ? "all" : undefined, client: account.label });
     }
   }
   for (const c of clients) {
-    if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab" });
-    if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab" });
+    if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
   }
   for (const n of input.needsYou) {
     if (n.kind === "gate") continue; // a gate past its window is already on the queue, marked overdue
