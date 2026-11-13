@@ -923,3 +923,76 @@ export function reelsMessage(handle: string, cur: ReelSnapshot, prev: ReelSnapsh
   const rate = before && hours > 0.5 ? ` (+${Math.max(0, Math.round((newest.views - before.views) / hours))}/h)` : "";
   return `@${handle} · ${cur.reels.length} reels · newest ${ago(Date.parse(newest.at), new Date(cur.at))} old: ${newest.views} plays${rate}`;
 }
+
+// ---------- owner report and the command box (owner only, read-only) ----------
+
+const stageLine = (s: StageView) =>
+  `  ${s.no} ${s.name}: ${s.waiting === null ? "not counted yet" : `${s.waiting} waiting`}${s.overdue ? " · OVERDUE" : ""}${s.parts.length ? ` (${s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(", ")})` : ""}`;
+const needLine = (n: NeedsMe) => `  • ${n.overdue ? "OVERDUE · " : ""}${n.client ? `${n.client} · ` : ""}${n.title}${n.due ? ` · due ${n.due}` : ""}`;
+const moneyLines = (m: Money) => [
+  m.priced ? `  RM${m.monthly.toLocaleString("en-MY")} a month agreed with ${m.priced} of ${m.clients} clients` : m.clients ? `  ${m.clients} client${m.clients === 1 ? "" : "s"}, none with a price yet` : "  No clients yet",
+  ...(m.invoices ? [`  Invoices: ${m.invoices}`] : []),
+];
+const systemLines = (s: Snapshot) => {
+  const down = (s.infra ?? []).filter((p) => p.status === "down" || p.status === "degraded");
+  return [
+    `  Jobs running ${s.top.working} · stuck ${s.top.stuck} · laptop ${s.top.live ? "reporting" : "quiet"}`,
+    ...(down.length ? down.map((p) => `  ${p.label}: ${p.status} · ${p.detail}`) : ["  Every check answers"]),
+  ];
+};
+
+/** Pure: the whole business on one page of plain text, from the numbers the board already shows. Owner view only ("" otherwise). */
+export function ownerReport(s: Snapshot): string {
+  if (!s.stages || !s.needsMe || !s.money) return "";
+  const late = s.needsMe.filter((n) => n.overdue).length;
+  return [
+    `KNOX Mission Control · ${mytDate(new Date(s.now))}`,
+    "",
+    `Needs me: ${s.needsMe.length}${late ? ` (${late} overdue)` : ""}`,
+    ...s.needsMe.slice(0, 12).map(needLine),
+    ...(s.needsMe.length > 12 ? [`  and ${s.needsMe.length - 12} more`] : []),
+    "",
+    "Stages",
+    ...s.stages.map(stageLine),
+    "",
+    "Money",
+    ...moneyLines(s.money),
+    "",
+    "System",
+    ...systemLines(s),
+  ].join("\n");
+}
+
+export type CommandTab = "needs" | "clients" | "carousel" | "money" | "reports" | "health" | "how";
+const COMMAND_HELP = [
+  "I can read the board back to you. Try:",
+  "  needs      what is waiting on you",
+  "  today      what is overdue or due today",
+  "  stages     the five stages",
+  "  money      prices and invoices",
+  "  health     jobs and checks",
+  "  report     the whole business on one page",
+  "  clients, carousel   open that tab",
+  "I only read. Adding leads, briefs and quotations by command is not built here yet.",
+].join("\n");
+
+/** Pure: answer a short typed command from the snapshot. Reads only; it never changes or sends anything. */
+export function answerCommand(text: string, s: Snapshot): { reply: string; tab?: CommandTab } {
+  const t = text.trim().toLowerCase().replace(/^\//, "");
+  if (!s.stages || !s.needsMe || !s.money) return { reply: "The command box works on the owner view only." };
+  const word = t.split(/\s+/)[0] ?? "";
+  if (!t || word === "help") return { reply: COMMAND_HELP };
+  if (word === "needs") return { reply: s.needsMe.length ? [`${s.needsMe.length} waiting on you:`, ...s.needsMe.map(needLine)].join("\n") : "Nothing is waiting on you.", tab: "needs" };
+  if (word === "today") {
+    const today = mytDate(new Date(s.now));
+    const hot = s.needsMe.filter((n) => n.overdue || n.due === today);
+    return { reply: hot.length ? [`${hot.length} overdue or due today:`, ...hot.map(needLine)].join("\n") : "Nothing is overdue and nothing is due today.", tab: "needs" };
+  }
+  if (word === "stages") return { reply: ["Stages", ...s.stages.map(stageLine)].join("\n") };
+  if (word === "money" || word === "invoices") return { reply: ["Money", ...moneyLines(s.money)].join("\n"), tab: "money" };
+  if (word === "health" || word === "status") return { reply: ["System", ...systemLines(s)].join("\n"), tab: "health" };
+  if (word === "report" || word === "reports") return { reply: ownerReport(s), tab: "reports" };
+  if (word === "clients" || word === "carousel") return { reply: `Opened ${word}.`, tab: word };
+  if (word === "quote" || word === "brief" || word === "lead") return { reply: `"${word}" worked in Station Lite because it kept its own list. KNOX does not store ${word}s yet, so nothing was added.\n\n${COMMAND_HELP}` };
+  return { reply: `I do not know "${text.trim()}".\n\n${COMMAND_HELP}` };
+}
