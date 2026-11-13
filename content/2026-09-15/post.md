@@ -1,7 +1,7 @@
 # Tuesday 15 Sep 2026 - Week 1
 
 **Pillar:** Positioning · **Audience:** Brands · **Offer connection:** the retainer
-**Status:** DRAFT. Not published. Needs Alan's review.
+**Status:** REJECTED
 
 Topic: your content problem may actually be a positioning problem.
 

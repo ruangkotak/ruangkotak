@@ -1,7 +1,7 @@
 # Friday 13 Nov 2026 - CMF Speaker S
 
 **Pillar:** Reviews · **Audience:** Followers · **Client:** alan-review (final review in Station/final-queue-alan-review.md)
-**Status:** DRAFT. Not published. Needs Alan's review.
+**Status:** TESTED. Made to test the pipeline. Not for posting.
 
 Topic: the 5 biggest complaints about the CMF Speaker S, tested.
 Research: `research/reddit.md` (review findings filled; Reddit comments still to add)
