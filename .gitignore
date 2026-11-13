@@ -21,3 +21,6 @@ OPEN.md
 
 # Showreel source stays local (not published)
 /showreel/
+
+# the media kit carries the rate card: private, never committed (this repo is public)
+/media-kit/
