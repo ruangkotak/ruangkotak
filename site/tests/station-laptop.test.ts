@@ -527,3 +527,11 @@ test("a draft's client is the first word after **Client:**", () => {
   assert.equal(clientOf("**Pillar:** Reviews · **Audience:** Followers · **Client:** alan-review (final review in Station/x.md)\n"), "alan-review");
   assert.equal(clientOf("**Pillar:** Reviews · **Platform:** YouTube"), "");
 });
+
+test("a TESTED post is closed: not a draft to review, not a post to publish", () => {
+  const p = (day: string, status: string): Post => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T01:00:00.000Z` });
+  const r = review([p("2026-11-13", "TESTED"), p("2026-11-13", "TESTED")], "2026-11-13");
+  assert.deepEqual(r.gates!.map((g) => [g.gate, g.waiting]), [["review", 0], ["post", 0]]);
+  assert.equal(r.attention, undefined);
+  assert.equal(statusOf("**Status:** tested"), "TESTED");
+});
