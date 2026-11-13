@@ -207,8 +207,11 @@ test("post status is the first word after **Status:**", () => {
   assert.equal(hasStatus("# Research notes, no status"), false);
 });
 
-test("the real post in content/ reads as a draft", () => {
-  assert.equal(statusOf(readFileSync(new URL("../../content/2026-09-15/post.md", import.meta.url), "utf8")), "DRAFT");
+test("the real post in content/ has a status line the board can read", () => {
+  // Whatever its status is today (DRAFT, APPROVED, PUBLISHED…): this must not break when the owner approves it.
+  const text = readFileSync(new URL("../../content/2026-09-15/post.md", import.meta.url), "utf8");
+  assert.equal(hasStatus(text), true);
+  assert.notEqual(statusOf(text), "UNKNOWN");
 });
 
 test("the board review counts the week, the drafts, and flags drafts publishing within a day", () => {
