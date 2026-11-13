@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  answerCommand, ownerReport, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -657,4 +657,29 @@ test("a client with a price of 0 is not counted as paying", () => {
   assert.deepEqual(s.money, { monthly: 0, priced: 0, clients: 1, invoices: undefined });
   assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /no paying client yet/);
   assert.ok(!s.needsMe!.some((n) => n.key.startsWith("price:")), "an explicit 0 is a decision, not a missing price");
+});
+
+test("ownerReport and answerCommand read the owner snapshot and give clients nothing", () => {
+  const priced: ClientRecord = { ...kopi, price: 500, perMonth: 4, openedAt: NOW.toISOString() };
+  const r = withClients(shipped, [priced]);
+  const gates = { "dm:internal": { waiting: 3, oldestAt: new Date(NOW.getTime() - 5 * 86400_000).toISOString(), at: NOW.toISOString() } };
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  const report = ownerReport(s);
+  assert.match(report, /^KNOX Mission Control · 2026-11-07/);
+  assert.match(report, /Needs me: 1 \(1 overdue\)/);
+  assert.match(report, /01 Audience: 3 waiting · OVERDUE/);
+  assert.match(report, /RM2,000 a month agreed with 1 of 1 clients/);
+
+  assert.equal(answerCommand("report", s).tab, "reports");
+  assert.equal(answerCommand("/report", s).reply, report);
+  assert.match(answerCommand("needs", s).reply, /^1 waiting on you:/);
+  assert.match(answerCommand("TODAY", s).reply, /^1 overdue or due today:/);
+  assert.equal(answerCommand("money", s).tab, "money");
+  assert.match(answerCommand("", s).reply, /I only read/);
+  assert.match(answerCommand("quote Kopi Kita 4 reels at 500", s).reply, /nothing was added/);
+  assert.match(answerCommand("dance", s).reply, /I do not know "dance"/);
+
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  assert.equal(ownerReport(c), "");
+  assert.doesNotMatch(answerCommand("money", c).reply, /RM/);
 });

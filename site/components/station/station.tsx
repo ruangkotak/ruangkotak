@@ -6,18 +6,29 @@ import { AccountPanel } from "./account";
 import { Clients } from "./clients";
 import { TelegramPanel } from "./telegram";
 import { DraftReview } from "./drafts";
+import { Carousel } from "./carousel";
+import { CommandBar, HowTab, MoneyTab, ReportsTab } from "./lite";
 import { DeptCard, dur, Gates, HealthStats, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pips, Stages, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
-const TABS = [
-  { id: "needs", label: "Needs me" }, // owner only: the one queue, and where the owner lands
-  { id: "station", label: "Mission" },
-  { id: "jobs", label: "Jobs" }, // jobs, then the desks and agents behind them
-  { id: "alerts", label: "Alerts" },
-  { id: "clients", label: "Clients" }, // owner only
+// The owner gets Station Lite's tabs. A client keeps the three pages they have always had.
+const OWNER_TABS = [
+  { id: "needs", label: "Needs me" },
+  { id: "clients", label: "Clients" },
+  { id: "carousel", label: "Carousel" },
+  { id: "money", label: "Money" },
+  { id: "reports", label: "Reports" },
+  { id: "health", label: "Health" }, // what used to be Mission, Jobs and Alerts
+  { id: "how", label: "How it works" },
 ] as const;
-type Tab = (typeof TABS)[number]["id"];
-const OWNER_ONLY = new Set<Tab>(["needs", "clients"]);
+const CLIENT_TABS = [
+  { id: "station", label: "Mission" },
+  { id: "jobs", label: "Jobs" },
+  { id: "alerts", label: "Alerts" },
+] as const;
+type Tab = (typeof OWNER_TABS)[number]["id"] | (typeof CLIENT_TABS)[number]["id"];
+// Old links and bookmarks: the owner's Mission, Jobs and Alerts pages are now one Health tab.
+const MOVED: Record<string, Tab> = { station: "health", jobs: "health", alerts: "health", agents: "health" };
 
 // Where each department sits on wide screens (12 columns). Phones stack everything in one column.
 const SPAN: Record<string, string> = {
@@ -33,6 +44,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   const [online, setOnline] = useState(true);
   const [now, setNow] = useState(() => Date.parse(initial.now)); // server time first, so the first render matches
   const home: Tab = canSwitch ? "needs" : "station";
+  const tabs: readonly { id: Tab; label: string }[] = canSwitch ? OWNER_TABS : CLIENT_TABS;
   const [tab, setTab] = useState<Tab>(home);
   const query = useRef(queryOf(initial.view));
 
@@ -49,8 +61,8 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
   useEffect(() => {
     const hash = location.hash.slice(1);
-    const fromHash = (hash === "agents" ? "jobs" : hash) as Tab; // the Agents tab moved into Jobs
-    if (TABS.some((t) => t.id === fromHash) && (!OWNER_ONLY.has(fromHash) || canSwitch)) setTab(fromHash);
+    const fromHash = ((canSwitch ? MOVED[hash] : hash === "agents" ? "jobs" : undefined) ?? hash) as Tab;
+    if (tabs.some((t) => t.id === fromHash)) setTab(fromHash);
     setNow(Date.now());
     const tick = setInterval(() => setNow(Date.now()), 10_000);
     // Poll only while the tab is visible; catch up at once when it comes back.
@@ -99,28 +111,35 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   const allJobs = snap.departments.flatMap((d) => d.jobs);
   const alerts = snap.needsYou.length;
   const waiting = snap.needsMe?.length ?? 0;
-  // The queue belongs to the owner view. While previewing a client page, the Needs me tab shows that page instead.
-  const shown: Tab = tab === "needs" && !snap.needsMe ? "station" : tab;
+  // While the owner previews a client page, they see exactly what that client sees: the client's three tabs.
+  const owner = canSwitch && !client;
+  const shownTabs = owner ? tabs : CLIENT_TABS;
+  const shown: Tab = shownTabs.some((t) => t.id === tab) ? tab : owner ? "needs" : "station";
+  const health = shown === "health";
+  // The account row matters where accounts are compared (Health, Reports), and whenever one is already picked.
+  const showAccounts = client || !owner || health || shown === "reports" || snap.view.account !== "all";
 
   return (
     <div className="rk-station min-h-[100dvh] bg-bg text-ink">
       <main className="mx-auto flex max-w-[1280px] flex-col gap-3 px-4 pt-4 pb-10 md:px-6">
         <TopBar s={snap} now={now} online={online} />
+        {owner && <CommandBar snap={snap} onTab={pick} />}
+        {owner && snap.stages && <Stages stages={snap.stages} now={now} />}
 
         <nav aria-label="KNOX Mission Control sections" className="flex flex-wrap items-center gap-1.5">
-          {TABS.filter((t) => !OWNER_ONLY.has(t.id) || canSwitch).map(({ id, label }) => {
-            const count = id === "alerts" ? alerts : id === "needs" ? waiting : 0;
+          {shownTabs.map(({ id, label }) => {
+            const count = id === "alerts" || id === "health" ? alerts : id === "needs" ? waiting : 0;
             return (
               <button key={id} onClick={() => pick(id)} aria-current={shown === id ? "page" : undefined}
                 className={`rounded-full border px-3.5 py-1.5 text-[13px] ${shown === id ? "border-mark text-mark" : "border-line text-muted hover:text-ink"}`}>
                 {label}
-                {count > 0 && <span className={`num ml-1.5 ${id === "alerts" ? "text-bad" : "text-mark"}`}>{count}</span>}
+                {count > 0 && <span className={`num ml-1.5 ${id === "needs" ? "text-mark" : "text-bad"}`}>{count}</span>}
               </button>
             );
           })}
         </nav>
 
-        <nav aria-label="Account" className="flex flex-wrap items-center gap-1.5">
+        {showAccounts && <nav aria-label="Account" className="flex flex-wrap items-center gap-1.5">
           {client ? (
             <span className="text-[12px] text-muted">
               {snap.accounts[0]?.label} · client view{canSwitch && <> · <button className="underline underline-offset-2" onClick={() => switchTo("")}>back to owner view</button></>}
@@ -133,7 +152,6 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
                   {a.label}
                 </button>
               ))}
-              {canSwitch && <a href="/station/carousel" className="px-2 py-1 text-[12px] text-muted underline underline-offset-2 hover:text-ink">carousel studio</a>}
               {snap.view.account !== "all" && snap.accounts.find((a) => a.id === snap.view.account)?.kind !== "internal" && (
                 <button onClick={() => switchTo(`view=client&account=${encodeURIComponent(snap.view.account)}`)} className="px-2 py-1 text-[12px] text-muted underline underline-offset-2 hover:text-ink">
                   preview as client
@@ -141,20 +159,31 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
               )}
             </>
           )}
-        </nav>
+        </nav>}
 
-        {shown === "needs" && snap.stages && snap.needsMe && (
+        {shown === "needs" && snap.needsMe && (
           <>
-            <Stages stages={snap.stages} now={now} />
             <DraftReview onChanged={load} />
             <NeedsMeList items={snap.needsMe} now={now} onDone={done} />
           </>
         )}
 
-        {shown === "station" && (
+        {shown === "clients" && owner && <Clients onChanged={load} />}
+        {shown === "carousel" && owner && <Carousel embedded />}
+        {shown === "money" && owner && <MoneyTab snap={snap} onClients={() => pick("clients")} />}
+        {shown === "reports" && owner && (
+          <>
+            <ReportsTab snap={snap} onAccount={(id) => switchTo(id === "all" ? "" : `account=${encodeURIComponent(id)}`)} />
+            {snap.account && <AccountPanel p={snap.account} now={now} client={false} />}
+          </>
+        )}
+        {shown === "how" && owner && <HowTab />}
+
+        {health && snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
+
+        {(shown === "station" || health) && (
           <>
             {!client && <HealthStats s={snap} now={now} />}
-            {snap.stages && <Stages stages={snap.stages} now={now} />}
             {snap.account && <AccountPanel p={snap.account} now={now} client={client} />}
             <Gates gates={snap.gates} now={now} />
             <div className="grid grid-cols-1 gap-3 md:grid-cols-12">
@@ -171,7 +200,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </>
         )}
 
-        {shown === "jobs" && (
+        {(shown === "jobs" || health) && (
           <section aria-label="Desks and agents" className="order-last grid gap-3 md:grid-cols-2">
             {snap.departments.map((d) => (
               <div key={d.id} className="st-card px-3.5 py-3">
@@ -199,7 +228,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </section>
         )}
 
-        {shown === "jobs" && (
+        {(shown === "jobs" || health) && (
           <section className="st-card overflow-hidden">
             <ul className="divide-y divide-line">
               {allJobs.sort((a, b) => (a.nextAt ?? "~").localeCompare(b.nextAt ?? "~")).map((j) => {
@@ -222,12 +251,10 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
           </section>
         )}
 
-        {shown === "clients" && canSwitch && <Clients onChanged={load} />}
-
-        {shown === "alerts" && (
+        {(shown === "alerts" || health) && (
           <>
-            {snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
-            <NeedsYouList items={snap.needsYou} />
+            {!health && snap.alerts !== undefined && <TelegramPanel on={snap.alerts} />}
+            {!health && <NeedsYouList items={snap.needsYou} />}
             <section className="st-card px-3.5 py-3">
               <h2 className="label">KNOX Late or failed once</h2>
               <ul className="mt-2 flex flex-col gap-1.5 text-[12.5px]">
@@ -237,7 +264,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
                 {!allJobs.some((j) => j.state === "failing" || j.state === "due") && <li className="text-muted">None.</li>}
               </ul>
             </section>
-            {snap.infra && <Infra probes={snap.infra.filter((p) => p.status !== "ok")} />}
+            {!health && snap.infra && <Infra probes={snap.infra.filter((p) => p.status !== "ok")} />}
           </>
         )}
       </main>
