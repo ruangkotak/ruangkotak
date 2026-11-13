@@ -14,7 +14,7 @@ import { mytDay } from "./reminder-check.mts";
 export const unavailable = noContent;
 
 const LIVE = new Set(["PUBLISHED", "POSTED", "LIVE"]);
-const WAITING = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE", "REJECTED", "DROPPED"]);
+const WAITING = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE", "REJECTED", "DROPPED", "TESTED"]);
 
 export type Decision = { file: string; decision: DraftDecision; at: string };
 
