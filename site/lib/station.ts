@@ -660,6 +660,19 @@ export type NeedsMe = { key: string; stage: StageId | "system"; title: string; d
 /** Done presses: Needs me key -> when it was pressed, and whether the laptop has ticked the line yet. */
 export type DoneMarks = Record<string, { at: string; applied?: boolean }>;
 export const DONE_KEEP_MS = 7 * 86400_000;
+
+/**
+ * A content draft as the owner reads it on the Needs me tab. The text is the one deliberate exception to "counts, not
+ * names" (like final-review labels): it is stored for the owner only and never appears in a client snapshot.
+ */
+export type DraftView = { file: string; day: string; title: string; status: string; preview: string; changedAt: string };
+export type DraftDecision = "approve" | "reject";
+/** Approve / Reject presses on the drafts: file -> decision, and whether the laptop has rewritten the **Status:** line yet. */
+export type DraftMarks = Record<string, { decision: DraftDecision; at: string; applied?: boolean }>;
+/** `<YYYY-MM-DD>/<name>.md` inside content/: the only paths a decision may touch. */
+export const DRAFT_FILE = /^\d{4}-\d{2}-\d{2}\/[a-z0-9][a-z0-9._-]{0,80}\.md$/;
+export const DRAFT_PREVIEW_MAX = 6000;
+export const DRAFT_LIST_MAX = 20;
 /** Gates whose checklist a press may clear as a whole. Invoices (a payment) and content review are decided where they live. */
 const CLEAR_ALL = new Set(["dm", "brief", "drafts"]);
 
@@ -691,7 +704,7 @@ const gateFile = (gate: string, a: Account): string | undefined =>
   : gate === "drafts" ? "Station/drafts-queue.md"
   : gate === "final" ? `Station/final-queue-${a.id}.md`
   : gate === "invoice" ? "Station/invoices.md"
-  : gate === "review" ? "content/<date>/ · change **Status:** to APPROVED"
+  : gate === "review" ? "Needs me tab → drafts (Preview, Approve, Reject), or content/<date>/ · change **Status:** to APPROVED"
   : gate === "post" ? "content/<date>/ · change **Status:** to PUBLISHED once it is live"
   : undefined;
 

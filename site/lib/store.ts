@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, ClientRecord, DoneMarks, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -291,6 +291,39 @@ export const doneStore = REDIS
       add: async (key: string, at: string) => void (dmem[key] = { at }),
       applied: async (keys: string[]) => keys.forEach((k) => dmem[k] && (dmem[k] = { ...dmem[k], applied: true })),
       remove: async (keys: string[]) => keys.forEach((k) => delete dmem[k]),
+    };
+
+// Content drafts on the Needs me tab: the list the laptop last sent (owner only), and the Approve / Reject presses
+// waiting for the laptop to rewrite the **Status:** line. Station never writes the notes itself.
+const gdr = globalThis as unknown as { __rkDrafts?: { list: DraftView[]; marks: DraftMarks } };
+const drmem = (gdr.__rkDrafts ??= { list: [], marks: {} });
+
+export const draftStore = REDIS
+  ? {
+      list: async (): Promise<DraftView[]> => parse<DraftView[]>(await redis<string | null>("GET", "st:drafts")) ?? [],
+      setList: async (list: DraftView[]) => void (await redis("SET", "st:drafts", JSON.stringify(list))),
+      marks: async (): Promise<DraftMarks> => {
+        const flat = await redis<string[] | null>("HGETALL", "st:draftdec");
+        const out: DraftMarks = {};
+        for (let i = 0; flat && i < flat.length; i += 2) out[flat[i]] = JSON.parse(flat[i + 1]);
+        return out;
+      },
+      decide: async (file: string, decision: DraftDecision, at: string) => void (await redis("HSET", "st:draftdec", file, JSON.stringify({ decision, at }))),
+      applied: async (files: string[]) => {
+        for (const file of files) {
+          const m = parse<DraftMarks[string]>(await redis<string | null>("HGET", "st:draftdec", file));
+          if (m) await redis("HSET", "st:draftdec", file, JSON.stringify({ ...m, applied: true }));
+        }
+      },
+      remove: async (files: string[]) => void (files.length && (await redis("HDEL", "st:draftdec", ...files))),
+    }
+  : {
+      list: async (): Promise<DraftView[]> => [...drmem.list],
+      setList: async (list: DraftView[]) => void (drmem.list = list),
+      marks: async (): Promise<DraftMarks> => ({ ...drmem.marks }),
+      decide: async (file: string, decision: DraftDecision, at: string) => void (drmem.marks[file] = { decision, at }),
+      applied: async (files: string[]) => files.forEach((f) => drmem.marks[f] && (drmem.marks[f] = { ...drmem.marks[f], applied: true })),
+      remove: async (files: string[]) => files.forEach((f) => delete drmem.marks[f]),
     };
 
 // The Instagram follow gate (app/api/ig): the access token the laptop pushes after each refresh, and a once-only

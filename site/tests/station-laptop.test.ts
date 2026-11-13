@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { DRAFT_FILE } from "../lib/station.ts";
 import { parseEnvFile } from "../scripts/station/client.mts";
 import { verdict } from "../scripts/station/jobs/backup-freshness-guard.mts";
 import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
@@ -10,6 +11,7 @@ import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, qu
 import { tickLine } from "../scripts/station/queue.mts";
 import { datesOf, labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
 import { applyMark } from "../scripts/station/jobs/needs-me-sync.mts";
+import { applyDecision } from "../scripts/station/jobs/draft-review.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
@@ -491,4 +493,29 @@ test("the board counts approved posts that are not marked published, and flags a
   assert.match(r.message, /2 approved, not posted yet/);
   assert.equal(r.attention, "1 approved post past its posting date");
   assert.equal(review([p("2026-11-05", "LIVE")], "2026-11-08").gates![1].waiting, 0);
+});
+
+// ---------- draft review: Preview / Approve / Reject ----------
+
+const DRAFT = "# Friday\n\n**Pillar:** Reviews\n**Status:** DRAFT. Not published. Needs Alan's review.\n\nTopic: x\n";
+
+test("approve and reject rewrite only the Status line", () => {
+  assert.equal(applyDecision(DRAFT, "approve"), "# Friday\n\n**Pillar:** Reviews\n**Status:** APPROVED\n\nTopic: x\n");
+  assert.equal(statusOf(applyDecision(DRAFT, "reject")!), "REJECTED");
+});
+
+test("a decision leaves alone a note with no status and a post that is already live", () => {
+  assert.equal(applyDecision("# Research notes", "approve"), null);
+  assert.equal(applyDecision("**Status:** PUBLISHED", "reject"), null);
+});
+
+test("a rejected draft is not waiting for review or to be posted", () => {
+  const p = (day: string, status: string): Post => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T00:00:00.000Z` });
+  const r = review([p("2026-11-11", "REJECTED"), p("2026-11-12", "DRAFT"), p("2026-11-12", "APPROVED")], "2026-11-10");
+  assert.deepEqual(r.gates?.map((g) => [g.gate, g.waiting]), [["review", 1], ["post", 1]]);
+});
+
+test("draft paths cannot leave content/", () => {
+  assert.equal(DRAFT_FILE.test("2026-11-13/post.md"), true);
+  for (const bad of ["../x.md", "2026-11-13/../../x.md", "/etc/passwd", "2026-11-13/a/b.md", "2026-11-13/post.txt"]) assert.equal(DRAFT_FILE.test(bad), false, bad);
 });
