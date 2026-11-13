@@ -19,7 +19,7 @@ const shortDay = (day: string) => {
 export function DraftReview({ onChanged }: { onChanged?: () => void }) {
   const [drafts, setDrafts] = useState<DraftView[] | null>(null);
   const [pending, setPending] = useState<Pending>({});
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +63,19 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
   };
 
   if (!drafts?.length) return null;
+  const allOpen = drafts.every((d) => open.has(d.file));
+  const toggle = (file: string) => setOpen((o) => { const n = new Set(o); n.has(file) ? n.delete(file) : n.add(file); return n; });
   return (
     <section aria-label="Drafts to review" className="flex flex-col gap-2">
+      {drafts.length > 1 && (
+        <button type="button" onClick={() => setOpen(allOpen ? new Set() : new Set(drafts.map((d) => d.file)))} className="self-start px-1 text-[12px] text-muted underline underline-offset-2 hover:text-ink">
+          {allOpen ? "Close all drafts" : "Open all drafts"}
+        </button>
+      )}
       <ul className="flex flex-col gap-2">
         {drafts.map((d) => {
           const waiting = pending[d.file];
-          const shown = open === d.file;
+          const shown = open.has(d.file);
           return (
             <li key={d.file} className="st-card px-3.5 py-3">
               <div className="mono text-[10.5px] uppercase" style={{ letterSpacing: "0.08em" }}>
@@ -77,7 +84,7 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
               </div>
               <div className="mt-1 text-[14.5px] break-words" style={{ fontWeight: 500 }}>{d.title}</div>
               <div className="mono mt-0.5 text-[11px] break-all text-muted">content/{d.file} · {shortDay(d.day)} · {d.status.toLowerCase()}</div>
-              <button type="button" onClick={() => setOpen(shown ? null : d.file)} aria-expanded={shown} className="mt-1.5 text-[12px] text-muted hover:text-ink">
+              <button type="button" onClick={() => toggle(d.file)} aria-expanded={shown} className="mt-1.5 text-[12px] text-muted hover:text-ink">
                 {shown ? "▾ Hide the draft" : "▸ Show the draft"}
               </button>
               {shown && (
