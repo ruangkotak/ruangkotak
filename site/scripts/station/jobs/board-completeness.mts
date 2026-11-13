@@ -14,6 +14,8 @@ import { mytDay } from "./reminder-check.mts";
 const DONE = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE"]);
 /** Out in the world. Anything done but not live is approved and still waiting to be posted. */
 const LIVE = new Set(["PUBLISHED", "POSTED", "LIVE"]);
+/** Turned down in Station (or by hand): never waiting for review, never waiting to be posted. */
+const REJECTED = new Set(["REJECTED", "DROPPED"]);
 const WEEK = 7;
 
 export type Post = { day: string; file: string; status: string; changedAt: string };
@@ -29,11 +31,21 @@ export function statusOf(text: string) {
 /** Whether the file carries a **Status:** line, which is what makes it a post and not a note. */
 export const hasStatus = (text: string) => /\*\*Status:?\*\*/.test(text);
 
+/** Pure: the text with its first **Status:** line replaced by `**Status:** <status>`; null when there is no such line. */
+export function setStatus(text: string, status: string): string | null {
+  const line = /^\*\*Status:?\*\*:?.*$/m;
+  return line.test(text) ? text.replace(line, `**Status:** ${status}`) : null;
+}
+
+/** The first heading, without the `#`; the file name when there is none. */
+export const titleOf = (text: string, fallback: string) => /^#\s+(.+)$/m.exec(text)?.[1].trim() ?? fallback;
+
 const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Pure: the Station result from the board on a given Malaysia-time day. */
-export function review(posts: Post[], today: string): JobResult {
+export function review(all: Post[], today: string): JobResult {
+  const posts = all.filter((p) => !REJECTED.has(p.status));
   const isDraft = (p: Post) => !DONE.has(p.status);
   const ahead = posts.filter((p) => p.day >= today);
   const week = ahead.filter((p) => p.day < addDays(today, WEEK));
@@ -77,6 +89,14 @@ export function readBoard(dir: string): Post[] {
     }
   }
   return posts.sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** The posts with their text, for the owner's Preview on the board (only drafts are sent, see draft-review). */
+export function readDrafts(dir: string): (Post & { title: string; text: string })[] {
+  return readBoard(dir).map((p) => {
+    const text = readFileSync(join(dir, p.file), "utf8");
+    return { ...p, title: titleOf(text, p.file), text };
+  });
 }
 
 export default async function run(ctx: JobContext): Promise<JobResult> {
