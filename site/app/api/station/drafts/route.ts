@@ -21,7 +21,7 @@ function cleanDrafts(input: unknown): DraftView[] {
   return input.slice(0, DRAFT_LIST_MAX).flatMap((d) => {
     const file = str(d?.file, 120);
     if (!DRAFT_FILE.test(file)) return [];
-    return [{ file, day: str(d.day, 10), title: str(d.title, 160), status: str(d.status, 24).toUpperCase(), preview: str(d.preview, DRAFT_PREVIEW_MAX), changedAt: str(d.changedAt, 30) }];
+    return [{ file, day: str(d.day, 10), title: str(d.title, 160), client: str(d.client, 60), status: str(d.status, 24).toUpperCase(), preview: str(d.preview, DRAFT_PREVIEW_MAX), changedAt: str(d.changedAt, 30) }];
   });
 }
 

@@ -91,11 +91,14 @@ export function readBoard(dir: string): Post[] {
   return posts.sort((a, b) => a.day.localeCompare(b.day));
 }
 
+/** Whose a post is: the first word after **Client:** in its header ("" when it has none). */
+export const clientOf = (text: string) => /\*\*Client:?\*\*:?\s*([^\s·(]+)/.exec(text)?.[1] ?? "";
+
 /** The posts with their text, for the owner's Preview on the board (only drafts are sent, see draft-review). */
-export function readDrafts(dir: string): (Post & { title: string; text: string })[] {
+export function readDrafts(dir: string): (Post & { title: string; client: string; text: string })[] {
   return readBoard(dir).map((p) => {
     const text = readFileSync(join(dir, p.file), "utf8");
-    return { ...p, title: titleOf(text, p.file), text };
+    return { ...p, title: titleOf(text, p.file), client: clientOf(text), text };
   });
 }
 

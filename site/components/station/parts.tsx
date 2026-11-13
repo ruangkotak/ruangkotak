@@ -99,6 +99,8 @@ function JobLine({ j, now, showAccount }: { j: JobView; now: number; showAccount
 
 export function TopBar({ s, now, online }: { s: Snapshot; now: number; online: boolean }) {
   const feed = s.top.feedAt ? dur(now - Date.parse(s.top.feedAt)) : "—";
+  const owner = !!s.needsMe;
+  const stage = (id: string) => s.stages?.find((x) => x.id === id)?.waiting ?? null;
   return (
     <header className="st-card grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-3 px-3.5 py-3 sm:flex sm:justify-between">
       <div className="flex items-center gap-2">
@@ -107,14 +109,38 @@ export function TopBar({ s, now, online }: { s: Snapshot; now: number; online: b
         <span className="text-[12px] tracking-[0.06em]">{online ? "ONLINE" : "OFFLINE"}</span>
         <span className="text-[11px] text-muted">{s.top.source ? `from ${s.top.source}` : s.view.mode === "client" ? "client view" : "no source yet"}</span>
       </div>
-      <dl className="col-span-2 grid grid-cols-5 items-end gap-2 sm:flex sm:gap-5">
-        <Stat label="Working" value={s.top.working} tone={s.top.working ? "mark" : undefined} />
-        <Stat label="Queue" value={s.top.queue} />
-        <Stat label="Stuck" value={s.top.stuck} tone={s.top.stuck ? "bad" : undefined} hatch={s.top.stuck > 0} />
-        <Stat label="Feed" value={feed} small />
-        <Stat label="Mode" value={s.top.live ? "LIVE" : "IDLE"} small tone={s.top.live ? "mark" : undefined} />
-      </dl>
+      {owner ? (
+        // The owner's header is about the business; the laptop's health numbers are on the Mission tab (Stuck stays here: it is an alarm).
+        <dl className="col-span-2 grid grid-cols-5 items-end gap-2 sm:flex sm:gap-5">
+          <Stat label="Needs me" value={s.needsMe!.length} tone={s.needsMe!.length ? "mark" : undefined} />
+          <Stat label="In make" value={stage("make") ?? "–"} />
+          <Stat label="To post" value={stage("post") ?? "–"} />
+          <Stat label="Clients" value={s.money?.clients ?? 0} />
+          <Stat label="Stuck" value={s.top.stuck} tone={s.top.stuck ? "bad" : undefined} hatch={s.top.stuck > 0} />
+        </dl>
+      ) : (
+        <dl className="col-span-2 grid grid-cols-5 items-end gap-2 sm:flex sm:gap-5">
+          <Stat label="Working" value={s.top.working} tone={s.top.working ? "mark" : undefined} />
+          <Stat label="Queue" value={s.top.queue} />
+          <Stat label="Stuck" value={s.top.stuck} tone={s.top.stuck ? "bad" : undefined} hatch={s.top.stuck > 0} />
+          <Stat label="Feed" value={feed} small />
+          <Stat label="Mode" value={s.top.live ? "LIVE" : "IDLE"} small tone={s.top.live ? "mark" : undefined} />
+        </dl>
+      )}
     </header>
+  );
+}
+
+/** The laptop's health numbers, for the owner: what used to fill the header. */
+export function HealthStats({ s, now }: { s: Snapshot; now: number }) {
+  const feed = s.top.feedAt ? dur(now - Date.parse(s.top.feedAt)) : "—";
+  return (
+    <dl className="st-card grid grid-cols-4 items-end gap-2 px-3.5 py-3 sm:flex sm:gap-8">
+      <Stat label="Working" value={s.top.working} tone={s.top.working ? "mark" : undefined} />
+      <Stat label="Queue" value={s.top.queue} />
+      <Stat label="Feed" value={feed} small />
+      <Stat label="Mode" value={s.top.live ? "LIVE" : "IDLE"} small tone={s.top.live ? "mark" : undefined} />
+    </dl>
   );
 }
 
@@ -358,21 +384,22 @@ export function NeedsMeList({ items, now, onDone }: { items: NeedsMe[]; now: num
     setBusy(null);
   };
   return (
-    <section aria-labelledby="needs-me" className="st-card px-3.5 py-3">
-      <h2 id="needs-me" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-        KNOX Needs me · <span className={items.length ? "text-mark" : "text-good"}>{items.length}</span>
-      </h2>
+    <section aria-labelledby="needs-me" className="flex flex-col gap-2">
+      <h2 id="needs-me" className="sr-only">KNOX Needs me · {items.length}</h2>
       {items.length ? (
-        <ul className="mt-2 divide-y divide-line">
+        <ul className="flex flex-col gap-2">
           {items.map((n) => (
-            <li key={n.key} className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 py-2.5">
+            <li key={n.key} className="st-card grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3.5 py-3">
               <div className="min-w-0">
-                <div className="label">{n.stage === "system" ? "System" : n.stage}</div>
-                <div className="mt-1 text-[13.5px] break-words">{n.title}</div>
-                <div className="text-[11.5px] text-muted">{n.detail}</div>
+                <div className="mono text-[10.5px] uppercase" style={{ letterSpacing: "0.08em" }}>
+                  <span className="text-mark">{n.stage === "system" ? "System" : n.stage}</span>
+                  {n.client && <span className="text-muted"> · {n.client}</span>}
+                </div>
+                <div className="mt-1 text-[14.5px] break-words" style={{ fontWeight: 500 }}>{n.title}</div>
+                <div className="text-[12px] text-muted">{n.detail}</div>
                 {n.where && <div className="mono mt-0.5 text-[11px] break-all text-muted">{n.clear ? "ticks a line in" : "act in"}: {n.where}</div>}
                 {n.clear && onDone && (
-                  <button type="button" disabled={busy !== null} onClick={() => press(n)} className="mt-2 inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">
+                  <button type="button" disabled={busy !== null} onClick={() => press(n)} className="mt-2.5 inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] bg-[var(--mark)] px-4 text-[13px] text-on-solid hover:brightness-95 disabled:opacity-50" style={{ fontWeight: 600 }}>
                     <Check size={14} aria-hidden /> {busy === n.key ? "Saving…" : n.clear === "all" ? "Clear all" : "Done"}
                   </button>
                 )}
@@ -385,9 +412,9 @@ export function NeedsMeList({ items, now, onDone }: { items: NeedsMe[]; now: num
             </li>
           ))}
         </ul>
-      ) : <p className="mt-2 text-[12px] text-muted">Nothing is waiting on you.</p>}
-      {error && <p className="mt-2 text-[12px] text-bad" role="alert">{error}</p>}
-      <p className="mt-2 border-t border-line pt-2 text-[11px] text-muted">Nearest due date first, then the longest wait. Done takes the item off this list at once; your laptop ticks the line in the notes within about 5 minutes, while its jobs are running. Items without a button are cleared where they live.</p>
+      ) : <p className="st-card px-3.5 py-3 text-[12.5px] text-muted">Nothing is waiting on you.</p>}
+      {error && <p className="text-[12px] text-bad" role="alert">{error}</p>}
+      <p className="px-1 text-[11px] text-muted">Overdue first, then nearest due date, then the longest wait. Done takes the item off this list at once; your laptop ticks the line in the notes within about 5 minutes, while its jobs are running. Items without a button are cleared where they live.</p>
     </section>
   );
 }
