@@ -665,7 +665,16 @@ export const DONE_KEEP_MS = 7 * 86400_000;
  * A content draft as the owner reads it on the Needs me tab. The text is the one deliberate exception to "counts, not
  * names" (like final-review labels): it is stored for the owner only and never appears in a client snapshot.
  */
-export type DraftView = { file: string; day: string; title: string; client: string; status: string; preview: string; changedAt: string };
+export type DraftView = {
+  file: string; day: string; title: string; client: string; status: string; preview: string; changedAt: string;
+  /** "agent": a draft an agent wrote for one of the owner's asks. Absent: a post on the content board. */
+  kind?: "agent";
+  /** Where the full text is, as the owner would find it in their notes. */
+  where?: string;
+};
+/** An agent draft is named by the id of its line in Station/drafts-queue.md, never by a path. */
+export const AGENT_DRAFT = /^agent\/[A-Za-z0-9_-]{1,40}$/;
+export const isDraftKey = (file: string) => DRAFT_FILE.test(file) || AGENT_DRAFT.test(file);
 export type DraftDecision = "approve" | "reject";
 /** Approve / Reject presses on the drafts: file -> decision, and whether the laptop has rewritten the **Status:** line yet. */
 export type DraftMarks = Record<string, { decision: DraftDecision; at: string; applied?: boolean }>;
