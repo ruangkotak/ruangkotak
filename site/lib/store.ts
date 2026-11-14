@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, AskRecord, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -346,4 +346,26 @@ export const igStore = REDIS
         imem.once.set(key, Date.now() + seconds * 1000);
         return true;
       },
+    };
+
+// ---------- Station: asks typed on the board ----------
+// st:asks = hash of ask id -> AskRecord. Held only until the laptop has written the line into Asks.md, then removed.
+const gk = globalThis as unknown as { __rkAsks?: Record<string, AskRecord> };
+const askmem = (gk.__rkAsks ??= {});
+
+export const askStore = REDIS
+  ? {
+      all: async (): Promise<AskRecord[]> => {
+        const flat = await redis<string[] | null>("HGETALL", "st:asks");
+        const out: AskRecord[] = [];
+        for (let i = 1; flat && i < flat.length; i += 2) out.push(JSON.parse(flat[i]));
+        return out.sort((a, b) => a.at.localeCompare(b.at));
+      },
+      add: async (a: AskRecord) => void (await redis("HSET", "st:asks", a.id, JSON.stringify(a))),
+      remove: async (ids: string[]) => void (ids.length && (await redis("HDEL", "st:asks", ...ids))),
+    }
+  : {
+      all: async (): Promise<AskRecord[]> => Object.values(askmem).sort((a, b) => a.at.localeCompare(b.at)),
+      add: async (a: AskRecord) => void (askmem[a.id] = a),
+      remove: async (ids: string[]) => ids.forEach((id) => delete askmem[id]),
     };

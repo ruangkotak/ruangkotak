@@ -996,3 +996,28 @@ export function answerCommand(text: string, s: Snapshot): { reply: string; tab?:
   if (word === "quote" || word === "brief" || word === "lead") return { reply: `"${word}" worked in Station Lite because it kept its own list. KNOX does not store ${word}s yet, so nothing was added.\n\n${COMMAND_HELP}` };
   return { reply: `I do not know "${text.trim()}".\n\n${COMMAND_HELP}` };
 }
+
+// ---------- asks typed on the board (owner only) ----------
+// The owner types an ask on Needs me. KNOX cannot reach the notes folder, so the ask waits on the site until the
+// laptop's route-asks job collects it, writes it as a line in Station/Asks.md, and confirms. It is then deleted here.
+
+export type AskRecord = { id: string; text: string; desk?: string; at: string };
+export const ASK_MAX = 1500;
+export const ASK_MIN = 8;
+export const ASK_PENDING_MAX = 20;
+
+/** Pure: an ask as it may be stored: one line, no comment markers, no checkbox, a desk that exists (or none). */
+export function cleanAsk(input: { text?: unknown; desk?: unknown }, r: Registry): { ok: true; value: { text: string; desk?: string } } | { ok: false; error: string } {
+  if (typeof input.text !== "string") return { ok: false, error: "Write what you need first." };
+  const text = input.text.replace(/<!--|-->/g, "").replace(/\s+/g, " ").replace(/^[-*]\s*(\[[ xX]?\]\s*)?/, "").trim();
+  if (text.length < ASK_MIN) return { ok: false, error: "Say a little more about what you need." };
+  if (text.length > ASK_MAX) return { ok: false, error: `Keep it under ${ASK_MAX} characters. Put a long brief in a note and name the note.` };
+  if (input.desk === undefined || input.desk === null || input.desk === "") return { ok: true, value: { text } };
+  const desk = typeof input.desk === "string" ? input.desk : "";
+  if (!r.departments.some((d) => d.desks.some((k) => k.id === desk))) return { ok: false, error: "That desk does not exist." };
+  return { ok: true, value: { text, desk } };
+}
+
+/** Pure: the line the laptop writes into Asks.md. The #desk tag is what the router reads. */
+export const askLine = (a: Pick<AskRecord, "text" | "desk">) =>
+  `- [ ] ${a.text}${a.desk && !new RegExp(`(^|\\s)#${a.desk}(\\s|$)`, "i").test(a.text) ? ` #${a.desk}` : ""}`;
