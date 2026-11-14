@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  answerCommand, ownerReport, clientCategory, CLIENT_CATEGORIES, commissionOf, cutOf, talentJob, talentMoney, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -657,4 +657,80 @@ test("a client with a price of 0 is not counted as paying", () => {
   assert.deepEqual(s.money, { monthly: 0, priced: 0, clients: 1, invoices: undefined });
   assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /no paying client yet/);
   assert.ok(!s.needsMe!.some((n) => n.key.startsWith("price:")), "an explicit 0 is a decision, not a missing price");
+});
+
+test("ownerReport and answerCommand read the owner snapshot and give clients nothing", () => {
+  const priced: ClientRecord = { ...kopi, price: 500, perMonth: 4, openedAt: NOW.toISOString() };
+  const r = withClients(shipped, [priced]);
+  const gates = { "dm:internal": { waiting: 3, oldestAt: new Date(NOW.getTime() - 5 * 86400_000).toISOString(), at: NOW.toISOString() } };
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  const report = ownerReport(s);
+  assert.match(report, /^KNOX Mission Control · 2026-11-07/);
+  assert.match(report, /Needs me: 1 \(1 overdue\)/);
+  assert.match(report, /01 Audience: 3 waiting · OVERDUE/);
+  assert.match(report, /RM2,000 a month agreed with 1 of 1 clients/);
+
+  assert.equal(answerCommand("report", s).tab, "reports");
+  assert.equal(answerCommand("/report", s).reply, report);
+  assert.match(answerCommand("needs", s).reply, /^1 waiting on you:/);
+  assert.match(answerCommand("TODAY", s).reply, /^1 overdue or due today:/);
+  assert.equal(answerCommand("money", s).tab, "money");
+  assert.match(answerCommand("", s).reply, /I only read/);
+  assert.match(answerCommand("quote Kopi Kita 4 reels at 500", s).reply, /nothing was added/);
+  assert.match(answerCommand("dance", s).reply, /I do not know "dance"/);
+
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  assert.equal(ownerReport(c), "");
+  assert.doesNotMatch(answerCommand("money", c).reply, /RM/);
+});
+
+test("client categories: Creator and Talent under one heading, Brand on its own, owner only", () => {
+  assert.deepEqual(CLIENT_CATEGORIES.map((c) => [c.id, c.group]), [["creator", "Creator / Talent"], ["talent", "Creator / Talent"], ["brand", "Brand"]]);
+  assert.deepEqual(clientCategory("brand"), { ok: true, value: "brand" });
+  assert.deepEqual(clientCategory(""), { ok: true, value: undefined });
+  assert.equal(clientCategory("kol").ok, false);
+  // The category never reaches a client's own page or the registry the laptop reads.
+  const brand: ClientRecord = { ...kopi, category: "brand" };
+  const r = withClients(shipped, [brand]);
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [brand], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /"category"/);
+  assert.doesNotMatch(JSON.stringify(publicRegistry(r)), /"category"/);
+});
+
+test("talent commission: a percentage of each job, counted apart from retainers, owner only", () => {
+  assert.deepEqual(commissionOf("20"), { ok: true, value: 20 });
+  assert.deepEqual(commissionOf(""), { ok: true, value: undefined });
+  assert.equal(commissionOf("120").ok, false);
+  assert.deepEqual(talentJob({ brand: " Brand  X ", fee: "3000", date: "2026-11-05" }, 20), { ok: true, value: { brand: "Brand X", fee: 3000, percent: 20, date: "2026-11-05" } });
+  assert.equal((talentJob({ brand: "Brand X", fee: "3000", date: "2026-11-05", percent: "15" }, 20) as { value: { percent: number } }).value.percent, 15);
+  assert.match((talentJob({ brand: "Brand X", fee: "3000", date: "2026-11-05" }, undefined) as { error: string }).error, /commission first/);
+  assert.equal(talentJob({ brand: "Brand X", fee: "0", date: "2026-11-05" }, 20).ok, false);
+  assert.equal(talentJob({ brand: "Brand X", fee: "10", date: "soon" }, 20).ok, false);
+  assert.equal(cutOf({ fee: 3333, percent: 12.5 }), 416.63);
+
+  const talent: ClientRecord = { ...kopi, id: "our-talent", label: "Our Talent", category: "talent", commission: 20, price: 9999, perMonth: 4, openedAt: NOW.toISOString(), jobs: [
+    { id: "a", brand: "Brand X", fee: 3000, percent: 20, date: "2026-11-05", paidAt: "2026-11-06T00:00:00.000Z" },
+    { id: "b", brand: "Brand Y", fee: 1000, percent: 30, date: "2026-11-06" },
+    { id: "c", brand: "Brand Z", fee: 500, percent: 20, date: "2026-10-20" },
+  ] };
+  const creator: ClientRecord = { ...kopi, category: "creator", price: 500, perMonth: 4, openedAt: NOW.toISOString(), jobs: [{ id: "x", brand: "Ignored", fee: 9000, percent: 50, date: "2026-11-01" }] };
+  assert.deepEqual(talentMoney([talent, creator], "2026-11"), { talents: 1, jobs: 3, fees: 4500, cut: 1000, received: 600, outstanding: 400, thisMonth: 900 });
+
+  const r = withClients(shipped, [talent, creator]);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients: [talent, creator], now: NOW });
+  // The talent's stray price is never counted as income; only the creator's retainer is.
+  assert.deepEqual([s.money!.monthly, s.money!.priced, s.money!.clients], [2000, 1, 2]);
+  assert.equal(s.money!.talent!.outstanding, 400);
+  assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /RM400 talent commission outstanding/);
+  assert.match(ownerReport(s), /Talent commission: RM900 this month · RM400 outstanding · RM600 received \(3 jobs\)/);
+  assert.equal(s.needsMe!.some((n) => n.key === "price:our-talent"), false);
+
+  // A talent with no commission is asked for one, not for a price.
+  const fresh: ClientRecord = { ...talent, commission: undefined, jobs: [] };
+  const f = buildSnapshot({ registry: withClients(shipped, [fresh]), view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [fresh], now: NOW });
+  assert.equal(f.needsMe!.find((n) => n.key === "price:our-talent")!.title, "Set the commission for Our Talent");
+  assert.equal(onboarding(fresh, {}, {}).find((x) => x.id === "price")!.label, "Commission agreed");
+
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "our-talent" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [talent, creator], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /commission|"fee"|Brand X/i);
 });

@@ -2,7 +2,7 @@
 
 import { ArrowsClockwise, Check, CheckCircle, Circle, Copy, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import type { ClientRecord, OnboardingStep } from "@/lib/station";
+import { CLIENT_CATEGORIES, cutOf, type ClientCategory, type ClientRecord, type OnboardingStep, type TalentJob } from "@/lib/station";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
@@ -10,6 +10,14 @@ type Issued = { id: string; label: string; key: string; fresh: boolean };
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kuala_Lumpur" }) : "");
 const slugify = (s: string) =>
   s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 31).replace(/-+$/, "");
+
+const catOf = (id?: ClientCategory) => CLIENT_CATEGORIES.find((c) => c.id === id);
+// The headings on the tab, in order. Clients added before categories existed sit under the last one until you pick.
+const GROUPS: { title: string; ids: (ClientCategory | undefined)[]; note: string }[] = [
+  { title: "Creator / Talent", ids: ["creator", "talent"], note: "Creators on a retainer who pay us, and our own talent." },
+  { title: "Brand", ids: ["brand"], note: "Brands offering a job to @alanazizreview." },
+  { title: "No category yet", ids: [undefined], note: "Pick Creator, Talent or Brand on each card." },
+];
 
 async function call(body: Record<string, unknown>) {
   const res = await fetch("/api/station/clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin" });
@@ -66,6 +74,7 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
   const [instagram, setInstagram] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
+  const [category, setCategory] = useState<ClientCategory | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const shown = slugEdited ? slug : slugify(label);
@@ -78,12 +87,13 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
         setBusy(true);
         setError(null);
         try {
-          const r = await call({ action: "create", label, instagram, slug: shown });
+          const r = await call({ action: "create", label, instagram, slug: shown, category });
           onAdded({ id: shown, label: label.trim(), key: r.key!, fresh: true });
           setLabel("");
           setInstagram("");
           setSlug("");
           setSlugEdited(false);
+          setCategory("");
         } catch (err) {
           setError((err as Error).message);
         } finally {
@@ -96,6 +106,17 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
         They get a private link to their own page: their content jobs and what is waiting in final review. Their reel velocity
         and final-review jobs start on your laptop by themselves; no deploy, no settings to change.
       </p>
+      <fieldset className="mt-3">
+        <legend className="text-[12px]">What are they?</legend>
+        <div className="mt-1.5 grid gap-1.5 sm:grid-cols-3">
+          {CLIENT_CATEGORIES.map((k) => (
+            <label key={k.id} className={`st-tile flex cursor-pointer items-start gap-2 px-2.5 py-2 text-[12px] ${category === k.id ? "!border-[var(--mark)]" : ""}`}>
+              <input type="radio" name="category" value={k.id} checked={category === k.id} onChange={() => setCategory(k.id)} required className="mt-0.5 accent-[var(--mark)]" />
+              <span><span className="block text-[13px]">{k.label}</span><span className="text-[11px] text-muted">{k.hint}</span></span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="mt-3 grid gap-2.5 sm:grid-cols-3 sm:items-end">
         <label className="flex flex-col gap-1 text-[12px]">
           Name
@@ -123,10 +144,72 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
         </label>
       </div>
       {error && <p className="mt-2 text-[12px] text-bad" role="alert">{error}</p>}
-      <button type="submit" disabled={busy || label.trim().length < 2} className="mt-3 inline-flex min-h-[42px] items-center gap-2 rounded-[6px] bg-[var(--mark)] px-4 text-[13px] text-[var(--on-solid)] disabled:opacity-50">
+      <button type="submit" disabled={busy || label.trim().length < 2 || !category} className="mt-3 inline-flex min-h-[42px] items-center gap-2 rounded-[6px] bg-[var(--mark)] px-4 text-[13px] text-[var(--on-solid)] disabled:opacity-50">
         {busy ? "Setting up…" : "Add client and make their link"}
       </button>
     </form>
+  );
+}
+
+const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
+const todayMyt = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+
+/** Talent only: our percentage, and each job a brand gave them. Only the owner ever sees this. */
+function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void> }) {
+  const [commission, setCommission] = useState(c.commission === undefined ? "" : String(c.commission));
+  const [brand, setBrand] = useState("");
+  const [fee, setFee] = useState("");
+  const [date, setDate] = useState(todayMyt);
+  const [percent, setPercent] = useState("");
+  const jobs: TalentJob[] = [...(c.jobs ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  const total = jobs.reduce((n, j) => n + cutOf(j), 0), open = jobs.filter((j) => !j.paidAt).reduce((n, j) => n + cutOf(j), 0);
+  const rate = percent === "" ? c.commission : Number(percent);
+  const preview = fee && rate !== undefined && Number.isFinite(Number(fee)) ? cutOf({ fee: Number(fee), percent: rate }) : null;
+  return (
+    <div className="mt-2.5 flex flex-col gap-2.5">
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); act("update", { commission }); }}>
+        <label className="flex flex-col gap-1 text-[12px]">
+          Our commission per job (%)
+          <input className="field !min-h-[40px] sm:w-[160px]" type="number" min={0} max={100} step="any" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="not set" />
+        </label>
+        <button type="submit" disabled={!!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save commission</button>
+        <span className="pb-2.5 text-[11.5px] text-muted">only you see this</span>
+      </form>
+
+      <div className="rounded-[6px] border border-line">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-2.5 py-2">
+          <span className="label">Jobs · {jobs.length}</span>
+          <span className="text-[11.5px] text-muted">our share {rm(total)}{open ? <> · <span className="text-mark">{rm(open)} not received</span></> : null}</span>
+        </div>
+        {jobs.length ? (
+          <ul className="divide-y divide-line">
+            {jobs.map((j) => (
+              <li key={j.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2.5 py-2 text-[12px]">
+                <div className="min-w-0">
+                  <div className="break-words">{j.brand} <span className="text-muted">· {day(`${j.date}T00:00:00+08:00`)}</span></div>
+                  <div className="num text-[11.5px] text-muted">fee {rm(j.fee)} · {j.percent}% · <span className="text-ink">our share {rm(cutOf(j))}</span></div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {j.paidAt
+                    ? <button type="button" disabled={!!busy} onClick={() => act("job-unpaid", { jobId: j.id })} className="inline-flex min-h-[36px] items-center gap-1 rounded-[6px] px-2 text-[11.5px] text-good hover:underline disabled:opacity-50"><CheckCircle size={14} weight="fill" aria-hidden /> received {day(j.paidAt)}</button>
+                    : <button type="button" disabled={!!busy} onClick={() => act("job-paid", { jobId: j.id })} className="min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink disabled:opacity-50">Mark received</button>}
+                  <button type="button" disabled={!!busy} aria-label={`Remove the ${j.brand} job`} onClick={() => act("job-remove", { jobId: j.id }, `Remove the ${j.brand} job (${rm(j.fee)})? This cannot be undone.`)} className="inline-flex min-h-[36px] items-center px-1.5 text-bad hover:underline disabled:opacity-50"><Trash size={14} aria-hidden /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="px-2.5 py-2 text-[12px] text-muted">No jobs yet. Add one when a brand or agency confirms a job for {c.label}.</p>}
+        <form className="flex flex-wrap items-end gap-2 border-t border-line px-2.5 py-2.5"
+          onSubmit={async (e) => { e.preventDefault(); await act("job-add", { brand, fee, date, percent }); setBrand(""); setFee(""); setPercent(""); }}>
+          <label className="flex flex-col gap-1 text-[12px]">Brand or agency<input className="field !min-h-[40px] sm:w-[170px]" required minLength={2} maxLength={60} value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Brand X" autoComplete="off" /></label>
+          <label className="flex flex-col gap-1 text-[12px]">Job fee (RM)<input className="field !min-h-[40px] sm:w-[120px]" required type="number" min={1} step="any" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="3000" /></label>
+          <label className="flex flex-col gap-1 text-[12px]">Job date<input className="field !min-h-[40px]" required type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label className="flex flex-col gap-1 text-[12px]"><span>% <span className="text-muted">(blank = {c.commission ?? "set above"})</span></span><input className="field !min-h-[40px] sm:w-[90px]" type="number" min={0} max={100} step="any" inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} placeholder={c.commission === undefined ? "" : String(c.commission)} /></label>
+          <button type="submit" disabled={!!busy || !brand.trim() || !fee} className="min-h-[40px] rounded-[6px] bg-[var(--mark)] px-3.5 text-[12.5px] text-[var(--on-solid)] disabled:opacity-50">Add job</button>
+          {preview !== null && <span className="num pb-2.5 text-[11.5px] text-muted">our share {rm(preview)}</span>}
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -153,12 +236,17 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
   };
   const paused = c.status === "paused";
   const done = c.steps.filter((s) => s.done).length;
+  const cat = catOf(c.category);
+  const brand = c.category === "brand";
 
   return (
     <li className="st-card px-3.5 py-3" style={paused ? { opacity: 0.7 } : undefined}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <div className="text-[14px]">{c.label}</div>
+          <div className="flex flex-wrap items-center gap-2 text-[14px]">
+            {c.label}
+            <span className={`label rounded-full border px-2 py-0.5 ${cat ? "border-[var(--mark)] !text-[var(--mark)]" : "border-line"}`}>{cat ? (c.category === "creator" ? "Creator · retainer" : cat.label) : "no category"}</span>
+          </div>
           <div className="text-[11.5px] text-muted">
             <span className="mono">{c.id}</span>{c.instagram ? ` · @${c.instagram}` : ""} · added {day(c.createdAt)}
             {c.lastSeenAt ? ` · last opened ${day(c.lastSeenAt)}` : ""}
@@ -166,6 +254,15 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         </div>
         <span className={`label rounded-full border px-2 py-1 ${paused ? "border-line" : "border-[var(--good)] text-good"}`}>{paused ? "paused" : `${done}/${c.steps.length} set up`}</span>
       </div>
+
+      <label className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px]">
+        Category
+        <select value={c.category ?? ""} disabled={!!busy} onChange={(e) => act("update", { category: e.target.value })} className="min-h-[36px] rounded-[6px] border border-line bg-bg px-2 text-[12px] text-ink">
+          {!c.category && <option value="">Pick one…</option>}
+          {CLIENT_CATEGORIES.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+        </select>
+        {cat && <span className="text-[11px] text-muted">{cat.hint}</span>}
+      </label>
 
       <ol className="mt-2.5 grid gap-1.5 sm:grid-cols-2">
         {c.steps.map((s) => (
@@ -196,7 +293,9 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         </form>
       )}
 
-      {!paused && (
+      {!paused && c.category === "talent" && <TalentTerms c={c} busy={busy} act={act} />}
+
+      {!paused && c.category !== "talent" && (
         <form
           className="mt-2.5 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -205,11 +304,11 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
           }}
         >
           <label className="flex flex-col gap-1 text-[12px]">
-            Price per reel (RM)
+            {brand ? "Fee per video (RM)" : "Price per reel (RM)"}
             <input className="field !min-h-[40px] sm:w-[140px]" type="number" min={0} step="any" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="not set" />
           </label>
           <label className="flex flex-col gap-1 text-[12px]">
-            Reels per month
+            {brand ? "Videos per month" : "Reels per month"}
             <input className="field !min-h-[40px] sm:w-[120px]" type="number" min={1} max={60} step={1} inputMode="numeric" value={perMonth} onChange={(e) => setPerMonth(e.target.value)} placeholder="not set" />
           </label>
           <button type="submit" disabled={!!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save price</button>
@@ -266,9 +365,26 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
       {issued ? <IssuedLink issued={issued} onDone={() => setIssued(null)} /> : <AddClient onAdded={(i) => (setIssued(i), changed())} />}
       {error && <p className="text-[12px] text-bad" role="alert">Could not load clients: {error}</p>}
       {clients && !clients.length && <p className="text-[12px] text-muted">No clients added to KNOX yet. Add the first one above.</p>}
-      <ul className="grid gap-3 lg:grid-cols-2">
-        {clients?.map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} />)}
-      </ul>
+      {clients && clients.length > 0 && GROUPS.map((g) => {
+        const mine = clients.filter((c) => g.ids.includes(c.category));
+        // The catch-all heading only shows while someone is in it.
+        if (!mine.length && g.ids.includes(undefined)) return null;
+        return (
+          <section key={g.title} aria-label={g.title} className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-1">
+              <h2 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX {g.title} <span className="num text-muted">· {mine.length}</span></h2>
+              <span className="text-[11.5px] text-muted">
+                {g.ids.length > 1 ? g.ids.map((id) => `${catOf(id)!.label} ${mine.filter((c) => c.category === id).length}`).join(" · ") : g.note}
+              </span>
+            </div>
+            {mine.length ? (
+              <ul className="grid gap-3 lg:grid-cols-2">
+                {[...mine].sort((a, b) => g.ids.indexOf(a.category) - g.ids.indexOf(b.category)).map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} />)}
+              </ul>
+            ) : <p className="st-card px-3.5 py-3 text-[12px] text-muted">None yet. {g.note}</p>}
+          </section>
+        );
+      })}
     </div>
   );
 }

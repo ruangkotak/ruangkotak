@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DRAFT_FILE } from "../lib/station.ts";
+import { askLine, cleanAsk, DRAFT_FILE, type Registry } from "../lib/station.ts";
+import { addAsks } from "../scripts/station/jobs/route-asks.mts";
 import { parseEnvFile } from "../scripts/station/client.mts";
 import { verdict } from "../scripts/station/jobs/backup-freshness-guard.mts";
 import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
@@ -11,7 +12,7 @@ import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, qu
 import { tickLine } from "../scripts/station/queue.mts";
 import { datesOf, labelOf, review as finalReview } from "../scripts/station/jobs/final-check.mts";
 import { applyMark } from "../scripts/station/jobs/needs-me-sync.mts";
-import { applyDecision } from "../scripts/station/jobs/draft-review.mts";
+import { agentDrafts, applyAgentDecision, applyDecision } from "../scripts/station/jobs/draft-review.mts";
 import { agentInstructions, asksToWork, BLOCKED, claudeArgs, promptFor, TOOLS } from "../scripts/station/jobs/agent-work.mts";
 import { velocity } from "../scripts/station/jobs/ig-velocity.mts";
 import { briefLine } from "../scripts/station/jobs/brief-sweep.mts";
@@ -534,4 +535,54 @@ test("a TESTED post is closed: not a draft to review, not a post to publish", ()
   assert.deepEqual(r.gates!.map((g) => [g.gate, g.waiting]), [["review", 0], ["post", 0]]);
   assert.equal(r.attention, undefined);
   assert.equal(statusOf("**Status:** tested"), "TESTED");
+});
+
+test("asks typed on KNOX: cleaned to one safe line, written into Asks.md once, and routed by their desk tag", () => {
+  const r = { accounts: [], gates: [], jobs: [], departments: [{ id: "cmo", no: "02", name: "CMO", client: false, desks: [{ id: "scriptwriter", name: "Scriptwriter", agent: "creative-lead" }] }] } as Registry;
+  const ok = cleanAsk({ text: "- [ ] write a 45s review script\nfor Brand X <!-- rk:id=1 --> mic", desk: "scriptwriter" }, r);
+  assert.deepEqual(ok, { ok: true, value: { text: "write a 45s review script for Brand X rk:id=1 mic", desk: "scriptwriter" } });
+  assert.equal(cleanAsk({ text: "hi" }, r).ok, false);
+  assert.equal(cleanAsk({ text: "x".repeat(1501) }, r).ok, false);
+  assert.equal(cleanAsk({ text: "write a script please", desk: "no-such-desk" }, r).ok, false);
+  assert.deepEqual(cleanAsk({ text: "write a script please", desk: "" }, r), { ok: true, value: { text: "write a script please" } });
+
+  assert.equal(askLine({ text: "write a hook", desk: "scriptwriter" }), "- [ ] write a hook #scriptwriter");
+  assert.equal(askLine({ text: "write a hook #scriptwriter", desk: "scriptwriter" }), "- [ ] write a hook #scriptwriter");
+  assert.equal(askLine({ text: "write a hook" }), "- [ ] write a hook");
+
+  const asks = [{ text: "write a hook for the mic reel", desk: "scriptwriter" }, { text: "write a hook for the mic reel", desk: "scriptwriter" }];
+  const first = addAsks("# Asks\n\n- [x] old one\n", asks);
+  assert.equal(first.added, 1);
+  assert.ok(first.text.endsWith("- [ ] write a hook for the mic reel #scriptwriter\n"));
+  // After routing the line carries "→ Desk" and a marker; a second delivery of the same ask is still recognised.
+  const routed = route(first.text, [{ id: "scriptwriter", name: "Scriptwriter", dept: "cmo" }], "2026-11-14T01:00:00.000Z");
+  assert.equal(routed.routed.length, 1);
+  assert.match(routed.text, /mic reel #scriptwriter · → Scriptwriter <!-- rk:id=\S+ at=\S+ desk=scriptwriter -->/);
+  assert.deepEqual(addAsks(routed.text, asks), { text: routed.text, added: 0 });
+});
+
+test("agent drafts: listed once per ask with their text, and a decision ticks the queue and the ask", () => {
+  const queue = [
+    "# Drafts waiting for approval", "",
+    "- [x] 2026-11-10 22:22 · Scriptwriter: old hooks → [[Drafts/2026-11-10 old]] · done in Station <!-- rk:id=20261110141611-1 at=2026-11-10T14:22:04.123Z -->",
+    "- [ ] 2026-11-14 23:08 · Scriptwriter: write a review script for the mic → [[Drafts/2026-11-14 write-a-review]] <!-- rk:id=20261114145245-1 at=2026-11-14T15:08:00.000Z -->",
+    "- [ ] 2026-11-14 23:30 · Scriptwriter: write a review script for the mic → [[Drafts/2026-11-14 write-a-review]] <!-- rk:id=20261114145245-1 at=2026-11-14T15:30:00.000Z -->",
+    "- [ ] 2026-11-14 23:40 · Caption Editor: caption → [[Drafts/../../secret]] <!-- rk:id=20261114145245-2 at=2026-11-14T15:40:00.000Z -->",
+    "- [ ] 2026-11-14 23:41 · Caption Editor: gone → [[Drafts/2026-11-14 gone]] <!-- rk:id=20261114145245-3 at=2026-11-14T15:41:00.000Z -->",
+  ].join("\n");
+  const files: Record<string, string> = { "Drafts/2026-11-14 write-a-review": "HOOK 1: ...\nVERDICT: [yours]" };
+  const list = agentDrafts(queue, (link) => files[link] ?? null);
+  assert.equal(list.length, 1); // ticked, path-escaping and missing drafts are left out; two lines for one ask are one draft
+  assert.deepEqual({ ...list[0], preview: "" }, { file: "agent/20261114145245-1", kind: "agent", day: "2026-11-14", title: "Scriptwriter: write a review script for the mic", client: "Scriptwriter", status: "DRAFT", preview: "", changedAt: "2026-11-14T15:30:00.000Z", where: "Station/Drafts/2026-11-14 write-a-review.md" });
+  assert.match(list[0].preview, /VERDICT/);
+
+  const asks = "- [ ] write a review script for the mic #scriptwriter · → Scriptwriter <!-- rk:id=20261114145245-1 at=2026-11-14T14:52:45.000Z desk=scriptwriter -->\n- [ ] another ask <!-- rk:id=20261114145245-9 at=2026-11-14T14:52:45.000Z desk=editor -->";
+  const ok = applyAgentDecision(queue, asks, "20261114145245-1", "approve", "2026-11-14T16:00:00.000Z");
+  assert.equal(ok.changed, true);
+  assert.equal(ok.queue.split("\n").filter((l) => l.includes("approved in KNOX 2026-11-15 00:00")).length, 2);
+  assert.match(ok.asks.split("\n")[0], /^- \[x\] .* · draft approved in KNOX 2026-11-15 00:00 <!-- rk:id=20261114145245-1/);
+  assert.match(ok.asks.split("\n")[1], /^- \[ \] another ask/);
+  assert.equal(agentDrafts(ok.queue, (link) => files[link] ?? null).length, 0);
+  assert.match(applyAgentDecision(queue, asks, "20261114145245-1", "reject", "2026-11-14T16:00:00.000Z").asks, /draft rejected in KNOX .* ask again with more detail/);
+  assert.equal(applyAgentDecision(queue, asks, "no-such-id", "approve", "2026-11-14T16:00:00.000Z").changed, false);
 });

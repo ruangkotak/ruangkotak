@@ -343,7 +343,71 @@ export type ClientRecord = {
   status: "active" | "paused"; openedAt?: string; lastSeenAt?: string;
   /** What was agreed: RM per reel and reels per month. Owner only; never sent to the client or the laptop. */
   price?: number; perMonth?: number;
+  /** Who they are to the business. Owner only; never sent to the client or the laptop. */
+  category?: ClientCategory;
+  /** Talent only: our share of each job, in percent, and the jobs themselves. Owner only. */
+  commission?: number; jobs?: TalentJob[];
 };
+
+/** One job a brand gave our talent. `percent` is fixed when the job is added, so changing the talent's rate later never rewrites history. */
+export type TalentJob = { id: string; brand: string; fee: number; percent: number; date: string; paidAt?: string };
+export const TALENT_JOBS_MAX = 200;
+/** Our share of one job, in RM. */
+export const cutOf = (j: Pick<TalentJob, "fee" | "percent">) => Math.round(j.fee * j.percent) / 100;
+
+/** Checks a commission from a form: 0 to 100 percent, up to two decimals. Blank clears it. */
+export function commissionOf(v: unknown): { ok: true; value: number | undefined } | { ok: false; error: string } {
+  if (v === undefined || v === null || v === "") return { ok: true, value: undefined };
+  const n = Number(v);
+  if (!(Number.isFinite(n) && n >= 0 && n <= 100)) return { ok: false, error: "The commission must be a percentage from 0 to 100." };
+  return { ok: true, value: Math.round(n * 100) / 100 };
+}
+
+/** Checks the Add job form. The percentage defaults to the talent's own rate. */
+export function talentJob(input: { brand?: unknown; fee?: unknown; date?: unknown; percent?: unknown }, rate: number | undefined):
+  { ok: true; value: Omit<TalentJob, "id"> } | { ok: false; error: string } {
+  const brand = typeof input.brand === "string" ? input.brand.replace(/\s+/g, " ").trim().slice(0, 60) : "";
+  if (brand.length < 2) return { ok: false, error: "Name the brand or agency that gave the job." };
+  const fee = Number(input.fee);
+  if (input.fee === "" || input.fee === undefined || !(Number.isFinite(fee) && fee > 0 && fee <= 10_000_000)) return { ok: false, error: "The job fee must be a number in RM above 0." };
+  const date = typeof input.date === "string" ? input.date : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { ok: false, error: "Give the job a date." };
+  const pct = commissionOf(input.percent === undefined || input.percent === "" ? rate : input.percent);
+  if (!pct.ok) return pct;
+  if (pct.value === undefined) return { ok: false, error: "Set this talent's commission first, or give this job its own percentage." };
+  return { ok: true, value: { brand, fee: Math.round(fee * 100) / 100, percent: pct.value, date } };
+}
+
+/** What the talent side earns us. `month` is YYYY-MM in Malaysia time. Only clients in the Talent category count. */
+export type TalentMoney = { talents: number; jobs: number; fees: number; cut: number; received: number; outstanding: number; thisMonth: number };
+export function talentMoney(clients: Pick<ClientRecord, "category" | "jobs" | "status">[], month: string): TalentMoney {
+  const talents = clients.filter((c) => c.category === "talent" && c.status === "active");
+  const jobs = talents.flatMap((c) => c.jobs ?? []);
+  const sum = (xs: TalentJob[]) => Math.round(xs.reduce((n, j) => n + cutOf(j), 0) * 100) / 100;
+  return {
+    talents: talents.length, jobs: jobs.length, fees: Math.round(jobs.reduce((n, j) => n + j.fee, 0) * 100) / 100, cut: sum(jobs),
+    received: sum(jobs.filter((j) => j.paidAt)), outstanding: sum(jobs.filter((j) => !j.paidAt)), thisMonth: sum(jobs.filter((j) => j.date.startsWith(month))),
+  };
+}
+
+/**
+ * The kinds of client. Creator and Talent sit under one heading on the Clients tab; Brand is its own.
+ *   creator: a creator on a retainer, who pays us.
+ *   talent:  our own talent. We find them jobs, or a brand or agency finds them and deals with us.
+ *   brand:   a brand offering a job to @alanazizreview.
+ */
+export const CLIENT_CATEGORIES = [
+  { id: "creator", group: "Creator / Talent", label: "Creator", hint: "On a retainer. They pay us." },
+  { id: "talent", group: "Creator / Talent", label: "Talent", hint: "Our talent. We find them jobs, or a brand or agency comes to us for them." },
+  { id: "brand", group: "Brand", label: "Brand", hint: "Offering a job to @alanazizreview." },
+] as const;
+export type ClientCategory = (typeof CLIENT_CATEGORIES)[number]["id"];
+/** Checks a category from a form. Blank clears it; anything unknown is refused. */
+export function clientCategory(v: unknown): { ok: true; value: ClientCategory | undefined } | { ok: false; error: string } {
+  if (v === undefined || v === null || v === "") return { ok: true, value: undefined };
+  const hit = CLIENT_CATEGORIES.find((c) => c.id === v);
+  return hit ? { ok: true, value: hit.id } : { ok: false, error: "Pick Creator, Talent or Brand." };
+}
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,30}$/;
 const RESERVED = new Set(["all", "internal", "owner", "client", "station", "new"]);
@@ -408,10 +472,12 @@ export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: 
       id: "final", label: "Final review checklist ready", done: !!finalRun, at: finalRun,
       note: finalRun ? `${finalGate?.waiting ?? 0} waiting · add deliverables to final-queue-${c.id}.md` : "created on the next weekday 18:00 run",
     },
-    {
-      id: "price", label: "Price agreed", done: c.price !== undefined,
-      note: c.price !== undefined ? `RM${c.price} a reel${c.perMonth ? ` · ${c.perMonth} a month` : ""}` : "set it below; nothing can be invoiced without it",
-    },
+    c.category === "talent"
+      ? { id: "price", label: "Commission agreed", done: c.commission !== undefined, note: c.commission !== undefined ? `${c.commission}% of each job` : "set it below; a job cannot be added without it" }
+      : {
+          id: "price", label: "Price agreed", done: c.price !== undefined,
+          note: c.price !== undefined ? `RM${c.price} a reel${c.perMonth ? ` · ${c.perMonth} a month` : ""}` : "set it below; nothing can be invoiced without it",
+        },
   ];
 }
 
@@ -665,7 +731,16 @@ export const DONE_KEEP_MS = 7 * 86400_000;
  * A content draft as the owner reads it on the Needs me tab. The text is the one deliberate exception to "counts, not
  * names" (like final-review labels): it is stored for the owner only and never appears in a client snapshot.
  */
-export type DraftView = { file: string; day: string; title: string; client: string; status: string; preview: string; changedAt: string };
+export type DraftView = {
+  file: string; day: string; title: string; client: string; status: string; preview: string; changedAt: string;
+  /** "agent": a draft an agent wrote for one of the owner's asks. Absent: a post on the content board. */
+  kind?: "agent";
+  /** Where the full text is, as the owner would find it in their notes. */
+  where?: string;
+};
+/** An agent draft is named by the id of its line in Station/drafts-queue.md, never by a path. */
+export const AGENT_DRAFT = /^agent\/[A-Za-z0-9_-]{1,40}$/;
+export const isDraftKey = (file: string) => DRAFT_FILE.test(file) || AGENT_DRAFT.test(file);
 export type DraftDecision = "approve" | "reject";
 /** Approve / Reject presses on the drafts: file -> decision, and whether the laptop has rewritten the **Status:** line yet. */
 export type DraftMarks = Record<string, { decision: DraftDecision; at: string; applied?: boolean }>;
@@ -686,7 +761,7 @@ export function parseDoneKey(key: string): { gate: string; account: string; labe
 
 /** The checklist file (name only) a press is carried out in, for the laptop. */
 export const doneFile = (gate: string, a: Account) => (CLEAR_ALL.has(gate) || gate === "final" ? gateFile(gate, a)?.replace(/^Station\//, "") : undefined);
-export type Money = { monthly: number; priced: number; clients: number; invoices?: string };
+export type Money = { monthly: number; priced: number; clients: number; invoices?: string; /** Our share of talent jobs. Absent when there is no talent. */ talent?: TalentMoney };
 
 const STAGES: { id: StageId; name: string; gates: string[] }[] = [
   { id: "audience", name: "Audience", gates: ["dm", "brief"] },
@@ -763,7 +838,9 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     }
   }
   for (const c of clients) {
-    if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    if (c.category === "talent") {
+      if (c.commission === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the commission for ${c.label}`, detail: "A talent job cannot be added without our percentage", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
     if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
   }
   for (const n of input.needsYou) {
@@ -790,19 +867,22 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     .filter(([k]) => k.startsWith("final:") && accountOf(k.slice(6)) && input.inAccount(k.slice(6)))
     .flatMap(([, v]) => v.delivered ?? [])
     .filter((d) => now.getTime() - Date.parse(d.at) < 7 * 86400_000).length;
-  const priced = clients.filter((c) => !!c.price); // a price of 0 is a client you do not charge
-  const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote };
+  // A price of 0 is a client you do not charge. Talent never pays a price: what they bring in is our share of each job.
+  const priced = clients.filter((c) => !!c.price && c.category !== "talent");
+  const talent = talentMoney(clients, today.slice(0, 7));
+  const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote, ...(talent.talents ? { talent } : {}) };
+  const unset = (c: ClientRecord) => (c.category === "talent" ? c.commission === undefined : c.price === undefined);
 
   const stages: StageView[] = STAGES.map((s, i) => {
     const base = { id: s.id, no: `0${i + 1}`, name: s.name };
     if (s.id === "onboard") {
-      const noPrice = clients.filter((c) => c.price === undefined), unopened = clients.filter((c) => !c.openedAt);
-      const open = clients.filter((c) => c.price === undefined || !c.openedAt);
+      const noPrice = clients.filter(unset), unopened = clients.filter((c) => !c.openedAt);
+      const open = clients.filter((c) => unset(c) || !c.openedAt);
       return { ...base, waiting: open.length, oldestAt: open.map((c) => c.createdAt).sort()[0], overdue: false, parts: [{ label: "No price yet", waiting: noPrice.length }, { label: "Link not opened", waiting: unopened.length }] };
     }
     const views = input.gateViews.filter((g) => s.gates.includes(g.id));
     const read = views.filter((g) => g.waiting !== null);
-    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no paying client yet" : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
+    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no paying client yet" : undefined, money.talent?.outstanding ? `RM${money.talent.outstanding.toLocaleString("en-MY")} talent commission outstanding` : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
       : s.id === "post" ? `${delivered} passed final review in the last 7 days` : undefined;
     return {
       ...base, waiting: read.length ? read.reduce((n, g) => n + g.waiting!, 0) : null, oldestAt: views.map((g) => g.oldestAt).filter((x): x is string => !!x).sort()[0],
@@ -923,3 +1003,102 @@ export function reelsMessage(handle: string, cur: ReelSnapshot, prev: ReelSnapsh
   const rate = before && hours > 0.5 ? ` (+${Math.max(0, Math.round((newest.views - before.views) / hours))}/h)` : "";
   return `@${handle} · ${cur.reels.length} reels · newest ${ago(Date.parse(newest.at), new Date(cur.at))} old: ${newest.views} plays${rate}`;
 }
+
+// ---------- owner report and the command box (owner only, read-only) ----------
+
+const stageLine = (s: StageView) =>
+  `  ${s.no} ${s.name}: ${s.waiting === null ? "not counted yet" : `${s.waiting} waiting`}${s.overdue ? " · OVERDUE" : ""}${s.parts.length ? ` (${s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(", ")})` : ""}`;
+const needLine = (n: NeedsMe) => `  • ${n.overdue ? "OVERDUE · " : ""}${n.client ? `${n.client} · ` : ""}${n.title}${n.due ? ` · due ${n.due}` : ""}`;
+const moneyLines = (m: Money) => [
+  m.priced ? `  RM${m.monthly.toLocaleString("en-MY")} a month agreed with ${m.priced} of ${m.clients} clients` : m.clients ? `  ${m.clients} client${m.clients === 1 ? "" : "s"}, none with a price yet` : "  No clients yet",
+  ...(m.talent ? [`  Talent commission: RM${m.talent.thisMonth.toLocaleString("en-MY")} this month · RM${m.talent.outstanding.toLocaleString("en-MY")} outstanding · RM${m.talent.received.toLocaleString("en-MY")} received (${m.talent.jobs} job${m.talent.jobs === 1 ? "" : "s"})`] : []),
+  ...(m.invoices ? [`  Invoices: ${m.invoices}`] : []),
+];
+const systemLines = (s: Snapshot) => {
+  const down = (s.infra ?? []).filter((p) => p.status === "down" || p.status === "degraded");
+  return [
+    `  Jobs running ${s.top.working} · stuck ${s.top.stuck} · laptop ${s.top.live ? "reporting" : "quiet"}`,
+    ...(down.length ? down.map((p) => `  ${p.label}: ${p.status} · ${p.detail}`) : ["  Every check answers"]),
+  ];
+};
+
+/** Pure: the whole business on one page of plain text, from the numbers the board already shows. Owner view only ("" otherwise). */
+export function ownerReport(s: Snapshot): string {
+  if (!s.stages || !s.needsMe || !s.money) return "";
+  const late = s.needsMe.filter((n) => n.overdue).length;
+  return [
+    `KNOX Mission Control · ${mytDate(new Date(s.now))}`,
+    "",
+    `Needs me: ${s.needsMe.length}${late ? ` (${late} overdue)` : ""}`,
+    ...s.needsMe.slice(0, 12).map(needLine),
+    ...(s.needsMe.length > 12 ? [`  and ${s.needsMe.length - 12} more`] : []),
+    "",
+    "Stages",
+    ...s.stages.map(stageLine),
+    "",
+    "Money",
+    ...moneyLines(s.money),
+    "",
+    "System",
+    ...systemLines(s),
+  ].join("\n");
+}
+
+export type CommandTab = "needs" | "clients" | "carousel" | "money" | "reports" | "health" | "how";
+const COMMAND_HELP = [
+  "I can read the board back to you. Try:",
+  "  needs      what is waiting on you",
+  "  today      what is overdue or due today",
+  "  stages     the five stages",
+  "  money      prices and invoices",
+  "  health     jobs and checks",
+  "  report     the whole business on one page",
+  "  clients, carousel   open that tab",
+  "I only read. Adding leads, briefs and quotations by command is not built here yet.",
+].join("\n");
+
+/** Pure: answer a short typed command from the snapshot. Reads only; it never changes or sends anything. */
+export function answerCommand(text: string, s: Snapshot): { reply: string; tab?: CommandTab } {
+  const t = text.trim().toLowerCase().replace(/^\//, "");
+  if (!s.stages || !s.needsMe || !s.money) return { reply: "The command box works on the owner view only." };
+  const word = t.split(/\s+/)[0] ?? "";
+  if (!t || word === "help") return { reply: COMMAND_HELP };
+  if (word === "needs") return { reply: s.needsMe.length ? [`${s.needsMe.length} waiting on you:`, ...s.needsMe.map(needLine)].join("\n") : "Nothing is waiting on you.", tab: "needs" };
+  if (word === "today") {
+    const today = mytDate(new Date(s.now));
+    const hot = s.needsMe.filter((n) => n.overdue || n.due === today);
+    return { reply: hot.length ? [`${hot.length} overdue or due today:`, ...hot.map(needLine)].join("\n") : "Nothing is overdue and nothing is due today.", tab: "needs" };
+  }
+  if (word === "stages") return { reply: ["Stages", ...s.stages.map(stageLine)].join("\n") };
+  if (word === "money" || word === "invoices") return { reply: ["Money", ...moneyLines(s.money)].join("\n"), tab: "money" };
+  if (word === "health" || word === "status") return { reply: ["System", ...systemLines(s)].join("\n"), tab: "health" };
+  if (word === "report" || word === "reports") return { reply: ownerReport(s), tab: "reports" };
+  if (word === "clients" || word === "carousel") return { reply: `Opened ${word}.`, tab: word };
+  if (word === "quote" || word === "brief" || word === "lead") return { reply: `"${word}" worked in Station Lite because it kept its own list. KNOX does not store ${word}s yet, so nothing was added.\n\n${COMMAND_HELP}` };
+  return { reply: `I do not know "${text.trim()}".\n\n${COMMAND_HELP}` };
+}
+
+// ---------- asks typed on the board (owner only) ----------
+// The owner types an ask on Needs me. KNOX cannot reach the notes folder, so the ask waits on the site until the
+// laptop's route-asks job collects it, writes it as a line in Station/Asks.md, and confirms. It is then deleted here.
+
+export type AskRecord = { id: string; text: string; desk?: string; at: string };
+export const ASK_MAX = 1500;
+export const ASK_MIN = 8;
+export const ASK_PENDING_MAX = 20;
+
+/** Pure: an ask as it may be stored: one line, no comment markers, no checkbox, a desk that exists (or none). */
+export function cleanAsk(input: { text?: unknown; desk?: unknown }, r: Registry): { ok: true; value: { text: string; desk?: string } } | { ok: false; error: string } {
+  if (typeof input.text !== "string") return { ok: false, error: "Write what you need first." };
+  const text = input.text.replace(/<!--|-->/g, "").replace(/\s+/g, " ").replace(/^[-*]\s*(\[[ xX]?\]\s*)?/, "").trim();
+  if (text.length < ASK_MIN) return { ok: false, error: "Say a little more about what you need." };
+  if (text.length > ASK_MAX) return { ok: false, error: `Keep it under ${ASK_MAX} characters. Put a long brief in a note and name the note.` };
+  if (input.desk === undefined || input.desk === null || input.desk === "") return { ok: true, value: { text } };
+  const desk = typeof input.desk === "string" ? input.desk : "";
+  if (!r.departments.some((d) => d.desks.some((k) => k.id === desk))) return { ok: false, error: "That desk does not exist." };
+  return { ok: true, value: { text, desk } };
+}
+
+/** Pure: the line the laptop writes into Asks.md. The #desk tag is what the router reads. */
+export const askLine = (a: Pick<AskRecord, "text" | "desk">) =>
+  `- [ ] ${a.text}${a.desk && !new RegExp(`(^|\\s)#${a.desk}(\\s|$)`, "i").test(a.text) ? ` #${a.desk}` : ""}`;

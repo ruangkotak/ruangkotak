@@ -18,6 +18,22 @@ name changed: the address is still `/station`, and the code, API routes, env
 vars, job ids and the `Station/` notes folder keep their names. The rest of
 this section still says "Station" when it means those.
 
+Since 14 Nov 2026 the owner's page uses the Station Lite layout: a header of
+business numbers, a command box that reads the board back (it never changes
+or sends anything), the five stages as one floor strip with an avatar each,
+and the tabs Needs me, Clients, Carousel, Money, Reports, Health and How it
+works. Health holds what used to be the Mission, Jobs and Alerts tabs; old
+`#station`, `#jobs` and `#alerts` links open it. A client's page is unchanged.
+Quotations, invoices, brief upload and adding leads by command were part of
+Lite and are not here: the site stores no documents.
+
+**Ask for work** (Needs me tab): the owner types an ask and picks a desk. The
+ask waits on the site (`/api/station/asks`, owner only) until the laptop's
+`route-asks` job collects it, writes it as a line in `Station/Asks.md` and
+confirms; the site then deletes its copy. From there it is an ordinary ask:
+routed to the desk, drafted by that desk's agent, and listed under Make as an
+agent draft. The site never runs an agent and never touches the notes folder.
+
 `/station` shows every department, desk, scheduled job, approval gate and
 infra probe on one screen, for @alanazizreview and for paying clients. It
 is a 404 to anyone without a key.

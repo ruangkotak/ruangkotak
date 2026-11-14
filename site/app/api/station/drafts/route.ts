@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
-import { DONE_KEEP_MS, DRAFT_FILE, DRAFT_LIST_MAX, DRAFT_PREVIEW_MAX, type DraftDecision, type DraftView } from "@/lib/station";
+import { AGENT_DRAFT, DONE_KEEP_MS, DRAFT_LIST_MAX, DRAFT_PREVIEW_MAX, isDraftKey, type DraftDecision, type DraftView } from "@/lib/station";
 import { ownerRequest } from "@/lib/station-live";
 import { draftStore } from "@/lib/store";
 
-// Content drafts on the Needs me tab: read, approve or reject. Owner only; anyone else gets a 404.
+// Drafts on the Needs me tab (posts on the content board, and agent drafts for the owner's asks): read, approve or reject. Owner only; anyone else gets a 404.
 //   GET                from the page: the drafts the laptop last sent, each with any decision still waiting.
 //   GET  ?pending=1    from the laptop (x-station-key): the decisions still to write into the files.
 //   POST { file, decision: "approve" | "reject" }   from the page: remember the decision. The laptop rewrites **Status:**.
@@ -20,8 +20,9 @@ function cleanDrafts(input: unknown): DraftView[] {
   if (!Array.isArray(input)) return [];
   return input.slice(0, DRAFT_LIST_MAX).flatMap((d) => {
     const file = str(d?.file, 120);
-    if (!DRAFT_FILE.test(file)) return [];
-    return [{ file, day: str(d.day, 10), title: str(d.title, 160), client: str(d.client, 60), status: str(d.status, 24).toUpperCase(), preview: str(d.preview, DRAFT_PREVIEW_MAX), changedAt: str(d.changedAt, 30) }];
+    if (!isDraftKey(file)) return [];
+    const base = { file, day: str(d.day, 10), title: str(d.title, 160), client: str(d.client, 60), status: str(d.status, 24).toUpperCase(), preview: str(d.preview, DRAFT_PREVIEW_MAX), changedAt: str(d.changedAt, 30) };
+    return [AGENT_DRAFT.test(file) ? { ...base, kind: "agent" as const, where: str(d.where, 200) } : base];
   });
 }
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => null)) as { file?: unknown; decision?: unknown; drafts?: unknown; ack?: unknown } | null;
   try {
     if (fromLaptop && body && Array.isArray(body.ack)) {
-      const files = body.ack.filter((f): f is string => typeof f === "string" && DRAFT_FILE.test(f)).slice(0, 200);
+      const files = body.ack.filter((f): f is string => typeof f === "string" && isDraftKey(f)).slice(0, 200);
       await draftStore.applied(files);
       return json({ ok: true });
     }
