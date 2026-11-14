@@ -46,6 +46,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
   const home: Tab = canSwitch ? "needs" : "station";
   const tabs: readonly { id: Tab; label: string }[] = canSwitch ? OWNER_TABS : CLIENT_TABS;
   const [tab, setTab] = useState<Tab>(home);
+  const [agentDrafts, setAgentDrafts] = useState(0);
   const query = useRef(queryOf(initial.view));
 
   const load = useCallback(async () => {
@@ -164,8 +165,13 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
         {shown === "needs" && snap.needsMe && (
           <>
             {owner && <AskBox />}
-            <DraftReview onChanged={load} />
-            <NeedsMeList items={snap.needsMe} now={now} onDone={done} />
+            <DraftReview onChanged={load} onAgentDrafts={setAgentDrafts} />
+            {/* While agent drafts are shown above with their own Approve and Reject, the bare "Clear all" line for the same drafts is left out. */}
+            {(() => {
+              const items = agentDrafts > 0 ? snap.needsMe.filter((n) => !n.key.startsWith("gate:drafts:")) : snap.needsMe;
+              // With a draft card above, an empty "nothing is waiting" line underneath would be wrong.
+              return items.length || !agentDrafts ? <NeedsMeList items={items} now={now} onDone={done} /> : null;
+            })()}
           </>
         )}
 
