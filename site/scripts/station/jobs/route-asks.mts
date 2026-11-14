@@ -4,8 +4,11 @@
 // ("caption" → Caption Editor, "invoice" → Billing Clerk). The line gets "→ Desk" and a hidden marker. An ask no desk
 // matches is marked "→ ? (add a #desk)" and checked again each run until it gets one; those go to Needs you.
 // Station gets counts per desk, never the ask text.
+// Asks typed on KNOX's Needs me tab wait on the site (KNOX cannot reach this folder). Each run collects them first
+// (/api/station/asks, owner key), writes each as a new line here, and tells KNOX, which then deletes its copy.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { askLine, type AskRecord } from "../../../lib/station.ts";
 import type { JobContext, JobResult } from "../client.mts";
 import { checklistItem, markNewLines, stationFolder } from "../queue.mts";
 
@@ -91,6 +94,33 @@ export function route(text: string, desks: DeskRef[], now: string) {
 export const asksFile = (ctx: JobContext) => join(stationFolder(ctx.env, ctx.stateDir), "Asks.md");
 export const ASKS_HEADER = `# Asks\n\nOne line per ask: "- [ ] cut the hook for reel 14 #editor". The router adds "→ Desk" every 15 minutes.\nUse a #desk or #department tag to choose; tick a line when it is done.\n\n`;
 
+/** Pure: adds asks collected from KNOX as new lines. One already in the file (a confirmation that got lost) is not added twice. */
+export function addAsks(text: string, asks: Pick<AskRecord, "text" | "desk">[]): { text: string; added: number } {
+  const have = new Set(text.split("\n").map((l) => l.replace(/ · → .*$/, "").replace(/ <!-- rk:[^>]*-->\s*$/, "").trimEnd()));
+  const lines = asks.map(askLine).filter((l, i, all) => !have.has(l) && all.indexOf(l) === i);
+  if (!lines.length) return { text, added: 0 };
+  return { text: `${text.replace(/\n*$/, "\n")}${lines.join("\n")}\n`, added: lines.length };
+}
+
+/** Collects the asks waiting on KNOX into the file. A network failure only delays them: routing still runs. */
+async function collect(ctx: JobContext, file: string): Promise<string> {
+  if (!ctx.env.STATION_URL || !ctx.env.STATION_KEY) return "";
+  const url = new URL("/api/station/asks", ctx.env.STATION_URL);
+  const headers = { "content-type": "application/json", "x-station-key": ctx.env.STATION_KEY };
+  try {
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) return ` · KNOX asks not collected (${res.status})`;
+    const { asks } = (await res.json()) as { asks: AskRecord[] };
+    if (!asks.length) return "";
+    const r = addAsks(readFileSync(file, "utf8"), asks);
+    if (r.added) writeFileSync(file, r.text);
+    const ack = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ack: asks.map((a) => a.id) }), signal: AbortSignal.timeout(15_000) });
+    return ` · ${r.added} from KNOX${ack.ok ? "" : ` (confirmation refused: ${ack.status})`}`;
+  } catch (err) {
+    return ` · KNOX asks not collected (${(err as Error).message})`;
+  }
+}
+
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const file = asksFile(ctx);
   try {
@@ -98,6 +128,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, ASKS_HEADER);
     }
+    const collected = await collect(ctx, file);
     const desks: DeskRef[] = ctx.registry.departments.flatMap((d) => d.desks.map((k) => ({ id: k.id, name: k.name, dept: d.id })));
     const r = route(readFileSync(file, "utf8"), desks, ctx.now.toISOString());
     if (r.changed) writeFileSync(file, r.text);
@@ -106,7 +137,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const where = [...counts].map(([n, c]) => `${n} ${c}`).join(", ");
     return {
       ok: true,
-      message: `${r.routed.length} new ask${r.routed.length === 1 ? "" : "s"} routed${where ? ` (${where})` : ""} · ${r.open} open${r.unrouted ? ` · ${r.unrouted} need a desk` : ""}`,
+      message: `${r.routed.length} new ask${r.routed.length === 1 ? "" : "s"} routed${where ? ` (${where})` : ""} · ${r.open} open${r.unrouted ? ` · ${r.unrouted} need a desk` : ""}${collected}`,
       attention: r.unrouted ? `${r.unrouted} ask${r.unrouted === 1 ? " needs" : "s need"} a desk (add a #tag in Asks.md)` : undefined,
     };
   } catch (err) {

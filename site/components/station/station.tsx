@@ -7,7 +7,7 @@ import { Clients } from "./clients";
 import { TelegramPanel } from "./telegram";
 import { DraftReview } from "./drafts";
 import { Carousel } from "./carousel";
-import { CommandBar, HowTab, MoneyTab, ReportsTab } from "./lite";
+import { AskBox, CommandBar, HowTab, MoneyTab, ReportsTab } from "./lite";
 import { DeptCard, dur, Gates, HealthStats, Infra, jobTag, Log, NeedsMeList, NeedsYouList, Pips, Stages, TopBar } from "./parts";
 
 const POLL_MS = 30_000;
@@ -163,6 +163,7 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
 
         {shown === "needs" && snap.needsMe && (
           <>
+            {owner && <AskBox />}
             <DraftReview onChanged={load} />
             <NeedsMeList items={snap.needsMe} now={now} onDone={done} />
           </>

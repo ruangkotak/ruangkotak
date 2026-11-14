@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DRAFT_FILE } from "../lib/station.ts";
+import { askLine, cleanAsk, DRAFT_FILE, type Registry } from "../lib/station.ts";
+import { addAsks } from "../scripts/station/jobs/route-asks.mts";
 import { parseEnvFile } from "../scripts/station/client.mts";
 import { verdict } from "../scripts/station/jobs/backup-freshness-guard.mts";
 import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
@@ -534,4 +535,28 @@ test("a TESTED post is closed: not a draft to review, not a post to publish", ()
   assert.deepEqual(r.gates!.map((g) => [g.gate, g.waiting]), [["review", 0], ["post", 0]]);
   assert.equal(r.attention, undefined);
   assert.equal(statusOf("**Status:** tested"), "TESTED");
+});
+
+test("asks typed on KNOX: cleaned to one safe line, written into Asks.md once, and routed by their desk tag", () => {
+  const r = { accounts: [], gates: [], jobs: [], departments: [{ id: "cmo", no: "02", name: "CMO", client: false, desks: [{ id: "scriptwriter", name: "Scriptwriter", agent: "creative-lead" }] }] } as Registry;
+  const ok = cleanAsk({ text: "- [ ] write a 45s review script\nfor Brand X <!-- rk:id=1 --> mic", desk: "scriptwriter" }, r);
+  assert.deepEqual(ok, { ok: true, value: { text: "write a 45s review script for Brand X rk:id=1 mic", desk: "scriptwriter" } });
+  assert.equal(cleanAsk({ text: "hi" }, r).ok, false);
+  assert.equal(cleanAsk({ text: "x".repeat(1501) }, r).ok, false);
+  assert.equal(cleanAsk({ text: "write a script please", desk: "no-such-desk" }, r).ok, false);
+  assert.deepEqual(cleanAsk({ text: "write a script please", desk: "" }, r), { ok: true, value: { text: "write a script please" } });
+
+  assert.equal(askLine({ text: "write a hook", desk: "scriptwriter" }), "- [ ] write a hook #scriptwriter");
+  assert.equal(askLine({ text: "write a hook #scriptwriter", desk: "scriptwriter" }), "- [ ] write a hook #scriptwriter");
+  assert.equal(askLine({ text: "write a hook" }), "- [ ] write a hook");
+
+  const asks = [{ text: "write a hook for the mic reel", desk: "scriptwriter" }, { text: "write a hook for the mic reel", desk: "scriptwriter" }];
+  const first = addAsks("# Asks\n\n- [x] old one\n", asks);
+  assert.equal(first.added, 1);
+  assert.ok(first.text.endsWith("- [ ] write a hook for the mic reel #scriptwriter\n"));
+  // After routing the line carries "→ Desk" and a marker; a second delivery of the same ask is still recognised.
+  const routed = route(first.text, [{ id: "scriptwriter", name: "Scriptwriter", dept: "cmo" }], "2026-11-14T01:00:00.000Z");
+  assert.equal(routed.routed.length, 1);
+  assert.match(routed.text, /mic reel #scriptwriter · → Scriptwriter <!-- rk:id=\S+ at=\S+ desk=scriptwriter -->/);
+  assert.deepEqual(addAsks(routed.text, asks), { text: routed.text, added: 0 });
 });

@@ -3,9 +3,9 @@
 // The pieces brought over from Station Lite: the command box, Money, Reports and How it works.
 // All of them read what the board already knows. None of them stores, changes or sends anything.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, PaperPlaneRight } from "@phosphor-icons/react";
-import { answerCommand, ownerReport, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
+import { answerCommand, ASK_MAX, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
 
 const rm = (n: number) => `RM${n.toLocaleString("en-MY")}`;
 const H2 = ({ children }: { children: React.ReactNode }) => <h2 className="label mb-2.5">{children}</h2>;
@@ -47,6 +47,91 @@ export function CommandBar({ snap, onTab }: { snap: Snapshot; onTab: (t: Command
           <button type="button" onClick={() => setOut(null)} className="mt-1 text-[11px] text-muted underline underline-offset-2 hover:text-ink">hide</button>
         </div>
       )}
+    </section>
+  );
+}
+
+// The desks that have an agent behind them, so an ask comes back as a draft. "" lets the router pick from the words.
+const ASK_DESKS: [string, string][] = [
+  ["scriptwriter", "Scriptwriter · scripts, hooks"], ["caption-editor", "Caption Editor · captions, hashtags"],
+  ["strategist", "Strategist · angles, a campaign plan"], ["account-manager", "Account Manager · a reply to a brand"], ["", "Let the router decide"],
+];
+const REVIEW_TEMPLATE =
+  "write a 45-second product review script for [BRAND] [PRODUCT], for client [CLIENT]. Format: talking head with product b-roll. " +
+  "Brand's key facts: [SPEC 1], [SPEC 2], [PRICE]. Must say: [LINE]. Must not say: [LINE]. Test I will run on camera: [TEST]. " +
+  "Give 3 hook options. Leave the verdict line blank for me. Posting [DATE] on Instagram & TikTok. CTA: [CALL TO ACTION].";
+
+/** Ask for work from the board. The ask waits on the site until the laptop writes it into Station/Asks.md. */
+export function AskBox() {
+  const [text, setText] = useState("");
+  const [desk, setDesk] = useState("scriptwriter");
+  const [waiting, setWaiting] = useState<AskRecord[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ bad: boolean; text: string } | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/station/asks", { cache: "no-store", credentials: "same-origin" });
+      if (res.ok) setWaiting(((await res.json()) as { asks: AskRecord[] }).asks);
+    } catch {}
+  }, []);
+  useEffect(() => {
+    load();
+    const t = setInterval(() => !document.hidden && load(), 60_000);
+    return () => clearInterval(t);
+  }, [load]);
+
+  const blanks = /\[[A-Z0-9 ]+\]/.test(text);
+  const send = async () => {
+    if (blanks) return setNote({ bad: true, text: "Replace every [BLANK] with the real detail first. The writer only knows what is in the ask." });
+    setBusy(true);
+    try {
+      const res = await fetch("/api/station/asks", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, desk }), credentials: "same-origin" });
+      const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) setNote({ bad: true, text: data.error ?? `KNOX answered ${res.status}` });
+      else {
+        setText("");
+        setNote({ bad: false, text: "Saved. Your laptop collects it within about 15 minutes; the draft then shows here under Make as \"Agent drafts waiting for your approval\"." });
+        await load();
+      }
+    } catch {
+      setNote({ bad: true, text: "Could not reach KNOX. Nothing was saved." });
+    }
+    setBusy(false);
+  };
+
+  return (
+    <section aria-labelledby="ask-box" className="st-card px-3.5 py-3">
+      <h2 id="ask-box" className="label mb-2.5">KNOX Ask for work</h2>
+      <div className="flex flex-col gap-2">
+        <textarea value={text} onChange={(e) => { setText(e.target.value); setNote(null); }} maxLength={ASK_MAX} aria-label="What do you need" rows={4}
+          placeholder="What do you need? Example: write 3 hook options for the Brand X mic reel, posting 20 Nov. Angle: battery life tested for a full day."
+          className="min-h-[96px] w-full resize-y rounded-[8px] border border-line bg-bg px-3 py-2 text-[13px] leading-[1.5] text-ink placeholder:text-muted focus:outline focus:outline-1 focus:outline-[var(--mark)]" />
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={desk} onChange={(e) => setDesk(e.target.value)} aria-label="Who should do it" className="min-h-[40px] max-w-full rounded-[8px] border border-line bg-bg px-2.5 text-[13px] text-ink">
+            {ASK_DESKS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          <button type="button" onClick={() => { setText(REVIEW_TEMPLATE); setDesk("scriptwriter"); setNote(null); }} className="inline-flex min-h-[40px] items-center rounded-[6px] border border-line px-3 text-[12px] hover:border-ink">
+            Product review template
+          </button>
+          <button type="button" disabled={busy || text.trim().length < 8} onClick={send} className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] bg-[var(--mark)] px-4 text-[13px] text-on-solid hover:brightness-95 disabled:opacity-50" style={{ fontWeight: 600 }}>
+            <PaperPlaneRight size={14} aria-hidden /> {busy ? "Saving…" : "Ask"}
+          </button>
+          <span className="num ml-auto text-[11px] text-muted">{text.length}/{ASK_MAX}</span>
+        </div>
+        {note && <p className={`text-[12px] ${note.bad ? "text-bad" : "text-good"}`} role={note.bad ? "alert" : "status"}>{note.text}</p>}
+        {waiting.length > 0 && (
+          <div className="border-t border-line pt-2">
+            <div className="label mb-1">Waiting for your laptop to collect · {waiting.length}</div>
+            <ul className="flex flex-col gap-1 text-[12px] text-muted">
+              {waiting.map((a) => <li key={a.id} className="break-words"><span className="mono text-mark">{a.desk ?? "router"}</span> · {a.text.length > 140 ? `${a.text.slice(0, 140)}…` : a.text}</li>)}
+            </ul>
+          </div>
+        )}
+        <p className="text-[11px] text-muted">
+          The writer is an agent on your laptop. It has not held the product and cannot browse the web, so give it the facts and keep the verdict for yourself. Nothing is sent to anyone.
+        </p>
+      </div>
     </section>
   );
 }
@@ -202,7 +287,8 @@ export function HowTab() {
         <ul className="flex max-w-[72ch] list-disc flex-col gap-1.5 pl-5 text-muted">
           <li>The layout is Lite&apos;s. The numbers are real, read from your notes and your Instagram reels.</li>
           <li>The avatars stand for the stages. They walk when work moves on; they do not invent leads or scripts as Lite&apos;s did.</li>
-          <li>The command box only reads the board back to you. Quotations, invoices, brief upload and adding leads by command are not here yet, because KNOX does not store those documents.</li>
+          <li>Ask for work on the Needs me tab. Your laptop collects the ask, an agent drafts it, and the draft comes back under Make.</li>
+          <li>The command box only reads the board back to you. Quotations, invoices and brief upload are not here yet, because KNOX does not store those documents.</li>
           <li>Nothing is ever sent for you: no DM, no draft, no invoice.</li>
         </ul>
       </section>
