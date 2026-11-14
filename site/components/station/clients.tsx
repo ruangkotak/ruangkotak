@@ -2,7 +2,7 @@
 
 import { ArrowsClockwise, Check, CheckCircle, Circle, Copy, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CLIENT_CATEGORIES, type ClientCategory, type ClientRecord, type OnboardingStep } from "@/lib/station";
+import { CLIENT_CATEGORIES, cutOf, type ClientCategory, type ClientRecord, type OnboardingStep, type TalentJob } from "@/lib/station";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
@@ -151,6 +151,68 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
   );
 }
 
+const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
+const todayMyt = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+
+/** Talent only: our percentage, and each job a brand gave them. Only the owner ever sees this. */
+function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void> }) {
+  const [commission, setCommission] = useState(c.commission === undefined ? "" : String(c.commission));
+  const [brand, setBrand] = useState("");
+  const [fee, setFee] = useState("");
+  const [date, setDate] = useState(todayMyt);
+  const [percent, setPercent] = useState("");
+  const jobs: TalentJob[] = [...(c.jobs ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  const total = jobs.reduce((n, j) => n + cutOf(j), 0), open = jobs.filter((j) => !j.paidAt).reduce((n, j) => n + cutOf(j), 0);
+  const rate = percent === "" ? c.commission : Number(percent);
+  const preview = fee && rate !== undefined && Number.isFinite(Number(fee)) ? cutOf({ fee: Number(fee), percent: rate }) : null;
+  return (
+    <div className="mt-2.5 flex flex-col gap-2.5">
+      <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); act("update", { commission }); }}>
+        <label className="flex flex-col gap-1 text-[12px]">
+          Our commission per job (%)
+          <input className="field !min-h-[40px] sm:w-[160px]" type="number" min={0} max={100} step="any" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="not set" />
+        </label>
+        <button type="submit" disabled={!!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save commission</button>
+        <span className="pb-2.5 text-[11.5px] text-muted">only you see this</span>
+      </form>
+
+      <div className="rounded-[6px] border border-line">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-2.5 py-2">
+          <span className="label">Jobs · {jobs.length}</span>
+          <span className="text-[11.5px] text-muted">our share {rm(total)}{open ? <> · <span className="text-mark">{rm(open)} not received</span></> : null}</span>
+        </div>
+        {jobs.length ? (
+          <ul className="divide-y divide-line">
+            {jobs.map((j) => (
+              <li key={j.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-2.5 py-2 text-[12px]">
+                <div className="min-w-0">
+                  <div className="break-words">{j.brand} <span className="text-muted">· {day(`${j.date}T00:00:00+08:00`)}</span></div>
+                  <div className="num text-[11.5px] text-muted">fee {rm(j.fee)} · {j.percent}% · <span className="text-ink">our share {rm(cutOf(j))}</span></div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {j.paidAt
+                    ? <button type="button" disabled={!!busy} onClick={() => act("job-unpaid", { jobId: j.id })} className="inline-flex min-h-[36px] items-center gap-1 rounded-[6px] px-2 text-[11.5px] text-good hover:underline disabled:opacity-50"><CheckCircle size={14} weight="fill" aria-hidden /> received {day(j.paidAt)}</button>
+                    : <button type="button" disabled={!!busy} onClick={() => act("job-paid", { jobId: j.id })} className="min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink disabled:opacity-50">Mark received</button>}
+                  <button type="button" disabled={!!busy} aria-label={`Remove the ${j.brand} job`} onClick={() => act("job-remove", { jobId: j.id }, `Remove the ${j.brand} job (${rm(j.fee)})? This cannot be undone.`)} className="inline-flex min-h-[36px] items-center px-1.5 text-bad hover:underline disabled:opacity-50"><Trash size={14} aria-hidden /></button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : <p className="px-2.5 py-2 text-[12px] text-muted">No jobs yet. Add one when a brand or agency confirms a job for {c.label}.</p>}
+        <form className="flex flex-wrap items-end gap-2 border-t border-line px-2.5 py-2.5"
+          onSubmit={async (e) => { e.preventDefault(); await act("job-add", { brand, fee, date, percent }); setBrand(""); setFee(""); setPercent(""); }}>
+          <label className="flex flex-col gap-1 text-[12px]">Brand or agency<input className="field !min-h-[40px] sm:w-[170px]" required minLength={2} maxLength={60} value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Brand X" autoComplete="off" /></label>
+          <label className="flex flex-col gap-1 text-[12px]">Job fee (RM)<input className="field !min-h-[40px] sm:w-[120px]" required type="number" min={1} step="any" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="3000" /></label>
+          <label className="flex flex-col gap-1 text-[12px]">Job date<input className="field !min-h-[40px]" required type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <label className="flex flex-col gap-1 text-[12px]"><span>% <span className="text-muted">(blank = {c.commission ?? "set above"})</span></span><input className="field !min-h-[40px] sm:w-[90px]" type="number" min={0} max={100} step="any" inputMode="decimal" value={percent} onChange={(e) => setPercent(e.target.value)} placeholder={c.commission === undefined ? "" : String(c.commission)} /></label>
+          <button type="submit" disabled={!!busy || !brand.trim() || !fee} className="min-h-[40px] rounded-[6px] bg-[var(--mark)] px-3.5 text-[12.5px] text-[var(--on-solid)] disabled:opacity-50">Add job</button>
+          {preview !== null && <span className="num pb-2.5 text-[11.5px] text-muted">our share {rm(preview)}</span>}
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void; onIssued: (i: Issued) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -231,7 +293,9 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         </form>
       )}
 
-      {!paused && (
+      {!paused && c.category === "talent" && <TalentTerms c={c} busy={busy} act={act} />}
+
+      {!paused && c.category !== "talent" && (
         <form
           className="mt-2.5 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {

@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
-import { clientTerms, hashKey, newClientKey, onboarding, validateClient, type ClientRecord, clientCategory } from "@/lib/station";
+import { randomUUID } from "node:crypto";
+import { clientCategory, clientTerms, commissionOf, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
@@ -63,7 +64,25 @@ export async function POST(req: NextRequest) {
       // The category changes only when the form sends it; a blank value clears it.
       const cat = clientCategory("category" in body ? body.category : c.category);
       if (!cat.ok) return json({ ok: false, error: cat.error }, 400);
-      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value, category: cat.value });
+      const pct = commissionOf("commission" in body ? body.commission : c.commission);
+      if (!pct.ok) return json({ ok: false, error: pct.error }, 400);
+      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value, category: cat.value, commission: pct.value });
+      return json({ ok: true });
+    }
+    // Talent jobs: what a brand paid for one job, and our percentage of it. Kept on the client's own record.
+    if (body.action === "job-add") {
+      if (c.category !== "talent") return json({ ok: false, error: "Jobs are tracked for Talent only." }, 400);
+      if ((c.jobs?.length ?? 0) >= TALENT_JOBS_MAX) return json({ ok: false, error: "That is a lot of jobs. Remove old ones first." }, 400);
+      const j = talentJob(body, c.commission);
+      if (!j.ok) return json({ ok: false, error: j.error }, 400);
+      await clientStore.save({ ...c, jobs: [...(c.jobs ?? []), { id: randomUUID(), ...j.value }] });
+      return json({ ok: true });
+    }
+    if (body.action === "job-paid" || body.action === "job-unpaid" || body.action === "job-remove") {
+      if (!c.jobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
+      const jobs = body.action === "job-remove" ? c.jobs.filter((j) => j.id !== body.jobId)
+        : c.jobs.map((j) => (j.id !== body.jobId ? j : body.action === "job-paid" ? { ...j, paidAt: now } : { ...j, paidAt: undefined }));
+      await clientStore.save({ ...c, jobs });
       return json({ ok: true });
     }
     if (body.action === "remove") {
