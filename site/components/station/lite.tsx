@@ -5,9 +5,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, PaperPlaneRight } from "@phosphor-icons/react";
-import { answerCommand, ASK_MAX, CLIENT_CATEGORIES, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
+import { answerCommand, ASK_MAX, CLIENT_CATEGORIES, cutOf, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
 
-const rm = (n: number) => `RM${n.toLocaleString("en-MY")}`;
+const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
 const H2 = ({ children }: { children: React.ReactNode }) => <h2 className="label mb-2.5">{children}</h2>;
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -149,7 +149,7 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
       .then((d) => live && setClients(d.clients))
       .catch((e) => live && setError((e as Error).message));
     return () => { live = false; };
-  }, [snap.money?.monthly, snap.money?.clients, snap.money?.priced]);
+  }, [snap.money?.monthly, snap.money?.clients, snap.money?.priced, snap.money?.talent?.cut, snap.money?.talent?.outstanding]);
 
   const m = snap.money;
   const paid = snap.stages?.find((s) => s.id === "paid");
@@ -191,9 +191,9 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
                   <tr key={c.id}>
                     <td className="border-b border-line px-2 py-2">{c.label}</td>
                     <td className="border-b border-line px-2 py-2 text-muted">{CLIENT_CATEGORIES.find((k) => k.id === c.category)?.label ?? "not set"}</td>
-                    <td className="num border-b border-line px-2 py-2">{c.price === undefined ? <span className="text-mark">not set</span> : rm(c.price)}</td>
-                    <td className="num border-b border-line px-2 py-2">{c.perMonth ?? "–"}</td>
-                    <td className="num border-b border-line px-2 py-2">{c.price !== undefined && c.perMonth ? rm(c.price * c.perMonth) : "–"}</td>
+                    <td className="num border-b border-line px-2 py-2">{c.category === "talent" ? (c.commission === undefined ? <span className="text-mark">% not set</span> : `${c.commission}% per job`) : c.price === undefined ? <span className="text-mark">not set</span> : rm(c.price)}</td>
+                    <td className="num border-b border-line px-2 py-2">{c.category === "talent" ? "–" : c.perMonth ?? "–"}</td>
+                    <td className="num border-b border-line px-2 py-2">{c.category !== "talent" && c.price !== undefined && c.perMonth ? rm(c.price * c.perMonth) : "–"}</td>
                     <td className="border-b border-line px-2 py-2 text-muted">{c.status}</td>
                   </tr>
                 ))}
@@ -205,6 +205,45 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
           Prices are set on the <button type="button" onClick={onClients} className="underline underline-offset-2 hover:text-ink">Clients tab</button>. Clients never see them.
         </p>
       </section>
+
+      {m?.talent && (
+        <section className="st-card overflow-hidden px-3.5 py-3">
+          <H2>KNOX Talent commission</H2>
+          <dl className="grid gap-2 sm:grid-cols-3">
+            {([["This month", m.talent.thisMonth, "our share of jobs dated this month"], ["Not received yet", m.talent.outstanding, "jobs not marked received"], ["Received", m.talent.received, `of ${rm(m.talent.cut)} across ${m.talent.jobs} job${m.talent.jobs === 1 ? "" : "s"}`]] as [string, number, string][]).map(([label, value, note]) => (
+              <div key={label} className="st-tile px-3 py-2.5">
+                <dt className="label">{label}</dt>
+                <dd className={`num mt-1.5 text-[22px] leading-none ${label === "Not received yet" && value ? "text-mark" : ""}`}>{rm(value)}</dd>
+                <dd className="mt-1 text-[11px] text-muted">{note}</dd>
+              </div>
+            ))}
+          </dl>
+          {clients && clients.some((c) => c.category === "talent") && (
+            <div className="mt-2.5 overflow-x-auto">
+              <table className="w-full min-w-[520px] border-collapse text-[12.5px]">
+                <thead><tr className="text-left">{["Talent", "Our %", "Jobs", "Job fees", "Our share", "Not received"].map((h) => <th key={h} className="label border-b border-line px-2 py-1.5 font-normal">{h}</th>)}</tr></thead>
+                <tbody>
+                  {clients.filter((c) => c.category === "talent").map((c) => {
+                    const jobs = c.jobs ?? [];
+                    const share = (xs: typeof jobs) => xs.reduce((n, j) => n + cutOf(j), 0);
+                    return (
+                      <tr key={c.id}>
+                        <td className="border-b border-line px-2 py-2">{c.label}{c.status !== "active" && <span className="text-muted"> · {c.status}</span>}</td>
+                        <td className="num border-b border-line px-2 py-2">{c.commission === undefined ? <span className="text-mark">not set</span> : `${c.commission}%`}</td>
+                        <td className="num border-b border-line px-2 py-2">{jobs.length}</td>
+                        <td className="num border-b border-line px-2 py-2">{rm(jobs.reduce((n, j) => n + j.fee, 0))}</td>
+                        <td className="num border-b border-line px-2 py-2">{rm(share(jobs))}</td>
+                        <td className="num border-b border-line px-2 py-2">{rm(share(jobs.filter((j) => !j.paidAt)))}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-2.5 text-[11.5px] text-muted">Our share is the job fee times the percentage on that job. Add jobs and mark them received on the talent&apos;s card in the Clients tab. This is kept apart from "Agreed a month", which is retainers and brand fees only.</p>
+        </section>
+      )}
 
       <section className="st-card px-3.5 py-3">
         <H2>KNOX Quotations and invoices</H2>
