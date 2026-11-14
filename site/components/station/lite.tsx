@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Check, Copy, PaperPlaneRight } from "@phosphor-icons/react";
-import { answerCommand, ASK_MAX, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
+import { answerCommand, ASK_MAX, CLIENT_CATEGORIES, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
 
 const rm = (n: number) => `RM${n.toLocaleString("en-MY")}`;
 const H2 = ({ children }: { children: React.ReactNode }) => <h2 className="label mb-2.5">{children}</h2>;
@@ -180,16 +180,17 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
         {clients && !clients.length && <p className="text-[12px] text-muted">No clients yet. Add one on the Clients tab and set their price there.</p>}
         {clients && clients.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[460px] border-collapse text-[12.5px]">
+            <table className="w-full min-w-[540px] border-collapse text-[12.5px]">
               <thead>
                 <tr className="text-left">
-                  {["Client", "Price per reel", "Reels a month", "A month", "Status"].map((h) => <th key={h} className="label border-b border-line px-2 py-1.5 font-normal">{h}</th>)}
+                  {["Client", "Type", "Price each", "A month", "Total a month", "Status"].map((h) => <th key={h} className="label border-b border-line px-2 py-1.5 font-normal">{h}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {clients.map((c) => (
                   <tr key={c.id}>
                     <td className="border-b border-line px-2 py-2">{c.label}</td>
+                    <td className="border-b border-line px-2 py-2 text-muted">{CLIENT_CATEGORIES.find((k) => k.id === c.category)?.label ?? "not set"}</td>
                     <td className="num border-b border-line px-2 py-2">{c.price === undefined ? <span className="text-mark">not set</span> : rm(c.price)}</td>
                     <td className="num border-b border-line px-2 py-2">{c.perMonth ?? "–"}</td>
                     <td className="num border-b border-line px-2 py-2">{c.price !== undefined && c.perMonth ? rm(c.price * c.perMonth) : "–"}</td>

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  answerCommand, ownerReport, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  answerCommand, ownerReport, clientCategory, CLIENT_CATEGORIES, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -682,4 +682,17 @@ test("ownerReport and answerCommand read the owner snapshot and give clients not
   const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
   assert.equal(ownerReport(c), "");
   assert.doesNotMatch(answerCommand("money", c).reply, /RM/);
+});
+
+test("client categories: Creator and Talent under one heading, Brand on its own, owner only", () => {
+  assert.deepEqual(CLIENT_CATEGORIES.map((c) => [c.id, c.group]), [["creator", "Creator / Talent"], ["talent", "Creator / Talent"], ["brand", "Brand"]]);
+  assert.deepEqual(clientCategory("brand"), { ok: true, value: "brand" });
+  assert.deepEqual(clientCategory(""), { ok: true, value: undefined });
+  assert.equal(clientCategory("kol").ok, false);
+  // The category never reaches a client's own page or the registry the laptop reads.
+  const brand: ClientRecord = { ...kopi, category: "brand" };
+  const r = withClients(shipped, [brand]);
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [brand], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /"category"/);
+  assert.doesNotMatch(JSON.stringify(publicRegistry(r)), /"category"/);
 });
