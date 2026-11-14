@@ -343,7 +343,28 @@ export type ClientRecord = {
   status: "active" | "paused"; openedAt?: string; lastSeenAt?: string;
   /** What was agreed: RM per reel and reels per month. Owner only; never sent to the client or the laptop. */
   price?: number; perMonth?: number;
+  /** Who they are to the business. Owner only; never sent to the client or the laptop. */
+  category?: ClientCategory;
 };
+
+/**
+ * The kinds of client. Creator and Talent sit under one heading on the Clients tab; Brand is its own.
+ *   creator: a creator on a retainer, who pays us.
+ *   talent:  our own talent. We find them jobs, or a brand or agency finds them and deals with us.
+ *   brand:   a brand offering a job to @alanazizreview.
+ */
+export const CLIENT_CATEGORIES = [
+  { id: "creator", group: "Creator / Talent", label: "Creator", hint: "On a retainer. They pay us." },
+  { id: "talent", group: "Creator / Talent", label: "Talent", hint: "Our talent. We find them jobs, or a brand or agency comes to us for them." },
+  { id: "brand", group: "Brand", label: "Brand", hint: "Offering a job to @alanazizreview." },
+] as const;
+export type ClientCategory = (typeof CLIENT_CATEGORIES)[number]["id"];
+/** Checks a category from a form. Blank clears it; anything unknown is refused. */
+export function clientCategory(v: unknown): { ok: true; value: ClientCategory | undefined } | { ok: false; error: string } {
+  if (v === undefined || v === null || v === "") return { ok: true, value: undefined };
+  const hit = CLIENT_CATEGORIES.find((c) => c.id === v);
+  return hit ? { ok: true, value: hit.id } : { ok: false, error: "Pick Creator, Talent or Brand." };
+}
 
 const SLUG = /^[a-z0-9][a-z0-9-]{1,30}$/;
 const RESERVED = new Set(["all", "internal", "owner", "client", "station", "new"]);

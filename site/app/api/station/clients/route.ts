@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { clientTerms, hashKey, newClientKey, onboarding, validateClient, type ClientRecord } from "@/lib/station";
+import { clientTerms, hashKey, newClientKey, onboarding, validateClient, type ClientRecord, clientCategory } from "@/lib/station";
 import { fileRegistry, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
@@ -36,8 +36,10 @@ export async function POST(req: NextRequest) {
       const taken = new Set([...fileRegistry.accounts.map((a) => a.id), ...clients.map((c) => c.id), ...fileRegistry.jobs.map((j) => j.id)]);
       const v = validateClient(body, taken);
       if (!v.ok) return json({ ok: false, error: v.error }, 400);
+      const cat = clientCategory(body.category);
+      if (!cat.ok) return json({ ok: false, error: cat.error }, 400);
       const key = newClientKey();
-      const client: ClientRecord = { ...v.value, createdAt: now, keyHash: hashKey(key), status: "active" };
+      const client: ClientRecord = { ...v.value, createdAt: now, keyHash: hashKey(key), status: "active", ...(cat.value ? { category: cat.value } : {}) };
       await clientStore.save(client);
       return json({ ok: true, client: { ...client, keyHash: undefined }, key });
     }
@@ -58,7 +60,10 @@ export async function POST(req: NextRequest) {
       // Price and reels per month change only when the form sends them; a blank value clears it.
       const terms = clientTerms({ price: "price" in body ? body.price : c.price, perMonth: "perMonth" in body ? body.perMonth : c.perMonth });
       if (!terms.ok) return json({ ok: false, error: terms.error }, 400);
-      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value });
+      // The category changes only when the form sends it; a blank value clears it.
+      const cat = clientCategory("category" in body ? body.category : c.category);
+      if (!cat.ok) return json({ ok: false, error: cat.error }, 400);
+      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value, category: cat.value });
       return json({ ok: true });
     }
     if (body.action === "remove") {
