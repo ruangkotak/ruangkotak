@@ -767,3 +767,11 @@ test("a Brand is asked for a fee per video, everyone else for a price per reel",
   assert.equal(onboarding(clients[0], {}, {}).find((x) => x.id === "price")!.label, "Fee agreed");
   assert.equal(onboarding(clients[1], {}, {}).find((x) => x.id === "price")!.label, "Price agreed");
 });
+
+test("client history: who was added or removed, and whether from the page or a script", async () => {
+  const { clientLogEntry } = await import("../lib/station.ts");
+  assert.deepEqual(clientLogEntry("removed", { id: "rode", label: "Pixel Distribution" }, false, "2026-11-15T20:00:00.000Z"),
+    { at: "2026-11-15T20:00:00.000Z", action: "removed", id: "rode", label: "Pixel Distribution", via: "page" });
+  assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").via, "key");
+  assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").label.length, 60);
+});
