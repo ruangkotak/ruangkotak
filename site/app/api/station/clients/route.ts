@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { clientCategory, clientTerms, commissionOf, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
+import { cleanJobSync, clientCategory, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
@@ -40,6 +40,12 @@ export async function POST(req: NextRequest) {
       await clientStore.save(client);
       return json({ ok: true, client: { ...client, keyHash: undefined }, key });
     }
+    // The laptop reports which talent-job invoice lines are ticked in invoices.md: that file decides what is received.
+    if (body.action === "jobs-sync") {
+      const changed = syncJobs(clients, cleanJobSync(body), now);
+      for (const x of changed) await clientStore.save(x);
+      return json({ ok: true, changed: changed.length });
+    }
     const c = clients.find((x) => x.id === body.id);
     if (!c) return json({ ok: false, error: "No such client." }, 404);
     if (body.action === "rotate") {
@@ -74,11 +80,9 @@ export async function POST(req: NextRequest) {
       await clientStore.save({ ...c, jobs: [...(c.jobs ?? []), { id: randomUUID(), ...j.value }] });
       return json({ ok: true });
     }
-    if (body.action === "job-paid" || body.action === "job-unpaid" || body.action === "job-remove") {
+    if (body.action === "job-remove") {
       if (!c.jobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
-      const jobs = body.action === "job-remove" ? c.jobs.filter((j) => j.id !== body.jobId)
-        : c.jobs.map((j) => (j.id !== body.jobId ? j : body.action === "job-paid" ? { ...j, paidAt: now } : { ...j, paidAt: undefined }));
-      await clientStore.save({ ...c, jobs });
+      await clientStore.save({ ...c, jobs: c.jobs.filter((j) => j.id !== body.jobId) });
       return json({ ok: true });
     }
     if (body.action === "remove") {

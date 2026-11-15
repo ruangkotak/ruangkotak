@@ -390,6 +390,54 @@ export function talentMoney(clients: Pick<ClientRecord, "category" | "jobs" | "s
   };
 }
 
+// invoices.md is the record of what has been paid. A talent job is tied to its invoice line by a short reference
+// ("job 1a2b3c4d"); the laptop reads the file and tells the site which references are ticked. The board never decides.
+/** The short reference that ties a talent job to its line in invoices.md. */
+export const jobRef = (id: string) => id.replace(/[^a-f0-9]/gi, "").slice(0, 8).toLowerCase();
+const flat = (s: string) => s.replace(/[·\n]/g, " ").replace(/\s+/g, " ").trim();
+/** The ready line for invoices.md: our commission on one talent job, due 14 days after `today` (YYYY-MM-DD). */
+export const jobInvoiceLine = (j: TalentJob, talent: string, today: string) =>
+  `- [ ] INV-000 · ${flat(j.brand)} commission (${flat(talent)}) · RM ${cutOf(j).toLocaleString("en-US")} · sent ${today} · due ${new Date(Date.parse(`${today}T00:00:00Z`) + 14 * 86400_000).toISOString().slice(0, 10)} · job ${jobRef(j.id)}`;
+
+export type JobSync = { paid: { ref: string; on?: string }[]; open: string[] };
+const REF = /^[a-f0-9]{8}$/;
+/** Keeps only well-formed references and dates from what the laptop sent. */
+export function cleanJobSync(body: { paid?: unknown; open?: unknown }): JobSync {
+  const paid = (Array.isArray(body.paid) ? body.paid : []).slice(0, 500).flatMap((p) => {
+    const ref = (p as { ref?: unknown })?.ref, on = (p as { on?: unknown })?.on;
+    return typeof ref === "string" && REF.test(ref) ? [{ ref, ...(typeof on === "string" && /^\d{4}-\d{2}-\d{2}$/.test(on) ? { on } : {}) }] : [];
+  });
+  const open = (Array.isArray(body.open) ? body.open : []).slice(0, 500).filter((r): r is string => typeof r === "string" && REF.test(r));
+  return { paid, open };
+}
+/**
+ * Pure: applies what invoices.md says to the talent jobs and returns only the clients that changed. A ticked line marks
+ * its job received (on the "paid <date>" day when given), an unticked line marks it not received, and a job with no
+ * line in the file is left as it is.
+ */
+export function syncJobs(clients: ClientRecord[], sync: JobSync, now: string): ClientRecord[] {
+  const paid = new Map(sync.paid.map((p) => [p.ref, p.on]));
+  const open = new Set(sync.open.filter((r) => !paid.has(r)));
+  const changed: ClientRecord[] = [];
+  for (const c of clients) {
+    let touched = false;
+    const jobs = (c.jobs ?? []).map((j) => {
+      const ref = jobRef(j.id);
+      let paidAt = j.paidAt;
+      if (paid.has(ref)) {
+        const on = paid.get(ref);
+        paidAt = on ? new Date(`${on}T00:00:00+08:00`).toISOString() : j.paidAt ?? now;
+      } else if (open.has(ref)) paidAt = undefined;
+      if (paidAt === j.paidAt) return j;
+      touched = true;
+      const { paidAt: _, ...rest } = j;
+      return paidAt ? { ...rest, paidAt } : rest;
+    });
+    if (touched) changed.push({ ...c, jobs });
+  }
+  return changed;
+}
+
 /**
  * The kinds of client. Creator and Talent sit under one heading on the Clients tab; Brand is its own.
  *   creator: a creator on a retainer, who pays us.

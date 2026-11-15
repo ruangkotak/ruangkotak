@@ -210,7 +210,7 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
         <section className="st-card overflow-hidden px-3.5 py-3">
           <H2>KNOX Talent commission</H2>
           <dl className="grid gap-2 sm:grid-cols-3">
-            {([["This month", m.talent.thisMonth, "our share of jobs dated this month"], ["Not received yet", m.talent.outstanding, "jobs not marked received"], ["Received", m.talent.received, `of ${rm(m.talent.cut)} across ${m.talent.jobs} job${m.talent.jobs === 1 ? "" : "s"}`]] as [string, number, string][]).map(([label, value, note]) => (
+            {([["This month", m.talent.thisMonth, "our share of jobs dated this month"], ["Not received yet", m.talent.outstanding, "not ticked paid in invoices.md"], ["Received", m.talent.received, `of ${rm(m.talent.cut)} across ${m.talent.jobs} job${m.talent.jobs === 1 ? "" : "s"}`]] as [string, number, string][]).map(([label, value, note]) => (
               <div key={label} className="st-tile px-3 py-2.5">
                 <dt className="label">{label}</dt>
                 <dd className={`num mt-1.5 text-[22px] leading-none ${label === "Not received yet" && value ? "text-mark" : ""}`}>{rm(value)}</dd>
@@ -241,7 +241,7 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
               </table>
             </div>
           )}
-          <p className="mt-2.5 text-[11.5px] text-muted">Our share is the job fee times the percentage on that job. Add jobs and mark them received on the talent&apos;s card in the Clients tab. This is kept apart from "Agreed a month", which is retainers and brand fees only.</p>
+          <p className="mt-2.5 text-[11.5px] text-muted">Our share is the job fee times the percentage on that job. Add jobs on the talent&apos;s card in the Clients tab. A job counts as received once its invoice line is ticked in Station/invoices.md. This is kept apart from "Agreed a month", which is retainers and brand fees only.</p>
         </section>
       )}
 

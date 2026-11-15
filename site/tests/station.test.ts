@@ -734,3 +734,23 @@ test("talent commission: a percentage of each job, counted apart from retainers,
   const c = buildSnapshot({ registry: r, view: { mode: "client", account: "our-talent" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [talent, creator], now: NOW });
   assert.doesNotMatch(JSON.stringify(c), /commission|"fee"|Brand X/i);
 });
+
+test("talent jobs: invoices.md decides what is received, matched by a short reference", async () => {
+  const { jobRef, jobInvoiceLine, cleanJobSync, syncJobs } = await import("../lib/station.ts");
+  const job = { id: "1a2b3c4d-0000-4000-8000-000000000000", brand: "Brand · X", fee: 3000, percent: 20, date: "2026-11-05" };
+  assert.equal(jobRef(job.id), "1a2b3c4d");
+  assert.equal(jobInvoiceLine(job, "Our Talent", "2026-11-16"), "- [ ] INV-000 · Brand X commission (Our Talent) · RM 600 · sent 2026-11-16 · due 2026-11-30 · job 1a2b3c4d");
+  // Only well-formed references and dates survive.
+  assert.deepEqual(cleanJobSync({ paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "../etc" }, { ref: "aaaaaaaa", on: "soon" }], open: ["bbbbbbbb", 7, "nope"] }),
+    { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "aaaaaaaa" }], open: ["bbbbbbbb"] });
+  const other = { id: "bbbbbbbb-0000-4000-8000-000000000000", brand: "Y", fee: 1000, percent: 10, date: "2026-11-06", paidAt: "2026-11-07T00:00:00.000Z" };
+  const untouched = { id: "cccccccc-0000-4000-8000-000000000000", brand: "Z", fee: 1000, percent: 10, date: "2026-11-06", paidAt: "2026-11-08T00:00:00.000Z" };
+  const c = { id: "t", label: "T", createdAt: "2026-11-01T00:00:00.000Z", keyHash: "h", status: "active" as const, category: "talent" as const, jobs: [job, other, untouched] };
+  const now = "2026-11-21T03:00:00.000Z";
+  const [changed] = syncJobs([c], { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }], open: ["bbbbbbbb"] }, now);
+  assert.equal(changed.jobs![0].paidAt, "2026-11-19T16:00:00.000Z"); // 20 Nov, Malaysia time
+  assert.equal("paidAt" in changed.jobs![1], false); // unticked in the file: not received
+  assert.equal(changed.jobs![2].paidAt, untouched.paidAt); // no line in the file: left alone
+  assert.deepEqual(syncJobs([changed], { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }], open: ["bbbbbbbb"] }, now), []); // nothing to write twice
+  assert.equal(syncJobs([c], { paid: [{ ref: "1a2b3c4d" }], open: [] }, now)[0].jobs![0].paidAt, now); // ticked with no date
+});
