@@ -5,10 +5,9 @@
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
 import { INVOICES_TEMPLATE, parseInvoices, readOrCreate, total, withoutComments, type Invoice } from "../ledger.mts";
-import { stationFolder } from "../queue.mts";
+import { plural, stationFolder } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Pure: the Station result for a set of invoices on a Malaysia-time day. */
 export function chase(invoices: Invoice[], unreadable: number, today: string): JobResult {
