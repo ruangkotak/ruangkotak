@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, AskRecord, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, AskRecord, ClientLogEntry, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -349,4 +349,23 @@ export const askStore = REDIS
       all: async (): Promise<AskRecord[]> => Object.values(askmem).sort((a, b) => a.at.localeCompare(b.at)),
       add: async (a: AskRecord) => void (askmem[a.id] = a),
       remove: async (ids: string[]) => ids.forEach((id) => delete askmem[id]),
+    };
+
+// ---------- Station: who was added to or removed from the Clients tab ----------
+// st:clientlog = list of ClientLogEntry, newest first, capped. Kept with the client records: no expiry.
+const CLIENT_LOG_KEEP = 100;
+const gl = globalThis as unknown as { __rkClientLog?: ClientLogEntry[] };
+const clmem = (gl.__rkClientLog ??= []);
+
+export const clientLog = REDIS
+  ? {
+      list: async (): Promise<ClientLogEntry[]> => (await redis<string[]>("LRANGE", "st:clientlog", 0, CLIENT_LOG_KEEP - 1)).map((v) => JSON.parse(v) as ClientLogEntry),
+      add: async (e: ClientLogEntry) => {
+        await redis("LPUSH", "st:clientlog", JSON.stringify(e));
+        await redis("LTRIM", "st:clientlog", 0, CLIENT_LOG_KEEP - 1);
+      },
+    }
+  : {
+      list: async (): Promise<ClientLogEntry[]> => [...clmem],
+      add: async (e: ClientLogEntry) => void clmem.splice(0, clmem.length, e, ...clmem.slice(0, CLIENT_LOG_KEEP - 1)),
     };

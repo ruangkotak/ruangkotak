@@ -30,6 +30,15 @@ assert.equal(talent.commission, 20);
 assert.equal(talent.jobs.length, 2);
 step("clients: create, update, add jobs, list");
 
+// Client history: every add, pause, resume, new link and removal is kept, newest first, with where it came from.
+assert.equal((await post("/api/station/clients", { action: "create", label: "Gone Soon", category: "brand" })).ok, true);
+for (const action of ["pause", "resume", "rotate", "remove"]) assert.equal((await post("/api/station/clients", { action, id: "gone-soon" })).ok, true);
+const list = await get("/api/station/clients");
+assert.equal(list.clients.some((c) => c.id === "gone-soon"), false);
+assert.deepEqual(list.history.slice(0, 5).map((e) => [e.action, e.id, e.via]), [["removed", "gone-soon", "key"], ["new link", "gone-soon", "key"], ["resumed", "gone-soon", "key"], ["paused", "gone-soon", "key"], ["added", "gone-soon", "key"]]);
+assert.equal(list.history.filter((e) => e.action === "added").length, 3);
+step("client history: added, paused, resumed, new link, removed");
+
 // invoices.md decides: a ticked line marks received, an unticked one clears it, a repeat writes nothing.
 const ref = (j) => j.id.replace(/-/g, "").slice(0, 8);
 const [a, b] = talent.jobs;

@@ -390,6 +390,13 @@ export function talentMoney(clients: Pick<ClientRecord, "category" | "jobs" | "s
   };
 }
 
+// A short history of who was added to or taken off the Clients tab, because a removed client leaves nothing else behind.
+// Owner only. `via` says where the change came from: the board page (your browser) or a script holding the key.
+export type ClientLogAction = "added" | "removed" | "paused" | "resumed" | "new link";
+export type ClientLogEntry = { at: string; action: ClientLogAction; id: string; label: string; via: "page" | "key" };
+export const clientLogEntry = (action: ClientLogAction, c: Pick<ClientRecord, "id" | "label">, viaKey: boolean, now: string): ClientLogEntry =>
+  ({ at: now, action, id: c.id, label: c.label.slice(0, 60), via: viaKey ? "key" : "page" });
+
 // invoices.md is the record of what has been paid. A talent job is tied to its invoice line by a short reference
 // ("job 1a2b3c4d"); the laptop reads the file and tells the site which references are ticked. The board never decides.
 /** The short reference that ties a talent job to its line in invoices.md. */

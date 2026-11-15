@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { cleanJobSync, clientCategory, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
+import { cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
-import { clientStore, stationStore } from "@/lib/store";
+import { clientLog, clientStore, stationStore } from "@/lib/store";
 
 // The Clients tab: list, add, rotate a link, pause, resume, update, remove. Owner only; anyone else gets a 404.
 // A new or rotated key is returned once and never stored, only its hash. Writes made with the session cookie must come
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const clients = await clientStore.all(); // always fresh: this is the list being edited
   const jobIds = clients.flatMap((c) => [`${c.id}-velocity`, `${c.id}-final-check`]);
   const [runs, gates] = await Promise.all([stationStore.runs(jobIds), stationStore.gates()]);
-  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)) });
+  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)), history: await clientLog.list() });
 }
 
 export async function POST(req: NextRequest) {
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body.action !== "string") return json({ ok: false, error: "Missing action." }, 400);
   const clients = await clientStore.all();
   const now = new Date().toISOString();
+  const viaKey = !!req.headers.get("x-station-key");
   try {
     if (body.action === "create") {
       const taken = new Set([...fileRegistry.accounts.map((a) => a.id), ...clients.map((c) => c.id), ...fileRegistry.jobs.map((j) => j.id)]);
@@ -38,6 +39,7 @@ export async function POST(req: NextRequest) {
       const key = newClientKey();
       const client: ClientRecord = { ...v.value, createdAt: now, keyHash: hashKey(key), status: "active", ...(cat.value ? { category: cat.value } : {}) };
       await clientStore.save(client);
+      await clientLog.add(clientLogEntry("added", client, viaKey, now));
       return json({ ok: true, client: { ...client, keyHash: undefined }, key });
     }
     // The laptop reports which talent-job invoice lines are ticked in invoices.md: that file decides what is received.
@@ -51,10 +53,12 @@ export async function POST(req: NextRequest) {
     if (body.action === "rotate") {
       const key = newClientKey();
       await clientStore.save({ ...c, keyHash: hashKey(key) });
+      await clientLog.add(clientLogEntry("new link", c, viaKey, now));
       return json({ ok: true, key });
     }
     if (body.action === "pause" || body.action === "resume") {
       await clientStore.save({ ...c, status: body.action === "pause" ? "paused" : "active" });
+      await clientLog.add(clientLogEntry(body.action === "pause" ? "paused" : "resumed", c, viaKey, now));
       return json({ ok: true });
     }
     if (body.action === "update") {
@@ -87,6 +91,7 @@ export async function POST(req: NextRequest) {
     }
     if (body.action === "remove") {
       await clientStore.remove(c.id);
+      await clientLog.add(clientLogEntry("removed", c, viaKey, now));
       return json({ ok: true });
     }
     return json({ ok: false, error: "Unknown action." }, 400);

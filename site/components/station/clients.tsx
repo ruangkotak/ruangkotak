@@ -2,11 +2,12 @@
 
 import { ArrowsClockwise, Check, CheckCircle, Circle, Copy, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, type ClientCategory, type ClientRecord, type OnboardingStep, type TalentJob } from "@/lib/station";
+import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
 
+const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kuala_Lumpur" });
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kuala_Lumpur" }) : "");
 const slugify = (s: string) =>
   s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 31).replace(/-+$/, "");
@@ -342,6 +343,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
 
 export function Clients({ onChanged }: { onChanged: () => void }) {
   const [clients, setClients] = useState<Client[] | null>(null);
+  const [history, setHistory] = useState<ClientLogEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
 
@@ -349,7 +351,9 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
     try {
       const res = await fetch("/api/station/clients", { cache: "no-store", credentials: "same-origin" });
       if (!res.ok) throw new Error(`KNOX answered ${res.status}`);
-      setClients(((await res.json()) as { clients: Client[] }).clients);
+      const data = (await res.json()) as { clients: Client[]; history?: ClientLogEntry[] };
+      setClients(data.clients);
+      setHistory(data.history ?? []);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -388,6 +392,20 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
           </section>
         );
       })}
+      {history.length > 0 && (
+        <details className="st-card px-3.5 py-3">
+          <summary className="cursor-pointer text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX Client history <span className="num text-muted">· {history.length}</span></summary>
+          <p className="mt-2 text-[11.5px] text-muted">Every client added, removed, paused, resumed or given a new link. Only you see this.</p>
+          <ol className="mono mt-2 flex max-h-[260px] flex-col gap-0.5 overflow-y-auto text-[11.5px] leading-[1.55]">
+            {history.map((e, i) => (
+              <li key={`${e.at}-${i}`} className="grid grid-cols-[104px_1fr] gap-2">
+                <span className="text-muted">{when(e.at)}</span>
+                <span><span className={e.action === "removed" ? "text-bad" : e.action === "added" ? "text-good" : ""}>{e.action}</span> {e.label} <span className="text-muted">({e.id}) · {e.via === "page" ? "from this page" : "by a script with the key"}</span></span>
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   );
 }
