@@ -523,7 +523,7 @@ export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: 
     c.category === "talent"
       ? { id: "price", label: "Commission agreed", done: c.commission !== undefined, note: c.commission !== undefined ? `${c.commission}% of each job` : "set it below; a job cannot be added without it" }
       : {
-          id: "price", label: "Price agreed", done: c.price !== undefined,
+          id: "price", label: c.category === "brand" ? "Fee agreed" : "Price agreed", done: c.price !== undefined,
           note: c.price !== undefined ? `RM${c.price} a reel${c.perMonth ? ` · ${c.perMonth} a month` : ""}` : "set it below; nothing can be invoiced without it",
         },
   ];
@@ -843,12 +843,12 @@ export const mytDate = (now: Date) => new Date(now.getTime() + TZ).toISOString()
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Checks a client's price per reel (RM) and reels per month. Blank clears the value. */
+/** Checks a client's price (RM per reel, or per video for a Brand) and how many a month. Blank clears the value. */
 export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { ok: true; value: { price?: number; perMonth?: number } } | { ok: false; error: string } {
   const num = (v: unknown) => (v === undefined || v === null || v === "" ? undefined : Number(v));
   const price = num(input.price), perMonth = num(input.perMonth);
-  if (price !== undefined && !(Number.isFinite(price) && price >= 0 && price <= 1_000_000)) return { ok: false, error: "The price per reel must be a number in RM." };
-  if (perMonth !== undefined && !(Number.isInteger(perMonth) && perMonth >= 1 && perMonth <= 60)) return { ok: false, error: "Reels per month must be a whole number from 1 to 60." };
+  if (price !== undefined && !(Number.isFinite(price) && price >= 0 && price <= 1_000_000)) return { ok: false, error: "The price must be a number in RM." };
+  if (perMonth !== undefined && !(Number.isInteger(perMonth) && perMonth >= 1 && perMonth <= 60)) return { ok: false, error: "The number per month must be a whole number from 1 to 60." };
   return { ok: true, value: { price: price === undefined ? undefined : Math.round(price * 100) / 100, perMonth } };
 }
 
@@ -888,7 +888,7 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
   for (const c of clients) {
     if (c.category === "talent") {
       if (c.commission === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the commission for ${c.label}`, detail: "A talent job cannot be added without our percentage", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
-    } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the ${c.category === "brand" ? "fee" : "price"} for ${c.label}`, detail: `Nothing can be invoiced without a ${c.category === "brand" ? "fee per video" : "price per reel"}`, since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
     if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
   }
   for (const n of input.needsYou) {

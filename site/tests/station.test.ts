@@ -754,3 +754,16 @@ test("talent jobs: invoices.md decides what is received, matched by a short refe
   assert.deepEqual(syncJobs([changed], { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }], open: ["bbbbbbbb"] }, now), []); // nothing to write twice
   assert.equal(syncJobs([c], { paid: [{ ref: "1a2b3c4d" }], open: [] }, now)[0].jobs![0].paidAt, now); // ticked with no date
 });
+
+test("a Brand is asked for a fee per video, everyone else for a price per reel", () => {
+  const base = { ...kopi, openedAt: NOW.toISOString() };
+  const clients: ClientRecord[] = [{ ...base, id: "brand-co", label: "Brand Co", category: "brand" }, { ...base, id: "creator-co", label: "Creator Co", category: "creator" }, { ...base, id: "plain-co", label: "Plain Co" }];
+  const r = withClients(shipped, clients);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients, now: NOW });
+  const of = (id: string) => s.needsMe!.find((n) => n.key === `price:${id}`)!;
+  assert.deepEqual([of("brand-co").title, of("brand-co").detail], ["Set the fee for Brand Co", "Nothing can be invoiced without a fee per video"]);
+  assert.deepEqual([of("creator-co").title, of("creator-co").detail], ["Set the price for Creator Co", "Nothing can be invoiced without a price per reel"]);
+  assert.equal(of("plain-co").title, "Set the price for Plain Co");
+  assert.equal(onboarding(clients[0], {}, {}).find((x) => x.id === "price")!.label, "Fee agreed");
+  assert.equal(onboarding(clients[1], {}, {}).find((x) => x.id === "price")!.label, "Price agreed");
+});
