@@ -20,7 +20,7 @@ import { clientOf, hasStatus, readBoard, review, statusOf, type Post } from "../
 import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks.mts";
 import { markNewLines, markerOf } from "../scripts/station/queue.mts";
 import { formatMoney, parseCosts, parseInvoices, parseMoney, total, withoutComments, INVOICES_TEMPLATE, COSTS_TEMPLATE } from "../scripts/station/ledger.mts";
-import { chase } from "../scripts/station/jobs/invoice-chase.mts";
+import { chase, jobSync } from "../scripts/station/jobs/invoice-chase.mts";
 import { costReport } from "../scripts/station/jobs/cost-watch.mts";
 import { books } from "../scripts/station/jobs/books-summary.mts";
 import { upsertRow, weekTotals } from "../scripts/station/jobs/kpi-weekly.mts";
@@ -585,4 +585,16 @@ test("agent drafts: listed once per ask with their text, and a decision ticks th
   assert.equal(agentDrafts(ok.queue, (link) => files[link] ?? null).length, 0);
   assert.match(applyAgentDecision(queue, asks, "20261114145245-1", "reject", "2026-11-14T16:00:00.000Z").asks, /draft rejected in KNOX .* ask again with more detail/);
   assert.equal(applyAgentDecision(queue, asks, "no-such-id", "approve", "2026-11-14T16:00:00.000Z").changed, false);
+});
+
+test("invoice-chase: reads talent job references from invoices.md, and only those", () => {
+  const text = [
+    "- [x] INV-021 · Brand X commission (Our Talent) · RM 600 · sent 2026-11-16 · due 2026-11-30 · job 1A2B3C4D · paid 2026-11-20",
+    "- [ ] INV-022 · Brand Y commission (Our Talent) · RM 100 · sent 2026-11-16 · due 2026-11-30 · job bbbbbbbb",
+    "- [x] INV-023 · Brand Z · RM 2,000 · sent 2026-11-01 · due 2026-11-15 · paid 2026-11-14",
+    "- [x] INV-024 · ticked with no date · RM 50 · job cccccccc",
+  ].join("\n");
+  const { invoices } = parseInvoices(text, "2026-11-21");
+  assert.deepEqual(jobSync(invoices), { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "cccccccc" }], open: ["bbbbbbbb"] });
+  assert.deepEqual(jobSync(parseInvoices("- [ ] INV-1 · Brand · RM 5", "2026-11-21").invoices), { paid: [], open: [] });
 });

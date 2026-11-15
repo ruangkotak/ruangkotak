@@ -2,7 +2,7 @@
 
 import { ArrowsClockwise, Check, CheckCircle, Circle, Copy, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CLIENT_CATEGORIES, cutOf, type ClientCategory, type ClientRecord, type OnboardingStep, type TalentJob } from "@/lib/station";
+import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, type ClientCategory, type ClientRecord, type OnboardingStep, type TalentJob } from "@/lib/station";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
@@ -161,6 +161,7 @@ function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (a
   const [fee, setFee] = useState("");
   const [date, setDate] = useState(todayMyt);
   const [percent, setPercent] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
   const jobs: TalentJob[] = [...(c.jobs ?? [])].sort((a, b) => b.date.localeCompare(a.date));
   const total = jobs.reduce((n, j) => n + cutOf(j), 0), open = jobs.filter((j) => !j.paidAt).reduce((n, j) => n + cutOf(j), 0);
   const rate = percent === "" ? c.commission : Number(percent);
@@ -191,14 +192,16 @@ function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (a
                 </div>
                 <div className="flex items-center gap-1">
                   {j.paidAt
-                    ? <button type="button" disabled={!!busy} onClick={() => act("job-unpaid", { jobId: j.id })} className="inline-flex min-h-[36px] items-center gap-1 rounded-[6px] px-2 text-[11.5px] text-good hover:underline disabled:opacity-50"><CheckCircle size={14} weight="fill" aria-hidden /> received {day(j.paidAt)}</button>
-                    : <button type="button" disabled={!!busy} onClick={() => act("job-paid", { jobId: j.id })} className="min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink disabled:opacity-50">Mark received</button>}
+                    ? <span className="inline-flex min-h-[36px] items-center gap-1 px-2 text-[11.5px] text-good"><CheckCircle size={14} aria-hidden /> received {day(j.paidAt)}</span>
+                    : <button type="button" onClick={async () => { await navigator.clipboard?.writeText(jobInvoiceLine(j, c.label, todayMyt())).catch(() => {}); setCopied(j.id); }} className="min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink">{copied === j.id ? "Copied" : "Copy invoice line"}</button>}
                   <button type="button" disabled={!!busy} aria-label={`Remove the ${j.brand} job`} onClick={() => act("job-remove", { jobId: j.id }, `Remove the ${j.brand} job (${rm(j.fee)})? This cannot be undone.`)} className="inline-flex min-h-[36px] items-center px-1.5 text-bad hover:underline disabled:opacity-50"><Trash size={14} aria-hidden /></button>
                 </div>
               </li>
             ))}
           </ul>
-        ) : <p className="px-2.5 py-2 text-[12px] text-muted">No jobs yet. Add one when a brand or agency confirms a job for {c.label}.</p>}
+        ) : null}
+        {jobs.some((j) => !j.paidAt) && <p className="border-t border-line px-2.5 py-2 text-[11.5px] text-muted">Received is decided in <code>Station/invoices.md</code>. Copy a job&apos;s invoice line, paste it there, and tick it when the money arrives. This card follows within about 15 minutes.</p>}
+        {jobs.length ? null : (<p className="px-2.5 py-2 text-[12px] text-muted">No jobs yet. Add one when a brand or agency confirms a job for {c.label}.</p>)}
         <form className="flex flex-wrap items-end gap-2 border-t border-line px-2.5 py-2.5"
           onSubmit={async (e) => { e.preventDefault(); await act("job-add", { brand, fee, date, percent }); setBrand(""); setFee(""); setPercent(""); }}>
           <label className="flex flex-col gap-1 text-[12px]">Brand or agency<input className="field !min-h-[40px] sm:w-[170px]" required minLength={2} maxLength={60} value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Brand X" autoComplete="off" /></label>

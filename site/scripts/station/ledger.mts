@@ -12,7 +12,8 @@ import { dirname } from "node:path";
 import { parseDay } from "./jobs/reminder-check.mts";
 
 export type Money = { currency: string; amount: number };
-export type Invoice = { paid: boolean; label: string; money: Money; sent?: string; due?: string; paidOn?: string };
+/** `job` is the short reference of a talent job ("job 1a2b3c4d") when the line is our commission on one. */
+export type Invoice = { paid: boolean; label: string; money: Money; sent?: string; due?: string; paidOn?: string; job?: string };
 export type Cost = { label: string; money: Money; per: "mo" | "yr"; renews?: string };
 
 const CUR: Record<string, string> = { rm: "MYR", myr: "MYR", usd: "USD", $: "USD", "us$": "USD", sgd: "SGD", s$: "SGD" };
@@ -57,7 +58,7 @@ export function parseInvoices(text: string, today: string): { invoices: Invoice[
       unreadable++;
       continue;
     }
-    invoices.push({ paid: m[1] !== " ", label: labelOf(m[2]), money, sent: field(m[2], "sent", today), due: field(m[2], "due", today), paidOn: field(m[2], "paid", today) });
+    invoices.push({ paid: m[1] !== " ", label: labelOf(m[2]), money, sent: field(m[2], "sent", today), due: field(m[2], "due", today), paidOn: field(m[2], "paid", today), job: /\bjob:?\s+([a-f0-9]{8})\b/i.exec(m[2])?.[1].toLowerCase() });
   }
   return { invoices, unreadable };
 }
@@ -94,6 +95,8 @@ export const INVOICES_TEMPLATE = `# Invoices
 
 One line per invoice. Tick it when paid and add "paid <date>". Station counts the unticked ones (gate: Invoice);
 anything past its due date goes to Needs you.
+A line ending in "job <reference>" is our commission on a talent job: copy it from the talent's card on the Clients tab.
+Ticking it here is what marks that job received on the board.
 
 <!-- Example (lines inside this comment are ignored):
 - [ ] INV-012 · client-demo · RM 3,500 · sent 2026-11-01 · due 2026-11-20

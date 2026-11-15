@@ -97,7 +97,7 @@
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
     { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },
-    { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "0 10 * * 1-5", "account": "internal" },
+    { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "every 15m", "account": "internal" },
     { "id": "cost-watch", "desk": "cost-analyst", "schedule": "0 9 * * 1", "account": "internal" },
     { "id": "books-summary", "desk": "controller", "schedule": "30 9 * * 1", "account": "internal" },
     { "id": "kpi-weekly", "desk": "payroll-kpi", "schedule": "0 10 * * 1", "account": "internal" },
