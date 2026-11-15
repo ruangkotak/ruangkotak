@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { AGENT_DRAFT, DONE_KEEP_MS, DRAFT_LIST_MAX, DRAFT_PREVIEW_MAX, isDraftKey, type DraftDecision, type DraftView } from "@/lib/station";
-import { ownerRequest } from "@/lib/station-live";
+import { json, ownerRequest } from "@/lib/station-live";
 import { draftStore } from "@/lib/store";
 
 // Drafts on the Needs me tab (posts on the content board, and agent drafts for the owner's asks): read, approve or reject. Owner only; anyone else gets a 404.
@@ -11,8 +11,6 @@ import { draftStore } from "@/lib/store";
 //   POST { ack: [] }      from the laptop: those decisions are written.
 // Station never touches the notes folder itself: the laptop's draft-review job does the writing. Posting is never done here.
 
-const noStore = { "cache-control": "no-store" };
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
 
 /** Keeps only well-formed drafts, with capped text, so nothing odd is stored or shown. */

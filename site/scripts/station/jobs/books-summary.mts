@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
 import { COSTS_TEMPLATE, INVOICES_TEMPLATE, PAYROLL_TEMPLATE, monthly, parseCosts, parseInvoices, readOrCreate, total, withoutComments, type Cost, type Invoice, type Money } from "../ledger.mts";
-import { stationFolder } from "../queue.mts";
+import { myt, stationFolder } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -67,7 +67,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const { invoices } = parseInvoices(withoutComments(readOrCreate(join(folder, "invoices.md"), INVOICES_TEMPLATE)), today);
     const { costs } = parseCosts(withoutComments(readOrCreate(join(folder, "costs.md"), COSTS_TEMPLATE)), today);
     const { invoices: payroll } = parseInvoices(withoutComments(readOrCreate(join(folder, "payroll.md"), PAYROLL_TEMPLATE)), today);
-    const stamp = new Date(ctx.now.getTime() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ");
+    const stamp = myt(ctx.now.toISOString());
     const { result, note } = books(invoices, costs, today, stamp, payroll);
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, "Finance.md"), note);

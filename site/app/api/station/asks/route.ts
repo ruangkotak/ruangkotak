@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { ASK_PENDING_MAX, cleanAsk, type AskRecord } from "@/lib/station";
-import { liveRegistry, ownerRequest } from "@/lib/station-live";
+import { json, liveRegistry, ownerRequest } from "@/lib/station-live";
 import { askStore } from "@/lib/store";
 
 // Asks typed on the Needs me tab. Owner only; anyone else gets a 404.
@@ -10,8 +10,6 @@ import { askStore } from "@/lib/store";
 //   POST { ack: [] }      from the laptop: those are written into Station/Asks.md, so they are deleted here.
 // KNOX never touches the notes folder itself and never runs an agent: the laptop's route-asks job does both.
 
-const noStore = { "cache-control": "no-store" };
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
 
 export async function GET(req: NextRequest) {
   if (!(await ownerRequest(req, false))) return new Response("Not found", { status: 404 });

@@ -9,6 +9,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
+import { addDays, plural } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
 const DONE = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE"]);
@@ -43,8 +44,6 @@ export function setStatus(text: string, status: string): string | null {
 /** The first heading, without the `#`; the file name when there is none. */
 export const titleOf = (text: string, fallback: string) => /^#\s+(.+)$/m.exec(text)?.[1].trim() ?? fallback;
 
-const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /** Pure: the Station result from the board on a given Malaysia-time day. */
 export function review(all: Post[], today: string): JobResult {

@@ -1,17 +1,13 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { clientCategory, clientTerms, commissionOf, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
-import { fileRegistry, ownerRequest } from "@/lib/station-live";
+import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
 import { clientStore, stationStore } from "@/lib/store";
 
 // The Clients tab: list, add, rotate a link, pause, resume, update, remove. Owner only; anyone else gets a 404.
 // A new or rotated key is returned once and never stored, only its hash. Writes made with the session cookie must come
 // from Station's own page (Origin check), on top of the cookie being SameSite=Lax.
 
-const noStore = { "cache-control": "no-store" };
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
-
-const owner = ownerRequest;
 
 const view = (c: ClientRecord, runs: Awaited<ReturnType<typeof stationStore.runs>>, gates: Awaited<ReturnType<typeof stationStore.gates>>) => {
   const { keyHash: _, ...rest } = c;
@@ -19,7 +15,7 @@ const view = (c: ClientRecord, runs: Awaited<ReturnType<typeof stationStore.runs
 };
 
 export async function GET(req: NextRequest) {
-  if (!(await owner(req, false))) return new Response("Not found", { status: 404 });
+  if (!(await ownerRequest(req, false))) return new Response("Not found", { status: 404 });
   const clients = await clientStore.all(); // always fresh: this is the list being edited
   const jobIds = clients.flatMap((c) => [`${c.id}-velocity`, `${c.id}-final-check`]);
   const [runs, gates] = await Promise.all([stationStore.runs(jobIds), stationStore.gates()]);
@@ -27,7 +23,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await owner(req, true))) return new Response("Not found", { status: 404 });
+  if (!(await ownerRequest(req, true))) return new Response("Not found", { status: 404 });
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body || typeof body.action !== "string") return json({ ok: false, error: "Missing action." }, 400);
   const clients = await clientStore.all();

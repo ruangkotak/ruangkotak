@@ -318,7 +318,7 @@ export function HowTab() {
         <H2>KNOX In plain words</H2>
         <ol className="flex max-w-[72ch] list-decimal flex-col gap-1.5 pl-5">
           <li><b>Audience.</b> New comments, DMs and briefs are counted from your notes. You reply yourself, then press Done or Clear all.</li>
-          <li><b>Onboard.</b> Add a client on the Clients tab, set the price per reel and send them their private link.</li>
+          <li><b>Onboard.</b> Add a client on the Clients tab, pick its category, set the price (or the commission for a Talent) and send them their private link.</li>
           <li><b>Make.</b> Drafts wait for your Approve or Reject on Needs me. Finished pieces wait for your final check.</li>
           <li><b>Post.</b> Anything approved and not yet live is counted here. You post it by hand. KNOX never touches Instagram.</li>
           <li><b>Paid.</b> Open invoices are counted from your invoice checklist. You send them and confirm the money.</li>

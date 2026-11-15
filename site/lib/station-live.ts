@@ -26,6 +26,10 @@ export async function liveRegistry(): Promise<{ registry: Registry; clients: Cli
   }
 }
 
+/** Every Station answer is private and fresh: never cached. */
+export const noStore = { "cache-control": "no-store" };
+export const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
+
 /** Who is asking: an x-station-key header (scripts) or the session cookie (the page). */
 export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Promise<Scope | null> {
   const { registry } = await liveRegistry();

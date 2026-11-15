@@ -20,7 +20,7 @@ import { dirname, join } from "node:path";
 import { apify, readSnapshot, scrapeReels, writeSnapshot } from "../apify.mts";
 import { setEnvValue, type JobContext, type JobResult } from "../client.mts";
 import { gatePayload, viaFacebook, mediaComments, me, PAYLOAD_MAX, pushToken, recentMedia, refreshToken, sendGateReply, sendPrivateReply } from "../instagram.mts";
-import { appendToQueue, checklistLine, clean, readQueueFile, stationFolder, tickLine } from "../queue.mts";
+import { appendToQueue, checklistLine, clean, myt, readQueueFile, stationFolder, tickLine } from "../queue.mts";
 import { withoutComments } from "../ledger.mts";
 
 export { readQueue } from "../queue.mts";
@@ -235,7 +235,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
           if (gate) await sendGateReply(ctx.env, igId, c.id, fill(gate.first, c), gate.button, payload!);
           else await sendPrivateReply(ctx.env, igId, c.id, fill(message!, c));
           state.sent.push(c.id);
-          text = tickLine(text, c.id, `${gate ? "Button DM sent" : "DM sent"} ${new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ")}`);
+          text = tickLine(text, c.id, `${gate ? "Button DM sent" : "DM sent"} ${myt(new Date().toISOString())}`);
           sentCount++;
         } catch (err) {
           failures.push((err as Error).message);

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { checkAlerts, ownerRequest, refreshReels, telegramReady } from "@/lib/station-live";
+import { checkAlerts, noStore, ownerRequest, refreshReels, telegramReady } from "@/lib/station-live";
 
 export const maxDuration = 180;
 import { notifyTelegram } from "@/lib/notify";
@@ -9,7 +9,6 @@ import { SITE } from "@/lib/site";
 // GET: the daily Vercel cron (Authorization: Bearer <CRON_SECRET>), the safety net for when the laptop is off and nobody
 // has Station open: refreshes due reel checks, then alerts. Without CRON_SECRET it does nothing. POST (owner only): {"action":"test"} sends a test message.
 const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
-const noStore = { "cache-control": "no-store" };
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

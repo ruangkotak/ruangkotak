@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
-import { allQueues, stationFolder } from "../queue.mts";
+import { addDays, allQueues, myt, plural, stationFolder } from "../queue.mts";
 
 const WAIT_DAYS = 7;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
@@ -23,7 +23,6 @@ export const unavailable = (ctx: JobContext) => (existsSync(tasksFile(ctx)) ? nu
 
 /** Malaysia-time calendar date (YYYY-MM-DD) of an instant. */
 export const mytDay = (d: Date) => new Date(d.getTime() + 8 * 3600_000).toISOString().slice(0, 10);
-const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Reads "2026-11-12", "12 Nov", "Nov 12, 2026", "today", "tomorrow", "Friday". A date without a year that would be
@@ -71,7 +70,6 @@ export function parseTasks(text: string, today: string): Task[] {
   return out;
 }
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const shortDay = (day: string) => {
   const d = new Date(`${day}T00:00:00Z`);
   return `${DAYS[d.getUTCDay()][0].toUpperCase()}${DAYS[d.getUTCDay()].slice(1)} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()][0].toUpperCase()}${MONTHS[d.getUTCMonth()].slice(1)}`;
@@ -127,7 +125,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
   try {
     const today = mytDay(ctx.now);
     const folder = stationFolder(ctx.env, ctx.stateDir);
-    const stamp = new Date(ctx.now.getTime() + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ");
+    const stamp = myt(ctx.now.toISOString());
     const { result, note } = digest(parseTasks(readFileSync(file, "utf8"), today), today, allQueues(folder), basename(file), stamp);
     mkdirSync(folder, { recursive: true });
     writeFileSync(join(folder, "Digest.md"), note);
