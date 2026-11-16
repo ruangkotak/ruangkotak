@@ -12,14 +12,14 @@ import type { JobContext, JobResult } from "../client.mts";
 import { addDays, plural } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
-const DONE = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE"]);
+export const DONE = new Set(["APPROVED", "READY", "SCHEDULED", "PUBLISHED", "POSTED", "LIVE"]);
 /** Out in the world. Anything done but not live is approved and still waiting to be posted. */
-const LIVE = new Set(["PUBLISHED", "POSTED", "LIVE"]);
+export const LIVE = new Set(["PUBLISHED", "POSTED", "LIVE"]);
 /**
  * Closed without going out: turned down in Station (or by hand), or TESTED, a piece made to try the pipeline and never
  * meant to be posted. Never waiting for review, never waiting to be posted.
  */
-const REJECTED = new Set(["REJECTED", "DROPPED", "TESTED"]);
+export const REJECTED = new Set(["REJECTED", "DROPPED", "TESTED"]);
 const WEEK = 7;
 
 export type Post = { day: string; file: string; status: string; changedAt: string };

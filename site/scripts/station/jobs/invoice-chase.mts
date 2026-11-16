@@ -47,7 +47,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       method: "POST", headers: { "content-type": "application/json", "x-station-key": ctx.env.STATION_KEY ?? "" },
       body: JSON.stringify({ action: "jobs-sync", ...sync }), signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) return { ...result, ok: false, message: `${result.message} · Station refused the talent job update (${res.status})` };
+    if (!res.ok) return { ...result, ok: false, message: `${result.message} · KNOX refused the talent job update (${res.status})` };
     const { changed } = (await res.json()) as { changed?: number };
     return { ...result, message: `${result.message} · ${plural(sync.paid.length + sync.open.length, "talent job line")}${changed ? ` · ${changed} updated on the board` : ""}` };
   } catch (err) {

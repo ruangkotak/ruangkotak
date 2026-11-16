@@ -1,20 +1,11 @@
 "use client";
 
-import { ArrowLeft, Check, Copy, DownloadSimple, Images, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, DownloadSimple, Images, Plus, Trash } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { assignPhotos, BACKGROUNDS, captionFrom, drawSlide, H, MAX_SLIDES, PALETTES, slidesFrom, W, zip, type Background, type Deck, type Slide } from "@/lib/carousel";
+import { CopyButton } from "./parts";
 
 const START = "Your hook goes here\nFirst point\nSecond point\nThird point\nFollow for more";
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button type="button" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
-      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); } catch {} }}>
-      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {done ? "Copied" : label}
-    </button>
-  );
-}
 
 function save(data: Uint8Array | Blob, name: string, type: string) {
   const a = document.createElement("a");

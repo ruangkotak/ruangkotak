@@ -41,7 +41,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
   const file = join(folder, "KPI.md");
   try {
     const res = await fetch(new URL("/api/station/state", ctx.env.STATION_URL), { headers: { "x-station-key": ctx.env.STATION_KEY ?? "" }, signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) return { ok: false, message: `Station answered ${res.status}` };
+    if (!res.ok) return { ok: false, message: `KNOX answered ${res.status}` };
     const funnel = ((await res.json()) as { funnel?: { status: string; days: Record<string, number | string>[] } }).funnel;
     if (funnel?.status !== "ok") return { ok: false, message: `site funnel is ${funnel?.status ?? "missing"}` };
     const w = weekTotals(funnel.days);

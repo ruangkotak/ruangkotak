@@ -165,6 +165,9 @@ test("only the right keys open anything", () => {
   assert.equal(keyScope("", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", null, {}, registry), null); // no env var, no station
   assert.deepEqual(keyScope("client-secret-456", "client-demo", env, registry), { kind: "client", account: "client-demo" });
+  // Same number of characters as the owner key, more bytes: a wrong key (null), never a thrown error.
+  assert.equal(keyScope("owner-secret-12\u00e9", null, env, registry), null);
+  assert.equal(cookieScope("owner.\u00e9".padEnd(6 + 64, "0"), env, registry), null);
   assert.equal(keyScope("client-secret-456", "alanazizreview", env, registry), null); // a client key opens only its own account
   assert.equal(keyScope("client-secret-456", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", "internal", { [clientKeyName("internal")]: "owner-secret-123" }, registry), null); // internal is never shareable
@@ -403,8 +406,8 @@ test("a new item is announced once; a reworded one again only after 6 hours; a c
 test("the message lists what is new, then what cleared, then the link", () => {
   const prev = { b: { title: "Billing Clerk: 1 invoice past due", at: NOW.toISOString() } };
   const plan = planAlerts([{ ...N("a", "Security Officer: credential-registry failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
-  assert.equal(alertText(plan, "https://ruangkotak.com/station#alerts"),
-    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#alerts");
+  assert.equal(alertText(plan, "https://ruangkotak.com/station#health"),
+    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#health");
   assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^KNOX: cleared\n✓ Billing Clerk/);
 });
 
@@ -631,6 +634,20 @@ test("carousel: a script becomes a cover, body slides and an end page, eight at 
 
 // ---------- found by testing the live board ----------
 
+test("a warning about posting joins the Post line, not the Review line beside it", () => {
+  const gates = { "review:internal": { waiting: 2, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() }, "post:internal": { waiting: 1, oldestAt: minutes(-30).toISOString(), at: NOW.toISOString() } };
+  const withWarning = (attention: string) => snapshot({ mode: "owner", account: "all" }, { gates, runs: { "board-completeness": runsFrom([{ state: "start" }, { state: "ok", attention }]) } }).needsMe!;
+  const line = (items: ReturnType<typeof withWarning>, key: string) => items.find((n) => n.key === key)!;
+  const post = withWarning("1 approved post past its posting date");
+  assert.match(line(post, "gate:post:internal").detail, /past its posting date/);
+  assert.equal(line(post, "gate:post:internal").overdue, true);
+  assert.equal(line(post, "gate:review:internal").overdue, false);
+  const both = withWarning("2 drafts publishing within a day are not approved; 3 approved posts past their posting date");
+  assert.match(line(both, "gate:review:internal").detail, /2 drafts publishing/);
+  assert.doesNotMatch(line(both, "gate:review:internal").detail, /posting date/);
+  assert.match(line(both, "gate:post:internal").detail, /3 approved posts past their posting date/);
+});
+
 test("a job's warning about its own gate joins that gate's line, and system items say where to fix them", () => {
   const failing3 = runsFrom([{ state: "fail" }, { state: "fail" }, { state: "fail" }]);
   const s = snapshot({ mode: "owner", account: "all" }, {
@@ -644,7 +661,7 @@ test("a job's warning about its own gate joins that gate's line, and system item
   assert.match(review.where!, /Status.*APPROVED/);
   assert.ok(!s.needsMe!.some((n) => n.key === "attention:board-completeness"), "not listed a second time");
   assert.match(s.needsMe!.find((n) => n.key.startsWith("probe:apify"))!.where!, /APIFY_TOKEN/);
-  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Jobs tab");
+  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Health tab");
   // Post is a real stage now: approved posts not yet marked published.
   assert.deepEqual(s.stages!.find((x) => x.id === "post")!.parts, [{ label: "Post", waiting: 1 }]);
   assert.match(s.needsMe!.find((n) => n.key === "gate:post:internal")!.where!, /PUBLISHED/);

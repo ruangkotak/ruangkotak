@@ -35,7 +35,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const { applications } = (await res.json()) as { applications: Brief[] };
     const seen = new Set(state.seen ?? []);
     const fresh = applications.filter((b) => !seen.has(b.id));
-    appendToQueue(queue, "# Brief queue: monthly applications to reply to\n\nTick a box once you've replied with a quote. Station counts the unticked ones (gate: Brief). Contact details are in the owner alert for each application.", fresh.map(briefLine));
+    appendToQueue(queue, "# Brief queue: monthly applications to reply to\n\nTick a box once you've replied with a quote. KNOX counts the unticked ones (gate: Brief). Contact details are in the owner alert for each application.", fresh.map(briefLine));
     for (const b of fresh) seen.add(b.id);
     const newest = applications.map((b) => b.at).sort().at(-1);
     mkdirSync(dirname(stateFile), { recursive: true });

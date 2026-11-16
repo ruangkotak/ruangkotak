@@ -29,7 +29,7 @@ const TASKS = `# Tasks
 
 const README = `# RUANGKOTAK notes
 
-Station (ruangkotak.com/station) reads and writes the Station/ folder here. Work by editing and ticking lines.
+KNOX Mission Control (ruangkotak.com/station) reads and writes the Station/ folder here. Work by editing and ticking lines.
 
 | File | You | Used for |
 |---|---|---|
@@ -43,8 +43,8 @@ Station (ruangkotak.com/station) reads and writes the Station/ folder here. Work
 | Station/Digest.md, Finance.md, KPI.md | read only | rewritten on a schedule |
 | TASKS.md | write | your task list, read at 08:00 and 20:00 |
 
-Station creates the files that are not here yet the first time each job runs.
-Keep client names and amounts in this folder only: Station is sent counts and dates, never these files.
+KNOX creates the files that are not here yet the first time each job runs.
+Keep client names and amounts in this folder only: KNOX is sent counts and dates, never these files.
 `;
 
 const files: [string, string][] = [
