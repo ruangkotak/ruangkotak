@@ -165,6 +165,9 @@ test("only the right keys open anything", () => {
   assert.equal(keyScope("", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", null, {}, registry), null); // no env var, no station
   assert.deepEqual(keyScope("client-secret-456", "client-demo", env, registry), { kind: "client", account: "client-demo" });
+  // Same number of characters as the owner key, more bytes: a wrong key (null), never a thrown error.
+  assert.equal(keyScope("owner-secret-12\u00e9", null, env, registry), null);
+  assert.equal(cookieScope("owner.\u00e9".padEnd(6 + 64, "0"), env, registry), null);
   assert.equal(keyScope("client-secret-456", "alanazizreview", env, registry), null); // a client key opens only its own account
   assert.equal(keyScope("client-secret-456", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", "internal", { [clientKeyName("internal")]: "owner-secret-123" }, registry), null); // internal is never shareable
@@ -644,7 +647,7 @@ test("a job's warning about its own gate joins that gate's line, and system item
   assert.match(review.where!, /Status.*APPROVED/);
   assert.ok(!s.needsMe!.some((n) => n.key === "attention:board-completeness"), "not listed a second time");
   assert.match(s.needsMe!.find((n) => n.key.startsWith("probe:apify"))!.where!, /APIFY_TOKEN/);
-  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Jobs tab");
+  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Health tab");
   // Post is a real stage now: approved posts not yet marked published.
   assert.deepEqual(s.stages!.find((x) => x.id === "post")!.parts, [{ label: "Post", waiting: 1 }]);
   assert.match(s.needsMe!.find((n) => n.key === "gate:post:internal")!.where!, /PUBLISHED/);

@@ -110,7 +110,7 @@ export function TopBar({ s, now, online }: { s: Snapshot; now: number; online: b
         <span className="text-[11px] text-muted">{s.top.source ? `from ${s.top.source}` : s.view.mode === "client" ? "client view" : "no source yet"}</span>
       </div>
       {owner ? (
-        // The owner's header is about the business; the laptop's health numbers are on the Mission tab (Stuck stays here: it is an alarm).
+        // The owner's header is about the business; the laptop's health numbers are on the Health tab (Stuck stays here: it is an alarm).
         <dl className="col-span-2 grid grid-cols-5 items-end gap-2 sm:flex sm:gap-5">
           <Stat label="Needs me" value={s.needsMe!.length} tone={s.needsMe!.length ? "mark" : undefined} />
           <Stat label="In work" value={stage("make") === null && stage("post") === null ? "–" : (stage("make") ?? 0) + (stage("post") ?? 0)} />

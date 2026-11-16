@@ -5,7 +5,11 @@ import { dailyCounts } from "@/lib/track";
 // Daily funnel totals for Alan's private outcomes dashboard: aggregate numbers only, no personal data.
 // Needs ?key=<FUNNEL_STATS_KEY>; without that env var the route doesn't exist. ?days=1..90, default 56.
 // ?reports=1 returns one summary line per saved diagnosis instead (no contact details).
-const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+// Byte lengths, not character lengths: timingSafeEqual throws when the buffers differ in size.
+const same = (a: string, b: string) => {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 
 export async function GET(req: Request) {
   const secret = process.env.FUNNEL_STATS_KEY;

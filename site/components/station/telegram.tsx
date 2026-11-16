@@ -3,7 +3,7 @@
 import { PaperPlaneTilt, TelegramLogo } from "@phosphor-icons/react";
 import { useState } from "react";
 
-/** Alerts tab: whether Telegram alerts are on, and a button to prove it. */
+/** Health tab (owner): whether Telegram alerts are on, and a button to prove it. */
 export function TelegramPanel({ on }: { on: boolean }) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | string>("idle");
   return (

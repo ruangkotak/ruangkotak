@@ -283,7 +283,12 @@ export type Scope = { kind: "owner" } | { kind: "client"; account: string };
 export type Env = Record<string, string | undefined>;
 export const COOKIE = "rk_station";
 
-const same = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+// Lengths are compared in bytes: timingSafeEqual throws on buffers of different sizes, and a key with a non-ASCII
+// character can match in characters but not in bytes.
+const same = (a: string, b: string) => {
+  const x = Buffer.from(a), y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 /** CLIENT_KEY_<SLUG>: the slug upper-cased, anything not a letter or digit turned into "_" (client-demo → CLIENT_KEY_CLIENT_DEMO). */
 export const clientKeyName = (account: string) => `CLIENT_KEY_${account.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
 const sign = (secret: string, scope: string) => createHmac("sha256", secret).update(`rk-station:${scope}`).digest("hex");
@@ -842,7 +847,7 @@ const gateFile = (gate: string, a: Account): string | undefined =>
 const systemFix = (key: string): string | undefined =>
   key.startsWith("probe:apify") ? "new APIFY_TOKEN: on the laptop (station-install.mts --apify-token) and in Vercel's env vars"
   : key.startsWith("probe:laptop") || key === "laptop:quiet" ? "the laptop: wake it, or resume its scheduled jobs"
-  : key.startsWith("job:") || key.startsWith("attention:") ? "Jobs tab"
+  : key.startsWith("job:") || key.startsWith("attention:") ? "Health tab"
   : undefined;
 
 /** Today in Malaysia, as YYYY-MM-DD. */

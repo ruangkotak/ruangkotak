@@ -1,4 +1,4 @@
-// CDO Reviewer, 18:00 weekdays, one job per client (client-demo-final-check, and any "<client>-final-check" sharing this
+// CDO Reviewer, 18:00 weekdays, one job per client (every "<client>-final-check" shares this
 // script): which deliverables are waiting for final review?
 // The checklist is <vault>/Station/final-queue-<account>.md (created on first run with instructions). Add a line per
 // deliverable, by hand or by your editors: "- [ ] Reel 3 v2". Tick it once it has passed final review.

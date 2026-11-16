@@ -1,5 +1,5 @@
-// Performance Analyst, every 6 hours (ig-velocity-6h for @alanazizreview; client-demo-velocity and future client jobs
-// share this script): how fast are the latest reels gaining plays?
+// Performance Analyst, every 6 hours (ig-velocity-6h for @alanazizreview; every "<client>-velocity" job
+// shares this script): how fast are the latest reels gaining plays?
 // Skips when Station (the site) checked the account's reels in the last 5 hours. Otherwise scrapes the newest 12 reels, compares plays with the previous snapshot, and reports plays per hour. The first run
 // only saves a baseline. Fails when the scrape fails or returns no reels (private, renamed, or blocked).
 import { compact, readSnapshot, scrapeReels, writeSnapshot, type ReelSnapshot } from "../apify.mts";
