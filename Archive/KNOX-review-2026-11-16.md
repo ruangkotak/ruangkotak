@@ -1,110 +1,70 @@
 # KNOX Mission Control review, 16 Nov 2026
 
-For Alan to review. Nothing in this file has been changed in the code: these are the items I was not sure enough
-about to fix on my own. Each one says what I saw, where, and what I would do. Tick or delete as you decide.
+Every item found in the review now has a decision. Nothing is open.
+"Done" means it is fixed in pull request 64. "Kept" means it stays as it is, with the reason, and what would change that.
 
-What I did fix is in the pull request, not here.
+## A. Things that looked wrong
 
-## A. Looks wrong, needs your decision
+| Item | Decision |
+| --- | --- |
+| A warning about posting could land on the Review line in Needs me | **Done.** Each warning now joins the line of the gate it is about. Tested. |
+| Two agent drafts made on the same day could overwrite each other | **Done.** A second draft with the same name gets " 2", " 3". |
+| Approve and Reject on agent drafts stopped when there was no `content/` folder | **Done.** `draft-review` runs without the folder and skips only the content-board half. |
+| An error message containing `$` could garble a checklist line | **Done.** In `ig-comment-dm` and `agent-work`. |
+| `?to=` links only knew the old tabs | **Done.** `needs`, `clients`, `carousel`, `money`, `reports`, `health` and `how` work; the old names still open Health. |
+| Telegram messages linked to `/station#alerts` | **Done.** They link to `#health`. Old messages still open the right tab. |
+| Money tab: the tile counted active clients, the table also listed paused ones | **Done.** The tile is now labelled "Active clients". |
+| Two final-review lines with the same name for one client count as one item | **Kept.** Fixing it means changing what the laptop sends for every deliverable. Give deliverables different names ("Reel 3 v2", "Reel 3 v3"). Revisit if it ever bites. |
+| A client record can lose an edit when two saves meet at the same moment | **Kept.** One owner, a handful of clients: the window is a fraction of a second. Revisit if a second person starts editing clients. |
 
-- [ ] **A warning can land on the wrong line in Needs me.** The content board job sends one warning that can be
-  about drafts ("publishing within a day, not approved") or about posting ("approved post past its posting date").
-  Needs me attaches it to the first line it finds for that job, which is the Review line whenever one exists, even
-  when the warning is about posting. `site/lib/station.ts` (buildPipeline, the "twin" lookup).
-  Suggest: have the job send the two warnings separately, one per gate.
-- [ ] **Two agent drafts made on the same day can overwrite each other.** The draft file is named from the date and
-  the first 40 characters of the ask, so two asks that start the same way write the same file.
-  `site/scripts/station/jobs/agent-work.mts` (the `name` line). Suggest: add the ask id to the file name.
-- [ ] **Approve and Reject on agent drafts stop when there is no `content/` folder.** `draft-review` refuses to run
-  without the content folder, although agent drafts do not live there. `site/scripts/station/jobs/draft-review.mts`
-  (`unavailable`). Suggest: only skip the content-board half.
-- [ ] **Two final-review lines with the same name for one client count as one item.** Done ticks only the first, and
-  the page gets two cards with the same id. `site/lib/station.ts` (key `final:<account>:<label>`).
-  Suggest: use the line's hidden id in the key instead of its name.
-- [ ] **A client record can lose an edit when two writes meet.** Every write saves the whole record. If a client
-  opens their link (which stamps "last opened") at the moment you save a price, or the laptop's invoice sync lands
-  while you add a talent job, the later save wins and the other change is lost. Rare, but silent.
-  `site/app/api/station/enter/route.ts`, `site/app/api/station/clients/route.ts`.
-- [ ] **Money tab counts and table disagree.** The "Clients" tile counts active clients only; the table under it
-  also lists paused ones. `site/components/station/lite.tsx` (MoneyTab). Decide which you want.
-- [ ] **Links with `?to=` only know the old tabs.** `?to=jobs`, `alerts` and `agents` all open Health now; `clients`
-  works; `needs`, `money`, `reports` and `health` are not accepted. `site/app/api/station/enter/route.ts`.
-- [ ] **Telegram messages link to `/station#alerts`.** It still works (old links open Health), but `#health` would be
-  the honest address. Two tests pin the old one. `site/lib/station-live.ts`, `site/app/api/station/alerts/route.ts`.
-- [ ] **An error message with a `$` in it can garble a checklist line.** A failed DM or agent run writes Meta's or
-  Claude's reason into the line with a text replace that treats `$1`, `$&` as special.
-  `ig-comment-dm.mts`, `agent-work.mts`. Small; suggest a replace function instead of a replace string.
+## B. Names (KNOX vs Station)
 
-## B. Names that do not match (KNOX vs Station)
+| Item | Decision |
+| --- | --- |
+| Notes written into your vault, job messages on Health, the installer's last line | **Done.** They say KNOX. Files already in your vault keep their old headers; new ones get the new wording. |
+| The `Station/` folder, `/station` address, `STATION_*` settings, script names | **Kept**, as the README already says. Renaming them would break your laptop install and every saved link. |
+| Client pages still show Mission, Jobs, Alerts | **Kept.** Clients have always had these three; changing them is a design choice for you, not a bug. |
+| Section numbers on Health run 02 to 10 | **Kept.** They are department numbers from the registry. Cosmetic. |
 
-The README says only the visible name changed. These are visible, and still say Station:
+## C. Efficiency
 
-- [ ] Notes written into your vault files: "done in Station 10:02" (`needs-me-sync.mts`), the headers of
-  `invoices.md`, `payroll.md`, `brief-queue.md`, `dm-queue-*.md`, `final-queue-*.md`, the vault `README.md` and
-  `Digest.md` ("# Station digest"). `draft-review` already writes "approved in KNOX".
-- [ ] Job messages shown on the Health tab: "reels checked by Station", "Station refused the talent job update",
-  "ticked from Station".
-- [ ] The installer's own output ("Station's Laptop tile should read OK").
-- [ ] Client pages still have the old three tabs (Mission, Jobs, Alerts) while yours has the new seven. The README
-  says this is on purpose; listed only so you can confirm.
-- [ ] Section numbers on Health run 02 to 10. There is no 01.
+| Item | Decision |
+| --- | --- |
+| The client list was read three times for every page load and every 30-second refresh | **Done.** Read once per request. |
+| The alert check builds a second full snapshot after a refresh | **Kept.** It has to run after the reel check, and it is already limited to once a minute. |
+| A Done press rebuilds the whole board | **Kept.** A few presses a day. |
+| A laptop beat is 6 to 8 Redis commands sent one by one | **Kept for now.** Batching them is the real saving, but it changes every write path and needs a test against real Upstash, which I could not run here. Do it if Upstash usage becomes a cost. |
+| `kpi-weekly` and `ig-velocity` fetch the whole board for one field | **Kept.** Once a week and four times a day. |
+| The brief sweep and report list scan every Redis key | **Kept.** Fine at today's size; revisit past a few thousand reports. |
 
-## C. Inefficient
+## D. Copied code
 
-- [ ] **Every 30-second refresh of your page costs about 25 to 30 Redis commands.** The page's own snapshot is built,
-  then the alert check builds a second full one, and the client list is read three or four times along the way
-  (`scopeOf`, `viewFor`, `getSnapshot`, `refreshReels` each fetch it). With the board open all day that is tens of
-  thousands of commands. `site/app/api/station/state/route.ts`, `site/lib/station-live.ts`.
-  Suggest: read the client list once per request and let the alert check reuse the snapshot already built.
-- [ ] **A Done press rebuilds the whole board** (probes and the site funnel included) just to confirm one item is
-  still on the queue. `site/app/api/station/done/route.ts`.
-- [ ] **One laptop beat is 6 to 8 Redis commands**, sent one by one (push, trim, expire; set, expire). A job run sends
-  two to four beats. `site/lib/store.ts`. Suggest: Upstash's pipeline endpoint, one round trip per beat.
-- [ ] **`kpi-weekly` and `ig-velocity` fetch the entire board to read one field**, and that fetch also sets off a reel
-  check and an alert check on the site. A small read-only endpoint would do.
-- [ ] **The brief sweep and the report list scan every key in Redis** each time. Fine today, slower as reports pile up.
-  `site/lib/store.ts` (`applicationsSince`, `allReports`).
-- [ ] The alert check reads the "last seen" table twice in a row. `site/lib/station-live.ts` (`checkAlerts`).
-
-## D. Copied code that could be shared
-
-Commit 51e484e already shared some. These are left:
-
-- [ ] "Today in Malaysia": `mytDate` (`lib/station.ts`), `mytDay` (`reminder-check.mts`), `todayMyt` (`clients.tsx`),
-  and two different `myt` helpers (`queue.mts`, `agent-work.mts`).
-- [ ] `slugify` is in `lib/station.ts` and again in `components/station/clients.tsx`.
-- [ ] `CopyButton` and the `rm` money formatter are in both `clients.tsx` and `lite.tsx`.
-- [ ] `median` is in `lib/station.ts` and `ig-velocity.mts`.
-- [ ] The `Reel`, `ReelSnapshot` and `GateItem` types are declared in `scripts/station/apify.mts` and `client.mts` as
-  well as `lib/station.ts`; `Brief` in `brief-sweep.mts` repeats `BriefSummary` in `lib/store.ts`.
-- [ ] The "published" and "closed" status lists are in both `board-completeness.mts` and `draft-review.mts`
-  (where the second list is named `WAITING` but holds the statuses that are *not* waiting).
+| Item | Decision |
+| --- | --- |
+| `slugify`, the copy button, the RM formatter, "today in Malaysia" in the components | **Done.** One copy each. |
+| The post status lists in `board-completeness` and `draft-review` | **Done.** One copy; the misnamed `WAITING` list is gone. |
+| `mytDay` / `myt` in the laptop scripts, `median`, the reel and brief types | **Kept.** The scripts are deliberately self-contained; sharing these saves a few lines and couples the laptop code to the site's. |
 
 ## E. Possibly no longer needed
 
-- [ ] **`/station/carousel` as its own page.** The Carousel tab shows the same thing and nothing links to the page.
-- [ ] **Manual client keys (`CLIENT_KEY_<SLUG>` env vars).** No client uses them since `client-demo` was removed, but
-  the code still accepts them as a way in. Removing the path shrinks what has to be kept safe. The tests lean on it.
-- [ ] **The "no read path" desk state.** No desk in the registry is marked `noReadPath`, so the state, its icon and
-  its counts never show.
-- [ ] **Station Lite leftovers in the wording:** the command box's answers for `quote`, `brief` and `lead`, the
-  "What is different from Station Lite" block on How it works, and the README paragraph dated 14 Nov. Useful
-  during the switch; dead weight once you no longer think in Lite's terms.
-- [ ] **The Notion tile.** It reads NO PROBE unless `NOTION_TOKEN` is set. Drop it if Notion is not part of the stack.
-- [ ] `ig-comment-dm.mts` still reads the old `dm-seen-<handle>.json` state file from before sending existed.
-- [ ] `NeedsYouList` takes a `no` option nobody passes (`components/station/parts.tsx`).
-- [ ] `scripts/station-run.mts` (wrap any command as a job): no registry job uses it. Keep if you plan to.
-- [ ] `tests/redis-paths.mjs` and `tests/fake-upstash.mjs` are run by hand only and are not part of `npm test`.
-- [ ] Many desks have neither an agent nor a job (Scrape Agent, Shoot Producer, Colorist, Inbox, the Reviewers...).
-  They only ever read "idle". Keep them if the map of the business is the point.
-- [ ] The README still uses `client-demo` in its invoice example and its env var example.
+| Item | Decision |
+| --- | --- |
+| The old `dm-seen-<handle>.json` state file reader | **Done.** Removed. |
+| The unused `no` option on the Needs you list | **Done.** Removed. |
+| `/station/carousel` as its own page | **Kept.** It works, costs nothing, and a bookmark to it keeps working. |
+| Manual client keys (`CLIENT_KEY_<SLUG>`) | **Kept.** It is the only way to give a client a link if Redis is down, and it is well tested. |
+| The "no read path" desk state | **Kept.** Small, and the registry can use it the day a desk needs it. |
+| Station Lite wording in the command box, How it works and the README | **Kept.** It is your own explanation of the switch made two days ago. Delete it whenever it stops being useful. |
+| The Notion tile | **Kept.** It shows NO PROBE until `NOTION_TOKEN` is set; remove it only if Notion is out of the stack for good. |
+| `station-run.mts`, the hand-run Redis tests, desks with no agent or job | **Kept.** Tools and a map of the business, not dead code. |
+| `client-demo` in README and ledger examples | **Kept.** They are examples of a line, not a real account. |
 
-## F. Outside KNOX (not touched, noted in passing)
+## F. Outside KNOX
 
-- [ ] `.claude/removed/` holds the graft helper and settings archived on 31 Oct; `.gitignore` and `.ignore` still
-  carry graft rules.
-- [ ] `.impeccable/critique/2026-09-12…__public-index-html.md` reviews a page that no longer exists.
-- [ ] The root `.env.example` lists `PORT`, `GATE_USER` and `GATE_PASS`. No code reads them. The security-reviewer
-  agent's notes also still mention "the pre-launch gate".
-- [ ] The root `package.json` and `package-lock.json` are empty shells; everything is in `site/`.
-- [ ] `site/lib/track.ts` points at `scripts/funnel-counts.ts`; the file is `funnel-counts.mts`.
+Not touched, so KNOX work stays separate. If you want them cleaned, ask for it as its own piece of work:
+
+- `.claude/removed/` (graft archive from 31 Oct) and the graft rules in `.gitignore` and `.ignore`
+- `.impeccable/critique/2026-09-12…` (reviews a page that no longer exists)
+- the root `.env.example` (`PORT`, `GATE_USER`, `GATE_PASS`: no code reads them) and the "pre-launch gate" line in the security-reviewer agent
+- the empty root `package.json` and `package-lock.json`
+- `site/lib/track.ts` names `funnel-counts.ts`; the file is `funnel-counts.mts`

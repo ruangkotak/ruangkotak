@@ -4,21 +4,11 @@
 // All of them read what the board already knows. None of them stores, changes or sends anything.
 
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, PaperPlaneRight } from "@phosphor-icons/react";
+import { PaperPlaneRight } from "@phosphor-icons/react";
 import { answerCommand, ASK_MAX, CLIENT_CATEGORIES, cutOf, ownerReport, type AskRecord, type ClientRecord, type CommandTab, type Snapshot } from "@/lib/station";
+import { CopyButton, rm } from "./parts";
 
-const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
 const H2 = ({ children }: { children: React.ReactNode }) => <h2 className="label mb-2.5">{children}</h2>;
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button type="button" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
-      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); } catch {} }}>
-      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {done ? "Copied" : label}
-    </button>
-  );
-}
 
 /** The box under the header. It answers from the snapshot on this page; nothing is sent to a server. */
 export function CommandBar({ snap, onTab }: { snap: Snapshot; onTab: (t: CommandTab) => void }) {
@@ -155,7 +145,7 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
   const paid = snap.stages?.find((s) => s.id === "paid");
   const tiles: [string, string, string][] = [
     ["Agreed a month", rm(m?.monthly ?? 0), m?.priced ? `from ${m.priced} paying client${m.priced === 1 ? "" : "s"}` : "no paying client yet"],
-    ["Clients", String(m?.clients ?? 0), `${m?.priced ?? 0} with a price above RM0`],
+    ["Active clients", String(m?.clients ?? 0), `${m?.priced ?? 0} with a price above RM0`],
     ["Invoices waiting", paid?.waiting === null || paid?.waiting === undefined ? "–" : String(paid.waiting), paid?.waiting === null ? "not counted yet" : paid?.overdue ? "past their window" : "on the invoice checklist"],
   ];
   return (

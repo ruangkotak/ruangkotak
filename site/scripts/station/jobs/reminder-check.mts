@@ -97,7 +97,7 @@ export function digest(tasks: Task[], today: string, queues: { file: string; wai
 
   const list = (xs: Task[], note: (t: Task) => string) => (xs.length ? xs.map((t) => `- **${t.title}**${note(t)}`).join("\n") : "- nothing");
   const note = [
-    `# Station digest`,
+    `# KNOX digest`,
     ``,
     `${stamp} (Malaysia time) from \`${source}\`. Rewritten at 08:00 and 20:00; edit TASKS.md, not this note.`,
     ``,

@@ -1,17 +1,15 @@
 "use client";
 
-import { ArrowsClockwise, Check, CheckCircle, Circle, Copy, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
+import { ArrowsClockwise, CheckCircle, Circle, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
+import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
+import { CopyButton, rm } from "./parts";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Kuala_Lumpur" });
 const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Kuala_Lumpur" }) : "");
-const slugify = (s: string) =>
-  s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 31).replace(/-+$/, "");
-
 const catOf = (id?: ClientCategory) => CLIENT_CATEGORIES.find((c) => c.id === id);
 // The headings on the tab, in order. Clients added before categories existed sit under the last one until you pick.
 const GROUPS: { title: string; ids: (ClientCategory | undefined)[]; note: string }[] = [
@@ -25,26 +23,6 @@ async function call(body: Record<string, unknown>) {
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; key?: string };
   if (!res.ok || !data.ok) throw new Error(data.error ?? `KNOX answered ${res.status}`);
   return data;
-}
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setDone(true);
-          setTimeout(() => setDone(false), 1800);
-        } catch {}
-      }}
-      className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
-    >
-      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
-      {done ? "Copied" : label}
-    </button>
-  );
 }
 
 /** The link and a ready-to-send message, shown once after Add or New link. */
@@ -152,8 +130,7 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
   );
 }
 
-const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
-const todayMyt = () => new Date(Date.now() + 8 * 3600_000).toISOString().slice(0, 10);
+const todayMyt = () => mytDate(new Date());
 
 /** Talent only: our percentage, and each job a brand gave them. Only the owner ever sees this. */
 function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void> }) {

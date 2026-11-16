@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDown, Check, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
+  ArrowDown, Check, CircleDashed, Copy, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
 } from "@phosphor-icons/react";
 import type { DeptView, DeskState, GateView, JobView, NeedsMe, NeedsYou, Probe, Snapshot, StageView, StationEvent } from "@/lib/station";
 
@@ -32,6 +32,18 @@ export function jobTag(j: Pick<JobView, "state" | "nextAt" | "startedAt">, now: 
 }
 
 // ---------- small pieces ----------
+
+export const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
+
+export function CopyButton({ text, label }: { text: string; label: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button type="button" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
+      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); } catch {} }}>
+      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {done ? "Copied" : label}
+    </button>
+  );
+}
 
 const DESK_ICON: Record<DeskState, React.ReactNode> = {
   running: <CircleNotch size={12} weight="bold" className="st-spin text-mark" aria-hidden />,
@@ -264,11 +276,11 @@ export function Infra({ probes }: { probes: Probe[] }) {
   );
 }
 
-export function NeedsYouList({ items, no = "09" }: { items: NeedsYou[]; no?: string }) {
+export function NeedsYouList({ items }: { items: NeedsYou[] }) {
   return (
     <section aria-labelledby="needs" className="st-card px-3.5 py-3">
       <h2 id="needs" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-        <span className="num mr-1.5 text-muted">{no}</span>KNOX Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
+        <span className="num mr-1.5 text-muted">09</span>KNOX Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
       </h2>
       {items.length ? (
         <ul className="mt-2 flex flex-col gap-1.5">

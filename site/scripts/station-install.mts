@@ -181,4 +181,4 @@ if (!dry) {
   const r = spawnSync(NODE, ["--experimental-strip-types", "--no-warnings", TICK, "--list"], { cwd: SITE_DIR, stdio: "inherit" });
   if (r.status === 0) spawnSync(NODE, ["--experimental-strip-types", "--no-warnings", TICK], { cwd: SITE_DIR, stdio: "inherit" });
 }
-console.log(`\nDone. Station's Laptop tile should read OK within a minute. Log: ${LOG}`);
+console.log(`\nDone. KNOX's Laptop tile should read OK within a minute. Log: ${LOG}`);

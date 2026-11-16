@@ -120,14 +120,17 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
         state.failed[ask.id] = (state.failed[ask.id] ?? 0) + 1;
         failures.push(r.reason);
         if (state.failed[ask.id] >= MAX_ATTEMPTS)
-          asksText = asksText.replace(new RegExp(`( <!-- rk:id=${ask.id} )`), ` · agent failed: ${r.reason.slice(0, 60)}$1`);
+          asksText = asksText.replace(new RegExp(`( <!-- rk:id=${ask.id} )`), (m) => ` · agent failed: ${r.reason.slice(0, 60)}${m}`);
         continue;
       }
-      const name = `${myt(ctx.now).slice(0, 10)} ${slug(ask.text)}`;
+      // Two asks that start with the same words on the same day get "… 2", "… 3": a draft is never overwritten.
+      const stem = `${myt(ctx.now).slice(0, 10)} ${slug(ask.text)}`;
+      let name = stem;
+      for (let n = 2; existsSync(join(folder, "Drafts", `${name}.md`)); n++) name = `${stem} ${n}`;
       const file = join(folder, "Drafts", `${name}.md`);
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(file, [`# ${ask.text}`, "", `Desk: ${deskName} · agent: ${agent} · ${myt(ctx.now).slice(0, 16).replace("T", " ")} (Malaysia time)`, "Draft for your approval: nothing has been sent, posted or published.", "", "---", "", r.text, ""].join("\n"));
-      asksText = asksText.replace(new RegExp(`( <!-- rk:id=${ask.id} )`), ` · draft: [[Drafts/${name}]]$1`);
+      asksText = asksText.replace(new RegExp(`( <!-- rk:id=${ask.id} )`), (m) => ` · draft: [[Drafts/${name}]]${m}`);
       appendToQueue(queue, "# Drafts waiting for approval\n\nEach line is an agent's draft for one of your asks. Read it, use it, and tick the line. Ticking only clears it from the Drafts gate; it sends nothing.", [checklistLine(ask.id, ctx.now.toISOString(), `${deskName}: ${clean(ask.text).slice(0, 80)} → [[Drafts/${name}]]`)]);
       state.done[ask.id] = { at: ctx.now.toISOString(), file: `Drafts/${name}.md` };
       made.push(agent);

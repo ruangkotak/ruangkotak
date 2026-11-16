@@ -31,8 +31,10 @@ export const noStore = { "cache-control": "no-store" };
 export const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
 
 /** Who is asking: an x-station-key header (scripts) or the session cookie (the page). */
-export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Promise<Scope | null> {
-  const { registry } = await liveRegistry();
+/** `live`: the registry already read for this request, so one request reads the client list once. */
+export type Live = Awaited<ReturnType<typeof liveRegistry>>;
+export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }, live?: Live): Promise<Scope | null> {
+  const { registry } = live ?? (await liveRegistry());
   return keyScope(req.headerKey, req.account, process.env, registry) ?? cookieScope(req.cookie, process.env, registry);
 }
 
@@ -54,8 +56,8 @@ export async function ownerRequest(req: NextRequest, write: boolean) {
   return true;
 }
 
-export async function viewFor(scope: Scope | null, q: ViewQuery): Promise<View | null> {
-  return resolveView(scope, q, (await liveRegistry()).registry);
+export async function viewFor(scope: Scope | null, q: ViewQuery, live?: Live): Promise<View | null> {
+  return resolveView(scope, q, (live ?? (await liveRegistry())).registry);
 }
 
 // ---------- probes ----------
@@ -148,8 +150,8 @@ async function probes(seen: Record<string, string>, now: Date): Promise<Probe[]>
 const panelAccount = (r: Registry, view: View) =>
   view.account !== "all" ? view.account : view.mode === "owner" ? r.accounts.find((a) => a.kind === "personal" && a.instagram)?.id : undefined;
 
-export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
-  const { registry, clients } = await liveRegistry();
+export async function getSnapshot(view: View, now = new Date(), live?: Live): Promise<Snapshot> {
+  const { registry, clients } = live ?? (await liveRegistry());
   const [runs, events, gates, seen, reels, done] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
@@ -197,7 +199,7 @@ export async function checkAlerts(): Promise<{ sent: boolean; reason?: string }>
     const now = new Date();
     const [snap, seen, prev] = await Promise.all([getSnapshot({ mode: "owner", account: "all" }, now), stationStore.seen(), alertStore.alerted()]);
     const plan = planAlerts(alertable(snap.needsYou, seen.laptop, now), prev, now);
-    const text = alertText(plan, `${SITE}/station#alerts`);
+    const text = alertText(plan, `${SITE}/station#health`);
     if (!text) {
       if (JSON.stringify(plan.next) !== JSON.stringify(prev)) await alertStore.setAlerted(plan.next);
       return { sent: false, reason: "nothing new" };

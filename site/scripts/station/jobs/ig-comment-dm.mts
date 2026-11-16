@@ -160,14 +160,11 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
   const messageFile = join(folder, "dm-message.md");
   const gateFile = join(folder, "dm-gate.md");
   const stateFile = join(ctx.stateDir, "ig", `dm-${handle}.json`);
-  const legacySeen = join(ctx.stateDir, "ig", `dm-seen-${handle}.json`);
   const now = Date.now();
   const api = !!ctx.env.IG_ACCESS_TOKEN;
   const notes: string[] = [];
   try {
-    const state: State = existsSync(stateFile)
-      ? JSON.parse(readFileSync(stateFile, "utf8"))
-      : { seen: existsSync(legacySeen) ? JSON.parse(readFileSync(legacySeen, "utf8")) : [], sent: [] };
+    const state: State = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, "utf8")) : { seen: [], sent: [] };
     const save = () => {
       mkdirSync(dirname(stateFile), { recursive: true });
       writeFileSync(stateFile, JSON.stringify({ ...state, seen: state.seen.slice(-SEEN_CAP), sent: state.sent.slice(-SEEN_CAP) }));
@@ -191,7 +188,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
     const fresh = comments.filter((c) => !seen.has(c.id) && c.user.toLowerCase() !== owner && matches(c.text, keywords)).sort((a, b) => a.at.localeCompare(b.at));
     for (const c of comments) seen.add(c.id);
     state.seen = [...seen];
-    appendToQueue(queue, `# Comment → DM queue for @${handle}\n\nTick a box once the DM is sent (Station ticks the ones it sends itself). Station counts the unticked ones (gate: DM). Keywords: ${keywords.join(", ")}`, fresh.map(queueLine));
+    appendToQueue(queue, `# Comment → DM queue for @${handle}\n\nTick a box once the DM is sent (KNOX ticks the ones it sends itself). KNOX counts the unticked ones (gate: DM). Keywords: ${keywords.join(", ")}`, fresh.map(queueLine));
     save();
 
     // Sending.
@@ -239,7 +236,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
           sentCount++;
         } catch (err) {
           failures.push((err as Error).message);
-          text = text.replace(new RegExp(`( <!-- rk:id=${escape(c.id)} )`), ` · not sent: ${clean((err as Error).message).slice(0, 80)}$1`);
+          text = text.replace(new RegExp(`( <!-- rk:id=${escape(c.id)} )`), (m) => ` · not sent: ${clean((err as Error).message).slice(0, 80)}${m}`);
         }
       }
       for (const c of plan.tooOld) text = text.replace(new RegExp(`( <!-- rk:id=${escape(c.id)} )`), " · over 7 days old, DM by hand$1");

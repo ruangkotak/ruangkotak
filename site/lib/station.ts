@@ -909,10 +909,16 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     // standing beside it as a second item about the same thing.
     const job = n.key.startsWith("attention:") ? n.key.slice("attention:".length) : null;
     const gateIds = job ? r.gates.filter((g) => g.job === job).map((g) => g.id) : [];
-    const twin = needsMe.find((m) => gateIds.some((id) => m.key.startsWith(`gate:${id}:`)));
-    if (twin) {
-      twin.detail = `${twin.detail} · ${n.title.replace(/^[^:]+: /, "")}`;
-      twin.overdue = true;
+    const lines = needsMe.filter((m) => gateIds.some((id) => m.key.startsWith(`gate:${id}:`)));
+    if (lines.length) {
+      // A job that reads two gates (the content board: Review and Post) sends its warnings joined by "; ". Each part
+      // goes to the line of the gate it names ("approved posts past their posting date" → Post), else to the first.
+      for (const part of n.title.replace(/^[^:]+: /, "").split("; ")) {
+        const named = lines.find((m) => new RegExp(`\\b${m.key.split(":")[1]}(s|ing)?\\b`, "i").test(part));
+        const twin = named ?? lines[0];
+        twin.detail = `${twin.detail} · ${part}`;
+        twin.overdue = true;
+      }
       continue;
     }
     needsMe.push({ key: n.key, stage: "system", title: n.title, detail: n.detail, overdue: true, where: systemFix(n.key) });

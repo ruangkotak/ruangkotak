@@ -57,7 +57,7 @@ async function checkedByStation(ctx: JobContext): Promise<number | null> {
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const handle = ctx.account.instagram!;
   const age = await checkedByStation(ctx);
-  if (age !== null && age < 5 * H) return { ok: true, message: `@${handle} · reels checked by Station ${Math.max(1, Math.round(age / 60_000))} min ago; skipped to save Apify` };
+  if (age !== null && age < 5 * H) return { ok: true, message: `@${handle} · reels checked by KNOX ${Math.max(1, Math.round(age / 60_000))} min ago; skipped to save Apify` };
   try {
     const prev = readSnapshot(ctx.stateDir, handle);
     const cur: ReelSnapshot = { handle, at: new Date().toISOString(), reels: await scrapeReels(ctx.env.APIFY_TOKEN!, handle, REELS) };

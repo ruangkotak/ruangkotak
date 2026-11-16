@@ -93,7 +93,7 @@ export function readOrCreate(path: string, template: string): string {
 
 export const INVOICES_TEMPLATE = `# Invoices
 
-One line per invoice. Tick it when paid and add "paid <date>". Station counts the unticked ones (gate: Invoice);
+One line per invoice. Tick it when paid and add "paid <date>". KNOX counts the unticked ones (gate: Invoice);
 anything past its due date goes to Needs you.
 A line ending in "job <reference>" is our commission on a talent job: copy it from the talent's card on the Clients tab.
 Ticking it here is what marks that job received on the board.
@@ -119,7 +119,7 @@ One line per tool, subscription or recurring cost, with /mo or /yr. Add "renews 
 export const PAYROLL_TEMPLATE = `# Payroll
 
 One line per payout: salaries, freelancers, allowances. Tick it when paid and add "paid <date>". Use the amount you
-actually pay; Station does not work out EPF, SOCSO or EIS. Station only ever sees counts and totals, never names.
+actually pay; KNOX does not work out EPF, SOCSO or EIS. KNOX only ever sees counts and totals, never names.
 Payouts due within 3 days, or late, go to Needs you.
 
 <!-- Example (lines inside this comment are ignored):
