@@ -24,13 +24,14 @@ brought back. If you are looking for how something works today, it is not here.
 
 ## Left in place on purpose
 
-These are not part of the funnel, but they are live or still read by something, so moving them would change what
-the site or your tools do. Each needs a yes from you first:
+These are not part of the funnel, but each is live or still used, so they stay where they are:
 
-- `site/public/space-stack/`: a public page at ruangkotak.com/space-stack. Moving it takes the page offline.
-- `site/app/api/alana/stt-token/`: a live endpoint nothing on the site calls. Moving it switches it off for
-  whatever outside the site may use it.
+- `site/public/space-stack/`: the SPACE STACK game, a public page at ruangkotak.com/space-stack. Archiving it would
+  take a public page offline for no gain.
+- `site/app/api/alana/stt-token/`: the live microphone for the ALANA page on your laptop. It is switched off on
+  the public site and only answers your own computer while `npm run dev` is running. Nothing on the website calls
+  it, which is why it looks unused.
 - `content/2026-09-15/` (rejected) and `content/2026-11-13/` (a pipeline test): KNOX's content board reads this
-  folder. Both are already ignored by the counts.
-- `.claude/skills/` and `skills-lock.json`: 20 video skills for Claude Code, unrelated to the site but used by it.
+  folder, and its tests of the pipeline are part of the record. Both are already left out of the counts.
+- `.claude/skills/` and `skills-lock.json`: 20 video skills Claude Code loads by that exact path.
 - The root `.env.example`, `package.json` and `package-lock.json`: stale or empty, but tools look for them by name.
