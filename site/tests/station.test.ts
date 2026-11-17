@@ -642,6 +642,38 @@ test("carousel: Auto changes the grid layout on every slide, a fixed choice neve
   assert.deepEqual(BACKGROUNDS.map((b) => b[0]).filter((b) => b !== "auto").sort(), [...AUTO_ORDER].sort(), "Auto covers every layout");
 });
 
+// ---------- typing to KNOX from Telegram ----------
+
+test("telegram: only the owner's private chat counts; words are commands, everything else is an ask", async () => {
+  const { readUpdate, secretOk, telegramSecret } = await import("../lib/telegram.ts");
+  const msg = (text: unknown, over: Record<string, unknown> = {}) => ({ message: { text, chat: { id: 42, type: "private" }, from: { is_bot: false }, ...over } });
+  // Commands: with or without the slash, and with the bot name Telegram adds in groups.
+  assert.deepEqual(readUpdate(msg("needs"), "42"), { kind: "command", text: "needs" });
+  assert.deepEqual(readUpdate(msg("/Money@MyBot"), "42"), { kind: "command", text: "money" });
+  assert.deepEqual(readUpdate(msg("/start"), "42"), { kind: "command", text: "help" });
+  // Asks: plain text, and /ask with the command word stripped.
+  assert.deepEqual(readUpdate(msg("write 3 hooks for the Acer reel"), "42"), { kind: "ask", text: "write 3 hooks for the Acer reel" });
+  assert.deepEqual(readUpdate(msg("/ask needs a caption for the Acer reel"), "42"), { kind: "ask", text: "needs a caption for the Acer reel" });
+  // Everyone and everything else is ignored.
+  assert.equal(readUpdate(msg("needs", { chat: { id: 43, type: "private" } }), "42").kind, "ignore", "another chat");
+  assert.equal(readUpdate(msg("needs", { chat: { id: 42, type: "group" } }), "42").kind, "ignore", "a group");
+  assert.equal(readUpdate(msg("needs", { from: { is_bot: true } }), "42").kind, "ignore", "a bot");
+  assert.equal(readUpdate(msg("   "), "42").kind, "ignore", "blank");
+  assert.equal(readUpdate(msg(undefined), "42").kind, "ignore", "a sticker or photo has no text");
+  assert.equal(readUpdate({ edited_message: { text: "needs" } }, "42").kind, "ignore", "an edit");
+  assert.equal(readUpdate(msg("needs"), undefined).kind, "ignore", "no owner chat set");
+  assert.equal(readUpdate(null, "42").kind, "ignore");
+  // The secret comes from the owner key: right key passes, wrong key, no key and no header do not.
+  const secret = telegramSecret("owner-key");
+  assert.equal(secretOk(secret, "owner-key"), true);
+  assert.equal(secretOk(secret, "other-key"), false);
+  assert.equal(secretOk(secret, undefined), false);
+  assert.equal(secretOk(null, "owner-key"), false);
+  assert.equal(secretOk("x", "owner-key"), false);
+  assert.match(secret, /^[0-9a-f]{64}$/, "allowed characters for a Telegram secret token");
+  assert.notEqual(secret, "owner-key", "the key itself is never sent to Telegram");
+});
+
 // ---------- found by testing the live board ----------
 
 test("a warning about posting joins the Post line, not the Review line beside it", () => {

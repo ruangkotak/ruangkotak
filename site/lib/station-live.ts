@@ -1,14 +1,15 @@
 // The I/O half of Station: reads the store, runs the infra probes, records beats. Pure logic is in lib/station.ts.
+import { randomUUID } from "node:crypto";
 import registryJson from "@/data/station/registry.json";
 import type { NextRequest } from "next/server";
 import { notifyTelegram } from "./notify";
 import { latestReels } from "./source";
 import { SITE } from "./site";
-import { alertStore, clientStore, doneStore, stationStore } from "./store";
+import { alertStore, askStore, clientStore, doneStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
-  type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
+  alertable, alertText, applyBeat, ASK_PENDING_MAX, buildSnapshot, cleanAsk, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
+  type AskRecord, type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
 /** The hand-edited registry file, without the clients added from Station. */
@@ -180,6 +181,26 @@ export async function recordBeat(beat: Beat, registry: Registry, now = new Date(
   }
   await stationStore.addEvent(eventFor(beat, registry, now));
   if (beat.source) await stationStore.markSeen(beat.source, now.toISOString());
+}
+
+// ---------- asks (the Ask box and Telegram share this) ----------
+
+/** Keeps an ask until the laptop collects it. Never throws: a failure comes back as { ok: false, status, error }. */
+export async function addAsk(input: { text?: unknown; desk?: unknown }): Promise<{ ok: true; ask?: AskRecord } | { ok: false; status: number; error: string }> {
+  try {
+    const { registry } = await liveRegistry();
+    const ask = cleanAsk(input, registry);
+    if (!ask.ok) return { ok: false, status: 400, error: ask.error };
+    const waiting = await askStore.all();
+    if (waiting.length >= ASK_PENDING_MAX) return { ok: false, status: 409, error: "Your laptop has not collected the earlier asks yet. Wake it, then try again." };
+    if (waiting.some((a) => a.text === ask.value.text)) return { ok: true }; // a double press
+    const record: AskRecord = { id: randomUUID(), ...ask.value, at: new Date().toISOString() };
+    await askStore.add(record);
+    return { ok: true, ask: record };
+  } catch (err) {
+    console.error("[station] asks", err);
+    return { ok: false, status: 503, error: "Store unavailable. Nothing was saved." };
+  }
 }
 
 // ---------- Telegram alerts ----------
