@@ -9,6 +9,9 @@ import type { Env } from "./client.mts";
 export const stationFolder = (env: Env, stateDir: string) => (env.STATION_VAULT_DIR ? join(env.STATION_VAULT_DIR, "Station") : stateDir);
 
 export const clean = (s: string) => s.replace(/<!--|-->/g, "").replace(/\s+/g, " ").trim();
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** A YYYY-MM-DD day moved by n days. */
+export const addDays = (day: string, n: number) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400_000).toISOString().slice(0, 10);
 export const myt = (iso: string) => new Date(Date.parse(iso) + 8 * 3600_000).toISOString().slice(0, 16).replace("T", " ");
 
 export function checklistLine(id: string, at: string, text: string) {

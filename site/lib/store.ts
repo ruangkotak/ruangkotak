@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, AskRecord, ClientLogEntry, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -139,6 +139,14 @@ const pairs = <T>(flat: string[] | null, read: (v: string) => T) => {
   return out;
 };
 
+/** Marks stored presses as carried out by the laptop; a field that is gone stays gone. */
+async function markApplied(hash: string, fields: string[]) {
+  for (const f of fields) {
+    const m = parse<Record<string, unknown>>(await redis<string | null>("HGET", hash, f));
+    if (m) await redis("HSET", hash, f, JSON.stringify({ ...m, applied: true }));
+  }
+}
+
 export const stationStore = REDIS
   ? {
       backend: "redis" as const,
@@ -225,12 +233,7 @@ const cmem: Map<string, ClientRecord> = (gc.__rkClients ??= new Map());
 
 export const clientStore = REDIS
   ? {
-      all: async (): Promise<ClientRecord[]> => {
-        const flat = await redis<string[] | null>("HGETALL", "st:clients");
-        const out: ClientRecord[] = [];
-        for (let i = 0; flat && i < flat.length; i += 2) out.push(JSON.parse(flat[i + 1]) as ClientRecord);
-        return out;
-      },
+      all: async (): Promise<ClientRecord[]> => Object.values(pairs(await redis<string[] | null>("HGETALL", "st:clients"), (v) => JSON.parse(v) as ClientRecord)),
       save: async (c: ClientRecord) => void (await redis("HSET", "st:clients", c.id, JSON.stringify(c))),
       remove: async (id: string) => void (await redis("HDEL", "st:clients", id)),
     }
@@ -271,19 +274,9 @@ const dmem = (gd.__rkDone ??= {});
 
 export const doneStore = REDIS
   ? {
-      all: async (): Promise<DoneMarks> => {
-        const flat = await redis<string[] | null>("HGETALL", "st:done");
-        const out: DoneMarks = {};
-        for (let i = 0; flat && i < flat.length; i += 2) out[flat[i]] = JSON.parse(flat[i + 1]);
-        return out;
-      },
+      all: async (): Promise<DoneMarks> => pairs(await redis<string[] | null>("HGETALL", "st:done"), (v) => JSON.parse(v) as DoneMarks[string]),
       add: async (key: string, at: string) => void (await redis("HSET", "st:done", key, JSON.stringify({ at }))),
-      applied: async (keys: string[]) => {
-        for (const key of keys) {
-          const m = parse<DoneMarks[string]>(await redis<string | null>("HGET", "st:done", key));
-          if (m) await redis("HSET", "st:done", key, JSON.stringify({ ...m, applied: true }));
-        }
-      },
+      applied: (keys: string[]) => markApplied("st:done", keys),
       remove: async (keys: string[]) => void (keys.length && (await redis("HDEL", "st:done", ...keys))),
     }
   : {
@@ -302,19 +295,9 @@ export const draftStore = REDIS
   ? {
       list: async (): Promise<DraftView[]> => parse<DraftView[]>(await redis<string | null>("GET", "st:drafts")) ?? [],
       setList: async (list: DraftView[]) => void (await redis("SET", "st:drafts", JSON.stringify(list))),
-      marks: async (): Promise<DraftMarks> => {
-        const flat = await redis<string[] | null>("HGETALL", "st:draftdec");
-        const out: DraftMarks = {};
-        for (let i = 0; flat && i < flat.length; i += 2) out[flat[i]] = JSON.parse(flat[i + 1]);
-        return out;
-      },
+      marks: async (): Promise<DraftMarks> => pairs(await redis<string[] | null>("HGETALL", "st:draftdec"), (v) => JSON.parse(v) as DraftMarks[string]),
       decide: async (file: string, decision: DraftDecision, at: string) => void (await redis("HSET", "st:draftdec", file, JSON.stringify({ decision, at }))),
-      applied: async (files: string[]) => {
-        for (const file of files) {
-          const m = parse<DraftMarks[string]>(await redis<string | null>("HGET", "st:draftdec", file));
-          if (m) await redis("HSET", "st:draftdec", file, JSON.stringify({ ...m, applied: true }));
-        }
-      },
+      applied: (files: string[]) => markApplied("st:draftdec", files),
       remove: async (files: string[]) => void (files.length && (await redis("HDEL", "st:draftdec", ...files))),
     }
   : {
@@ -346,4 +329,43 @@ export const igStore = REDIS
         imem.once.set(key, Date.now() + seconds * 1000);
         return true;
       },
+    };
+
+// ---------- Station: asks typed on the board ----------
+// st:asks = hash of ask id -> AskRecord. Held only until the laptop has written the line into Asks.md, then removed.
+const gk = globalThis as unknown as { __rkAsks?: Record<string, AskRecord> };
+const askmem = (gk.__rkAsks ??= {});
+
+export const askStore = REDIS
+  ? {
+      all: async (): Promise<AskRecord[]> => {
+        const out = Object.values(pairs(await redis<string[] | null>("HGETALL", "st:asks"), (v) => JSON.parse(v) as AskRecord));
+        return out.sort((a, b) => a.at.localeCompare(b.at));
+      },
+      add: async (a: AskRecord) => void (await redis("HSET", "st:asks", a.id, JSON.stringify(a))),
+      remove: async (ids: string[]) => void (ids.length && (await redis("HDEL", "st:asks", ...ids))),
+    }
+  : {
+      all: async (): Promise<AskRecord[]> => Object.values(askmem).sort((a, b) => a.at.localeCompare(b.at)),
+      add: async (a: AskRecord) => void (askmem[a.id] = a),
+      remove: async (ids: string[]) => ids.forEach((id) => delete askmem[id]),
+    };
+
+// ---------- Station: who was added to or removed from the Clients tab ----------
+// st:clientlog = list of ClientLogEntry, newest first, capped. Kept with the client records: no expiry.
+const CLIENT_LOG_KEEP = 100;
+const gl = globalThis as unknown as { __rkClientLog?: ClientLogEntry[] };
+const clmem = (gl.__rkClientLog ??= []);
+
+export const clientLog = REDIS
+  ? {
+      list: async (): Promise<ClientLogEntry[]> => (await redis<string[]>("LRANGE", "st:clientlog", 0, CLIENT_LOG_KEEP - 1)).map((v) => JSON.parse(v) as ClientLogEntry),
+      add: async (e: ClientLogEntry) => {
+        await redis("LPUSH", "st:clientlog", JSON.stringify(e));
+        await redis("LTRIM", "st:clientlog", 0, CLIENT_LOG_KEEP - 1);
+      },
+    }
+  : {
+      list: async (): Promise<ClientLogEntry[]> => [...clmem],
+      add: async (e: ClientLogEntry) => void clmem.splice(0, clmem.length, e, ...clmem.slice(0, CLIENT_LOG_KEEP - 1)),
     };

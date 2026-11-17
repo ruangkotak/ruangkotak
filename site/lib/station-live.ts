@@ -1,14 +1,15 @@
 // The I/O half of Station: reads the store, runs the infra probes, records beats. Pure logic is in lib/station.ts.
+import { randomUUID } from "node:crypto";
 import registryJson from "@/data/station/registry.json";
 import type { NextRequest } from "next/server";
 import { notifyTelegram } from "./notify";
 import { latestReels } from "./source";
 import { SITE } from "./site";
-import { alertStore, clientStore, doneStore, stationStore } from "./store";
+import { alertStore, askStore, clientStore, doneStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
-  alertable, alertText, applyBeat, buildSnapshot, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
-  type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
+  alertable, alertText, applyBeat, ASK_PENDING_MAX, buildSnapshot, cleanAsk, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
+  type AskRecord, type Beat, type ClientRecord, type Probe, type Registry, type Scope, type Snapshot, type View, type ViewQuery,
 } from "./station";
 
 /** The hand-edited registry file, without the clients added from Station. */
@@ -26,9 +27,15 @@ export async function liveRegistry(): Promise<{ registry: Registry; clients: Cli
   }
 }
 
+/** Every Station answer is private and fresh: never cached. */
+export const noStore = { "cache-control": "no-store" };
+export const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
+
 /** Who is asking: an x-station-key header (scripts) or the session cookie (the page). */
-export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }): Promise<Scope | null> {
-  const { registry } = await liveRegistry();
+/** `live`: the registry already read for this request, so one request reads the client list once. */
+export type Live = Awaited<ReturnType<typeof liveRegistry>>;
+export async function scopeOf(req: { headerKey?: string | null; cookie?: string | null; account?: string | null }, live?: Live): Promise<Scope | null> {
+  const { registry } = live ?? (await liveRegistry());
   return keyScope(req.headerKey, req.account, process.env, registry) ?? cookieScope(req.cookie, process.env, registry);
 }
 
@@ -50,8 +57,8 @@ export async function ownerRequest(req: NextRequest, write: boolean) {
   return true;
 }
 
-export async function viewFor(scope: Scope | null, q: ViewQuery): Promise<View | null> {
-  return resolveView(scope, q, (await liveRegistry()).registry);
+export async function viewFor(scope: Scope | null, q: ViewQuery, live?: Live): Promise<View | null> {
+  return resolveView(scope, q, (live ?? (await liveRegistry())).registry);
 }
 
 // ---------- probes ----------
@@ -144,8 +151,8 @@ async function probes(seen: Record<string, string>, now: Date): Promise<Probe[]>
 const panelAccount = (r: Registry, view: View) =>
   view.account !== "all" ? view.account : view.mode === "owner" ? r.accounts.find((a) => a.kind === "personal" && a.instagram)?.id : undefined;
 
-export async function getSnapshot(view: View, now = new Date()): Promise<Snapshot> {
-  const { registry, clients } = await liveRegistry();
+export async function getSnapshot(view: View, now = new Date(), live?: Live): Promise<Snapshot> {
+  const { registry, clients } = live ?? (await liveRegistry());
   const [runs, events, gates, seen, reels, done] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
@@ -176,6 +183,26 @@ export async function recordBeat(beat: Beat, registry: Registry, now = new Date(
   if (beat.source) await stationStore.markSeen(beat.source, now.toISOString());
 }
 
+// ---------- asks (the Ask box and Telegram share this) ----------
+
+/** Keeps an ask until the laptop collects it. Never throws: a failure comes back as { ok: false, status, error }. */
+export async function addAsk(input: { text?: unknown; desk?: unknown }): Promise<{ ok: true; ask?: AskRecord } | { ok: false; status: number; error: string }> {
+  try {
+    const { registry } = await liveRegistry();
+    const ask = cleanAsk(input, registry);
+    if (!ask.ok) return { ok: false, status: 400, error: ask.error };
+    const waiting = await askStore.all();
+    if (waiting.length >= ASK_PENDING_MAX) return { ok: false, status: 409, error: "Your laptop has not collected the earlier asks yet. Wake it, then try again." };
+    if (waiting.some((a) => a.text === ask.value.text)) return { ok: true }; // a double press
+    const record: AskRecord = { id: randomUUID(), ...ask.value, at: new Date().toISOString() };
+    await askStore.add(record);
+    return { ok: true, ask: record };
+  } catch (err) {
+    console.error("[station] asks", err);
+    return { ok: false, status: 503, error: "Store unavailable. Nothing was saved." };
+  }
+}
+
 // ---------- Telegram alerts ----------
 
 export const telegramReady = () => !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
@@ -193,7 +220,7 @@ export async function checkAlerts(): Promise<{ sent: boolean; reason?: string }>
     const now = new Date();
     const [snap, seen, prev] = await Promise.all([getSnapshot({ mode: "owner", account: "all" }, now), stationStore.seen(), alertStore.alerted()]);
     const plan = planAlerts(alertable(snap.needsYou, seen.laptop, now), prev, now);
-    const text = alertText(plan, `${SITE}/station#alerts`);
+    const text = alertText(plan, `${SITE}/station#health`);
     if (!text) {
       if (JSON.stringify(plan.next) !== JSON.stringify(prev)) await alertStore.setAlerted(plan.next);
       return { sent: false, reason: "nothing new" };

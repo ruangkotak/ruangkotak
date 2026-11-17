@@ -1,4 +1,4 @@
-// CDO Reviewer, 18:00 weekdays, one job per client (client-demo-final-check, and any "<client>-final-check" sharing this
+// CDO Reviewer, 18:00 weekdays, one job per client (every "<client>-final-check" shares this
 // script): which deliverables are waiting for final review?
 // The checklist is <vault>/Station/final-queue-<account>.md (created on first run with instructions). Add a line per
 // deliverable, by hand or by your editors: "- [ ] Reel 3 v2". Tick it once it has passed final review.
@@ -47,7 +47,7 @@ export function review(text: string, known: { open: Record<string, string>; deli
 export const queueFor = (ctx: JobContext) => join(stationFolder(ctx.env, ctx.stateDir), `final-queue-${ctx.account.id}.md`);
 
 const header = (label: string) =>
-  `# Final review: ${label}\n\nOne line per deliverable waiting for final review, e.g. "- [ ] Reel 3 v2". Tick it once it passes.\nAdd dates when you have them: "- [ ] Reel 3 v2 · due 2026-11-20 · post 2026-11-25" (due = draft to the client). Needs me sorts by the due date.\nThe client sees these names on their Station page ("in final review", then "delivered" once ticked), so write them for the client.\nStation stamps new lines with a hidden marker so the Final gate knows how long each has waited.\n\n`;
+  `# Final review: ${label}\n\nOne line per deliverable waiting for final review, e.g. "- [ ] Reel 3 v2". Tick it once it passes.\nAdd dates when you have them: "- [ ] Reel 3 v2 · due 2026-11-20 · post 2026-11-25" (due = draft to the client). Needs me sorts by the due date.\nThe client sees these names on their KNOX page ("in final review", then "delivered" once ticked), so write them for the client.\nKNOX stamps new lines with a hidden marker so the Final gate knows how long each has waited.\n\n`;
 
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const file = queueFor(ctx);

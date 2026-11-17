@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowDown, Check, CircleDashed, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
+  ArrowDown, Check, CircleDashed, Copy, CircleNotch, Clock, Lightning, MinusCircle, Warning, WarningOctagon,
 } from "@phosphor-icons/react";
 import type { DeptView, DeskState, GateView, JobView, NeedsMe, NeedsYou, Probe, Snapshot, StageView, StationEvent } from "@/lib/station";
 
@@ -32,6 +32,18 @@ export function jobTag(j: Pick<JobView, "state" | "nextAt" | "startedAt">, now: 
 }
 
 // ---------- small pieces ----------
+
+export const rm = (n: number) => `RM${n.toLocaleString("en-MY", { maximumFractionDigits: 2 })}`;
+
+export function CopyButton({ text, label }: { text: string; label: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button type="button" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
+      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); } catch {} }}>
+      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {done ? "Copied" : label}
+    </button>
+  );
+}
 
 const DESK_ICON: Record<DeskState, React.ReactNode> = {
   running: <CircleNotch size={12} weight="bold" className="st-spin text-mark" aria-hidden />,
@@ -110,12 +122,12 @@ export function TopBar({ s, now, online }: { s: Snapshot; now: number; online: b
         <span className="text-[11px] text-muted">{s.top.source ? `from ${s.top.source}` : s.view.mode === "client" ? "client view" : "no source yet"}</span>
       </div>
       {owner ? (
-        // The owner's header is about the business; the laptop's health numbers are on the Mission tab (Stuck stays here: it is an alarm).
+        // The owner's header is about the business; the laptop's health numbers are on the Health tab (Stuck stays here: it is an alarm).
         <dl className="col-span-2 grid grid-cols-5 items-end gap-2 sm:flex sm:gap-5">
           <Stat label="Needs me" value={s.needsMe!.length} tone={s.needsMe!.length ? "mark" : undefined} />
-          <Stat label="In make" value={stage("make") ?? "–"} />
-          <Stat label="To post" value={stage("post") ?? "–"} />
+          <Stat label="In work" value={stage("make") === null && stage("post") === null ? "–" : (stage("make") ?? 0) + (stage("post") ?? 0)} />
           <Stat label="Clients" value={s.money?.clients ?? 0} />
+          <Stat label="Per month" value={`RM${(s.money?.monthly ?? 0).toLocaleString("en-MY")}`} />
           <Stat label="Stuck" value={s.top.stuck} tone={s.top.stuck ? "bad" : undefined} hatch={s.top.stuck > 0} />
         </dl>
       ) : (
@@ -264,11 +276,11 @@ export function Infra({ probes }: { probes: Probe[] }) {
   );
 }
 
-export function NeedsYouList({ items, no = "09" }: { items: NeedsYou[]; no?: string }) {
+export function NeedsYouList({ items }: { items: NeedsYou[] }) {
   return (
     <section aria-labelledby="needs" className="st-card px-3.5 py-3">
       <h2 id="needs" className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>
-        <span className="num mr-1.5 text-muted">{no}</span>KNOX Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
+        <span className="num mr-1.5 text-muted">09</span>KNOX Needs you · <span className={items.length ? "text-bad" : "text-good"}>{items.length}</span>
       </h2>
       {items.length ? (
         <ul className="mt-2 flex flex-col gap-1.5">
@@ -347,28 +359,34 @@ export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counts]);
+  const say = (s: StageView) =>
+    s.waiting === null ? (s.parts.length ? "no read path yet" : "not counted yet") : s.waiting === 0 ? "nothing waiting" : `${s.waiting} waiting${s.oldestAt ? ` · oldest ${dur(now - Date.parse(s.oldestAt))}` : ""}`;
   return (
-    <section aria-label="The five stages" className="st-card px-3.5 py-3">
-      <div className="label mb-2.5">KNOX Stages</div>
-      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-        {stages.map((s) => (
-          <li key={s.id} className={`st-tile px-3 py-2.5 ${s.overdue ? "st-desk" : ""}`} data-state={s.overdue ? "stuck" : undefined}>
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[12px] tracking-[0.08em] uppercase"><span className="num mr-1.5 text-muted">{s.no}</span>{s.name}</span>
-              <span className={`num text-[20px] leading-none ${s.overdue ? "text-bad" : s.waiting ? "text-mark" : "text-muted"}`}>{s.waiting ?? "–"}</span>
-            </div>
-            <div className="mt-2.5 flex items-center gap-2.5">
+    <section aria-label="The five stages" className="st-card">
+      <div className="st-floor">
+        <ol>
+          {stages.map((s) => (
+            <li key={s.id} className="st-station" data-late={s.overdue || undefined}>
+              <h3><span className="truncate"><span className="mr-1.5">{s.no}</span>{s.name}</span><b className={s.overdue ? "text-bad" : s.waiting ? "text-mark" : ""}>{s.waiting ?? "–"}</b></h3>
               <StageBot s={s} moved={moved.includes(s.id)} />
-              <div className="min-w-0 text-[11px] text-muted">
-                <div className="text-ink">{STAGE_BOT[s.id].name}</div>
-                {s.waiting === null ? (s.parts.length ? "no read path yet" : "not counted yet") : s.waiting === 0 ? "nothing waiting" : `${s.waiting} waiting${s.oldestAt ? ` · oldest ${dur(now - Date.parse(s.oldestAt))}` : ""}`}
-              </div>
-            </div>
-            {s.parts.length > 0 && <div className="mt-2 text-[11px] text-muted">{s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(" · ")}</div>}
-            {s.note && <div className="mt-0.5 text-[11px] leading-snug text-muted">{s.note}</div>}
-          </li>
-        ))}
-      </ol>
+              <div className="st-say"><b>{STAGE_BOT[s.id].name}</b> · {say(s)}{s.overdue ? " · overdue" : ""}</div>
+            </li>
+          ))}
+        </ol>
+        <div className="st-rail" aria-hidden />
+      </div>
+      <details className="border-t border-line px-3.5 py-2">
+        <summary className="cursor-pointer text-[11.5px] text-muted">What each stage is counting</summary>
+        <ul className="mt-2 grid gap-x-4 gap-y-1.5 pb-1 text-[11.5px] text-muted sm:grid-cols-2 lg:grid-cols-5">
+          {stages.map((s) => (
+            <li key={s.id}>
+              <span className="text-ink">{s.name}</span>
+              {s.parts.length > 0 && <span className="block">{s.parts.map((p) => `${p.label} ${p.waiting ?? "–"}`).join(" · ")}</span>}
+              {s.note && <span className="block leading-snug">{s.note}</span>}
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

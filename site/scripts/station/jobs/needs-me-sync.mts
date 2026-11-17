@@ -49,7 +49,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       const path = join(folder, m.file);
       if (existsSync(path)) {
         // The client reads final-review lines on their page, so those are ticked without a note.
-        const r = applyMark(readFileSync(path, "utf8"), m, m.gate === "final" ? "" : `done in Station ${myt(m.at)}`);
+        const r = applyMark(readFileSync(path, "utf8"), m, m.gate === "final" ? "" : `done in KNOX ${myt(m.at)}`);
         if (r.ticked) writeFileSync(path, r.text);
         else missing++;
         ticked += r.ticked;
@@ -63,8 +63,8 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       for (const g of r.gates ?? []) await beat(ctx.env, { ...g, account });
     }
     const ack = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ack: handled }), signal: AbortSignal.timeout(15_000) });
-    if (!ack.ok) return { ok: false, message: `ticked ${ticked}, but Station refused the confirmation (${ack.status})` };
-    return { ok: true, message: `${ticked} line${ticked === 1 ? "" : "s"} ticked from Station${missing ? ` · ${missing} already gone` : ""}` };
+    if (!ack.ok) return { ok: false, message: `ticked ${ticked}, but KNOX refused the confirmation (${ack.status})` };
+    return { ok: true, message: `${ticked} line${ticked === 1 ? "" : "s"} ticked from KNOX${missing ? ` · ${missing} already gone` : ""}` };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
   }

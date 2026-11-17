@@ -16,7 +16,7 @@ const shortDay = (day: string) => {
  * Approve and Reject are remembered here and your laptop rewrites the draft's **Status:** line within about 5 minutes.
  * Nothing is posted from here.
  */
-export function DraftReview({ onChanged }: { onChanged?: () => void }) {
+export function DraftReview({ onChanged, onAgentDrafts }: { onChanged?: () => void; onAgentDrafts?: (n: number) => void }) {
   const [drafts, setDrafts] = useState<DraftView[] | null>(null);
   const [pending, setPending] = useState<Pending>({});
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -30,7 +30,9 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
       const data = (await res.json()) as { drafts: DraftView[]; pending: Pending };
       setDrafts(data.drafts);
       setPending(data.pending);
+      onAgentDrafts?.(data.drafts.filter((d) => d.kind === "agent").length);
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -42,10 +44,14 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
 
   const decide = async (d: DraftView, decision: DraftDecision) => {
     const verb = decision === "approve" ? "Approve" : "Reject";
-    const effect = decision === "approve"
-      ? "It is marked APPROVED in the file. Nothing is posted: you still post it yourself."
-      : "It is marked REJECTED in the file and leaves your review list. The file is kept.";
-    if (!window.confirm(`${verb} this draft?\n\n${d.title}\n${d.file}\n\n${effect}`)) return;
+    const effect = d.kind === "agent"
+      ? decision === "approve"
+        ? "It is ticked as approved in your notes and the ask is closed. Nothing is sent to anyone: the draft is for you to use."
+        : "It is ticked as rejected in your notes and the ask is closed. The draft file is kept. Ask again with more detail if you want another go."
+      : decision === "approve"
+        ? "It is marked APPROVED in the file. Nothing is posted: you still post it yourself."
+        : "It is marked REJECTED in the file and leaves your review list. The file is kept.";
+    if (!window.confirm(`${verb} this draft?\n\n${d.title}\n${d.where ?? d.file}\n\n${effect}`)) return;
     setBusy(d.file);
     setError(null);
     try {
@@ -80,10 +86,10 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
             <li key={d.file} className="st-card px-3.5 py-3">
               <div className="mono text-[10.5px] uppercase" style={{ letterSpacing: "0.08em" }}>
                 <span className="text-mark">Make</span>
-                <span className="text-muted"> · {d.client || "RUANGKOTAK"} · draft to review</span>
+                <span className="text-muted"> · {d.client || "RUANGKOTAK"} · {d.kind === "agent" ? "agent draft for your ask" : "draft to review"}</span>
               </div>
               <div className="mt-1 text-[14.5px] break-words" style={{ fontWeight: 500 }}>{d.title}</div>
-              <div className="mono mt-0.5 text-[11px] break-all text-muted">content/{d.file} · {shortDay(d.day)} · {d.status.toLowerCase()}</div>
+              <div className="mono mt-0.5 text-[11px] break-all text-muted">{d.kind === "agent" ? d.where : `content/${d.file}`} · {shortDay(d.day)} · {d.status.toLowerCase()}</div>
               <button type="button" onClick={() => toggle(d.file)} aria-expanded={shown} className="mt-1.5 text-[12px] text-muted hover:text-ink">
                 {shown ? "▾ Hide the draft" : "▸ Show the draft"}
               </button>
@@ -93,7 +99,7 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
                 </pre>
               )}
               {waiting ? (
-                <p className="mt-2.5 text-[12px] text-muted">{waiting === "approve" ? "Approved" : "Rejected"} here. Your laptop writes it into the file within about 5 minutes, while its jobs are running.</p>
+                <p className="mt-2.5 text-[12px] text-muted">{waiting === "approve" ? "Approved" : "Rejected"} here. Your laptop writes it into {d.kind === "agent" ? "your notes" : "the file"} within about 5 minutes, while its jobs are running.</p>
               ) : (
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   <button type="button" disabled={busy !== null} onClick={() => decide(d, "approve")}
@@ -111,7 +117,7 @@ export function DraftReview({ onChanged }: { onChanged?: () => void }) {
         })}
       </ul>
       {error && <p className="text-[12px] text-bad" role="alert">{error}</p>}
-      <p className="px-1 text-[11px] text-muted">Approve and Reject change the Status line of the draft on your laptop. They never post anything and never send anything to anyone. Read the draft first: brackets mean a result you only know after filming.</p>
+      <p className="px-1 text-[11px] text-muted">Approve and Reject are written on your laptop: the Status line of a post, or a tick beside an agent draft and its ask. They never post anything and never send anything to anyone. Read the draft first: brackets mean a result you only know after filming, and the verdict on a product is yours to write.</p>
     </section>
   );
 }

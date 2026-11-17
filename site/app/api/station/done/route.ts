@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { DONE_KEEP_MS, doneFile, parseDoneKey, type DoneMarks } from "@/lib/station";
-import { getSnapshot, liveRegistry, ownerRequest } from "@/lib/station-live";
+import { getSnapshot, json, liveRegistry, ownerRequest } from "@/lib/station-live";
 import { doneStore } from "@/lib/store";
 
 // Done presses from the Needs me tab. Owner only; anyone else gets a 404.
@@ -9,8 +9,6 @@ import { doneStore } from "@/lib/store";
 //   POST { ack: [] }  from the laptop: those lines are ticked.
 // Station never touches the notes folder itself: the laptop's needs-me-sync job does the ticking.
 
-const noStore = { "cache-control": "no-store" };
-const json = (body: unknown, status = 200) => Response.json(body, { status, headers: noStore });
 
 /** Drops presses that were carried out more than 7 days ago. Ones the laptop has not done yet are always kept. */
 async function pruned(): Promise<DoneMarks> {

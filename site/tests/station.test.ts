@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  answerCommand, ownerReport, clientCategory, CLIENT_CATEGORIES, commissionOf, cutOf, talentJob, talentMoney, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -165,6 +165,9 @@ test("only the right keys open anything", () => {
   assert.equal(keyScope("", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", null, {}, registry), null); // no env var, no station
   assert.deepEqual(keyScope("client-secret-456", "client-demo", env, registry), { kind: "client", account: "client-demo" });
+  // Same number of characters as the owner key, more bytes: a wrong key (null), never a thrown error.
+  assert.equal(keyScope("owner-secret-12\u00e9", null, env, registry), null);
+  assert.equal(cookieScope("owner.\u00e9".padEnd(6 + 64, "0"), env, registry), null);
   assert.equal(keyScope("client-secret-456", "alanazizreview", env, registry), null); // a client key opens only its own account
   assert.equal(keyScope("client-secret-456", null, env, registry), null);
   assert.equal(keyScope("owner-secret-123", "internal", { [clientKeyName("internal")]: "owner-secret-123" }, registry), null); // internal is never shareable
@@ -403,8 +406,8 @@ test("a new item is announced once; a reworded one again only after 6 hours; a c
 test("the message lists what is new, then what cleared, then the link", () => {
   const prev = { b: { title: "Billing Clerk: 1 invoice past due", at: NOW.toISOString() } };
   const plan = planAlerts([{ ...N("a", "Security Officer: credential-registry failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
-  assert.equal(alertText(plan, "https://ruangkotak.com/station#alerts"),
-    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#alerts");
+  assert.equal(alertText(plan, "https://ruangkotak.com/station#health"),
+    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#health");
   assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^KNOX: cleared\n✓ Billing Clerk/);
 });
 
@@ -629,7 +632,63 @@ test("carousel: a script becomes a cover, body slides and an end page, eight at 
   assert.equal(z.length, 30 + 5 + 3 + 46 + 5 + 22);
 });
 
+test("carousel: Auto changes the grid layout on every slide, a fixed choice never changes", async () => {
+  const { AUTO_ORDER, BACKGROUNDS, layoutFor } = await import("../lib/carousel.ts");
+  const seen = Array.from({ length: 8 }, (_, i) => layoutFor("auto", i));
+  assert.ok(seen.every((l, i) => i === 0 || l !== seen[i - 1]), "neighbouring slides differ");
+  assert.equal(new Set(seen.slice(0, AUTO_ORDER.length)).size, AUTO_ORDER.length, "each layout is used once per round");
+  assert.equal(seen[AUTO_ORDER.length], seen[0], "then it starts again");
+  assert.deepEqual(Array.from({ length: 4 }, (_, i) => layoutFor("dots", i)), ["dots", "dots", "dots", "dots"]);
+  assert.deepEqual(BACKGROUNDS.map((b) => b[0]).filter((b) => b !== "auto").sort(), [...AUTO_ORDER].sort(), "Auto covers every layout");
+});
+
+// ---------- typing to KNOX from Telegram ----------
+
+test("telegram: only the owner's private chat counts; words are commands, everything else is an ask", async () => {
+  const { readUpdate, secretOk, telegramSecret } = await import("../lib/telegram.ts");
+  const msg = (text: unknown, over: Record<string, unknown> = {}) => ({ message: { text, chat: { id: 42, type: "private" }, from: { is_bot: false }, ...over } });
+  // Commands: with or without the slash, and with the bot name Telegram adds in groups.
+  assert.deepEqual(readUpdate(msg("needs"), "42"), { kind: "command", text: "needs" });
+  assert.deepEqual(readUpdate(msg("/Money@MyBot"), "42"), { kind: "command", text: "money" });
+  assert.deepEqual(readUpdate(msg("/start"), "42"), { kind: "command", text: "help" });
+  // Asks: plain text, and /ask with the command word stripped.
+  assert.deepEqual(readUpdate(msg("write 3 hooks for the Acer reel"), "42"), { kind: "ask", text: "write 3 hooks for the Acer reel" });
+  assert.deepEqual(readUpdate(msg("/ask needs a caption for the Acer reel"), "42"), { kind: "ask", text: "needs a caption for the Acer reel" });
+  // Everyone and everything else is ignored.
+  assert.equal(readUpdate(msg("needs", { chat: { id: 43, type: "private" } }), "42").kind, "ignore", "another chat");
+  assert.equal(readUpdate(msg("needs", { chat: { id: 42, type: "group" } }), "42").kind, "ignore", "a group");
+  assert.equal(readUpdate(msg("needs", { from: { is_bot: true } }), "42").kind, "ignore", "a bot");
+  assert.equal(readUpdate(msg("   "), "42").kind, "ignore", "blank");
+  assert.equal(readUpdate(msg(undefined), "42").kind, "ignore", "a sticker or photo has no text");
+  assert.equal(readUpdate({ edited_message: { text: "needs" } }, "42").kind, "ignore", "an edit");
+  assert.equal(readUpdate(msg("needs"), undefined).kind, "ignore", "no owner chat set");
+  assert.equal(readUpdate(null, "42").kind, "ignore");
+  // The secret comes from the owner key: right key passes, wrong key, no key and no header do not.
+  const secret = telegramSecret("owner-key");
+  assert.equal(secretOk(secret, "owner-key"), true);
+  assert.equal(secretOk(secret, "other-key"), false);
+  assert.equal(secretOk(secret, undefined), false);
+  assert.equal(secretOk(null, "owner-key"), false);
+  assert.equal(secretOk("x", "owner-key"), false);
+  assert.match(secret, /^[0-9a-f]{64}$/, "allowed characters for a Telegram secret token");
+  assert.notEqual(secret, "owner-key", "the key itself is never sent to Telegram");
+});
+
 // ---------- found by testing the live board ----------
+
+test("a warning about posting joins the Post line, not the Review line beside it", () => {
+  const gates = { "review:internal": { waiting: 2, oldestAt: minutes(-60).toISOString(), at: NOW.toISOString() }, "post:internal": { waiting: 1, oldestAt: minutes(-30).toISOString(), at: NOW.toISOString() } };
+  const withWarning = (attention: string) => snapshot({ mode: "owner", account: "all" }, { gates, runs: { "board-completeness": runsFrom([{ state: "start" }, { state: "ok", attention }]) } }).needsMe!;
+  const line = (items: ReturnType<typeof withWarning>, key: string) => items.find((n) => n.key === key)!;
+  const post = withWarning("1 approved post past its posting date");
+  assert.match(line(post, "gate:post:internal").detail, /past its posting date/);
+  assert.equal(line(post, "gate:post:internal").overdue, true);
+  assert.equal(line(post, "gate:review:internal").overdue, false);
+  const both = withWarning("2 drafts publishing within a day are not approved; 3 approved posts past their posting date");
+  assert.match(line(both, "gate:review:internal").detail, /2 drafts publishing/);
+  assert.doesNotMatch(line(both, "gate:review:internal").detail, /posting date/);
+  assert.match(line(both, "gate:post:internal").detail, /3 approved posts past their posting date/);
+});
 
 test("a job's warning about its own gate joins that gate's line, and system items say where to fix them", () => {
   const failing3 = runsFrom([{ state: "fail" }, { state: "fail" }, { state: "fail" }]);
@@ -644,7 +703,7 @@ test("a job's warning about its own gate joins that gate's line, and system item
   assert.match(review.where!, /Status.*APPROVED/);
   assert.ok(!s.needsMe!.some((n) => n.key === "attention:board-completeness"), "not listed a second time");
   assert.match(s.needsMe!.find((n) => n.key.startsWith("probe:apify"))!.where!, /APIFY_TOKEN/);
-  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Jobs tab");
+  assert.equal(s.needsMe!.find((n) => n.key === "job:ig-velocity-6h")!.where, "Health tab");
   // Post is a real stage now: approved posts not yet marked published.
   assert.deepEqual(s.stages!.find((x) => x.id === "post")!.parts, [{ label: "Post", waiting: 1 }]);
   assert.match(s.needsMe!.find((n) => n.key === "gate:post:internal")!.where!, /PUBLISHED/);
@@ -657,4 +716,121 @@ test("a client with a price of 0 is not counted as paying", () => {
   assert.deepEqual(s.money, { monthly: 0, priced: 0, clients: 1, invoices: undefined });
   assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /no paying client yet/);
   assert.ok(!s.needsMe!.some((n) => n.key.startsWith("price:")), "an explicit 0 is a decision, not a missing price");
+});
+
+test("ownerReport and answerCommand read the owner snapshot and give clients nothing", () => {
+  const priced: ClientRecord = { ...kopi, price: 500, perMonth: 4, openedAt: NOW.toISOString() };
+  const r = withClients(shipped, [priced]);
+  const gates = { "dm:internal": { waiting: 3, oldestAt: new Date(NOW.getTime() - 5 * 86400_000).toISOString(), at: NOW.toISOString() } };
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  const report = ownerReport(s);
+  assert.match(report, /^KNOX Mission Control · 2026-11-07/);
+  assert.match(report, /Needs me: 1 \(1 overdue\)/);
+  assert.match(report, /01 Audience: 3 waiting · OVERDUE/);
+  assert.match(report, /RM2,000 a month agreed with 1 of 1 clients/);
+
+  assert.equal(answerCommand("report", s).tab, "reports");
+  assert.equal(answerCommand("/report", s).reply, report);
+  assert.match(answerCommand("needs", s).reply, /^1 waiting on you:/);
+  assert.match(answerCommand("TODAY", s).reply, /^1 overdue or due today:/);
+  assert.equal(answerCommand("money", s).tab, "money");
+  assert.match(answerCommand("", s).reply, /I only read/);
+  assert.match(answerCommand("quote Kopi Kita 4 reels at 500", s).reply, /nothing was added/);
+  assert.match(answerCommand("dance", s).reply, /I do not know "dance"/);
+
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates, probes: [], funnel: null, clients: [priced], now: NOW });
+  assert.equal(ownerReport(c), "");
+  assert.doesNotMatch(answerCommand("money", c).reply, /RM/);
+});
+
+test("client categories: Creator and Talent under one heading, Brand on its own, owner only", () => {
+  assert.deepEqual(CLIENT_CATEGORIES.map((c) => [c.id, c.group]), [["creator", "Creator / Talent"], ["talent", "Creator / Talent"], ["brand", "Brand"]]);
+  assert.deepEqual(clientCategory("brand"), { ok: true, value: "brand" });
+  assert.deepEqual(clientCategory(""), { ok: true, value: undefined });
+  assert.equal(clientCategory("kol").ok, false);
+  // The category never reaches a client's own page or the registry the laptop reads.
+  const brand: ClientRecord = { ...kopi, category: "brand" };
+  const r = withClients(shipped, [brand]);
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [brand], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /"category"/);
+  assert.doesNotMatch(JSON.stringify(publicRegistry(r)), /"category"/);
+});
+
+test("talent commission: a percentage of each job, counted apart from retainers, owner only", () => {
+  assert.deepEqual(commissionOf("20"), { ok: true, value: 20 });
+  assert.deepEqual(commissionOf(""), { ok: true, value: undefined });
+  assert.equal(commissionOf("120").ok, false);
+  assert.deepEqual(talentJob({ brand: " Brand  X ", fee: "3000", date: "2026-11-05" }, 20), { ok: true, value: { brand: "Brand X", fee: 3000, percent: 20, date: "2026-11-05" } });
+  assert.equal((talentJob({ brand: "Brand X", fee: "3000", date: "2026-11-05", percent: "15" }, 20) as { value: { percent: number } }).value.percent, 15);
+  assert.match((talentJob({ brand: "Brand X", fee: "3000", date: "2026-11-05" }, undefined) as { error: string }).error, /commission first/);
+  assert.equal(talentJob({ brand: "Brand X", fee: "0", date: "2026-11-05" }, 20).ok, false);
+  assert.equal(talentJob({ brand: "Brand X", fee: "10", date: "soon" }, 20).ok, false);
+  assert.equal(cutOf({ fee: 3333, percent: 12.5 }), 416.63);
+
+  const talent: ClientRecord = { ...kopi, id: "our-talent", label: "Our Talent", category: "talent", commission: 20, price: 9999, perMonth: 4, openedAt: NOW.toISOString(), jobs: [
+    { id: "a", brand: "Brand X", fee: 3000, percent: 20, date: "2026-11-05", paidAt: "2026-11-06T00:00:00.000Z" },
+    { id: "b", brand: "Brand Y", fee: 1000, percent: 30, date: "2026-11-06" },
+    { id: "c", brand: "Brand Z", fee: 500, percent: 20, date: "2026-10-20" },
+  ] };
+  const creator: ClientRecord = { ...kopi, category: "creator", price: 500, perMonth: 4, openedAt: NOW.toISOString(), jobs: [{ id: "x", brand: "Ignored", fee: 9000, percent: 50, date: "2026-11-01" }] };
+  assert.deepEqual(talentMoney([talent, creator], "2026-11"), { talents: 1, jobs: 3, fees: 4500, cut: 1000, received: 600, outstanding: 400, thisMonth: 900 });
+
+  const r = withClients(shipped, [talent, creator]);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients: [talent, creator], now: NOW });
+  // The talent's stray price is never counted as income; only the creator's retainer is.
+  assert.deepEqual([s.money!.monthly, s.money!.priced, s.money!.clients], [2000, 1, 2]);
+  assert.equal(s.money!.talent!.outstanding, 400);
+  assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /RM400 talent commission outstanding/);
+  assert.match(ownerReport(s), /Talent commission: RM900 this month · RM400 outstanding · RM600 received \(3 jobs\)/);
+  assert.equal(s.needsMe!.some((n) => n.key === "price:our-talent"), false);
+
+  // A talent with no commission is asked for one, not for a price.
+  const fresh: ClientRecord = { ...talent, commission: undefined, jobs: [] };
+  const f = buildSnapshot({ registry: withClients(shipped, [fresh]), view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [fresh], now: NOW });
+  assert.equal(f.needsMe!.find((n) => n.key === "price:our-talent")!.title, "Set the commission for Our Talent");
+  assert.equal(onboarding(fresh, {}, {}).find((x) => x.id === "price")!.label, "Commission agreed");
+
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "our-talent" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [talent, creator], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /commission|"fee"|Brand X/i);
+});
+
+test("talent jobs: invoices.md decides what is received, matched by a short reference", async () => {
+  const { jobRef, jobInvoiceLine, cleanJobSync, syncJobs } = await import("../lib/station.ts");
+  const job = { id: "1a2b3c4d-0000-4000-8000-000000000000", brand: "Brand · X", fee: 3000, percent: 20, date: "2026-11-05" };
+  assert.equal(jobRef(job.id), "1a2b3c4d");
+  assert.equal(jobInvoiceLine(job, "Our Talent", "2026-11-16"), "- [ ] INV-000 · Brand X commission (Our Talent) · RM 600 · sent 2026-11-16 · due 2026-11-30 · job 1a2b3c4d");
+  // Only well-formed references and dates survive.
+  assert.deepEqual(cleanJobSync({ paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "../etc" }, { ref: "aaaaaaaa", on: "soon" }], open: ["bbbbbbbb", 7, "nope"] }),
+    { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "aaaaaaaa" }], open: ["bbbbbbbb"] });
+  const other = { id: "bbbbbbbb-0000-4000-8000-000000000000", brand: "Y", fee: 1000, percent: 10, date: "2026-11-06", paidAt: "2026-11-07T00:00:00.000Z" };
+  const untouched = { id: "cccccccc-0000-4000-8000-000000000000", brand: "Z", fee: 1000, percent: 10, date: "2026-11-06", paidAt: "2026-11-08T00:00:00.000Z" };
+  const c = { id: "t", label: "T", createdAt: "2026-11-01T00:00:00.000Z", keyHash: "h", status: "active" as const, category: "talent" as const, jobs: [job, other, untouched] };
+  const now = "2026-11-21T03:00:00.000Z";
+  const [changed] = syncJobs([c], { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }], open: ["bbbbbbbb"] }, now);
+  assert.equal(changed.jobs![0].paidAt, "2026-11-19T16:00:00.000Z"); // 20 Nov, Malaysia time
+  assert.equal("paidAt" in changed.jobs![1], false); // unticked in the file: not received
+  assert.equal(changed.jobs![2].paidAt, untouched.paidAt); // no line in the file: left alone
+  assert.deepEqual(syncJobs([changed], { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }], open: ["bbbbbbbb"] }, now), []); // nothing to write twice
+  assert.equal(syncJobs([c], { paid: [{ ref: "1a2b3c4d" }], open: [] }, now)[0].jobs![0].paidAt, now); // ticked with no date
+});
+
+test("a Brand is asked for a fee per video, everyone else for a price per reel", () => {
+  const base = { ...kopi, openedAt: NOW.toISOString() };
+  const clients: ClientRecord[] = [{ ...base, id: "brand-co", label: "Brand Co", category: "brand" }, { ...base, id: "creator-co", label: "Creator Co", category: "creator" }, { ...base, id: "plain-co", label: "Plain Co" }];
+  const r = withClients(shipped, clients);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients, now: NOW });
+  const of = (id: string) => s.needsMe!.find((n) => n.key === `price:${id}`)!;
+  assert.deepEqual([of("brand-co").title, of("brand-co").detail], ["Set the fee for Brand Co", "Nothing can be invoiced without a fee per video"]);
+  assert.deepEqual([of("creator-co").title, of("creator-co").detail], ["Set the price for Creator Co", "Nothing can be invoiced without a price per reel"]);
+  assert.equal(of("plain-co").title, "Set the price for Plain Co");
+  assert.equal(onboarding(clients[0], {}, {}).find((x) => x.id === "price")!.label, "Fee agreed");
+  assert.equal(onboarding(clients[1], {}, {}).find((x) => x.id === "price")!.label, "Price agreed");
+});
+
+test("client history: who was added or removed, and whether from the page or a script", async () => {
+  const { clientLogEntry } = await import("../lib/station.ts");
+  assert.deepEqual(clientLogEntry("removed", { id: "rode", label: "Pixel Distribution" }, false, "2026-11-15T20:00:00.000Z"),
+    { at: "2026-11-15T20:00:00.000Z", action: "removed", id: "rode", label: "Pixel Distribution", via: "page" });
+  assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").via, "key");
+  assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").label.length, 60);
 });

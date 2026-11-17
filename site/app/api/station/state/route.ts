@@ -1,6 +1,6 @@
 import { after, type NextRequest } from "next/server";
 import { COOKIE } from "@/lib/station";
-import { checkAlerts, getSnapshot, refreshReels, scopeOf, viewFor } from "@/lib/station-live";
+import { checkAlerts, getSnapshot, liveRegistry, refreshReels, scopeOf, viewFor } from "@/lib/station-live";
 
 // Room for a reel check (an Apify run) after the response; the response itself never waits for it.
 export const maxDuration = 180;
@@ -9,13 +9,14 @@ export const maxDuration = 180;
 // ?view=client&account=<slug> narrows to one client; ?account=<id> filters the owner view. No access is a 404.
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
-  const scope = await scopeOf({ headerKey: req.headers.get("x-station-key"), cookie: req.cookies.get(COOKIE)?.value, account: q.get("account") });
-  const view = await viewFor(scope, { view: q.get("view"), account: q.get("account") });
+  const live = await liveRegistry(); // read once, shared by the three steps below
+  const scope = await scopeOf({ headerKey: req.headers.get("x-station-key"), cookie: req.cookies.get(COOKIE)?.value, account: q.get("account") }, live);
+  const view = await viewFor(scope, { view: q.get("view"), account: q.get("account") }, live);
   if (!view) return new Response("Not found", { status: 404 });
   try {
     // Probes (site down) only change while someone looks or a beat lands; reels are re-checked when 6+ hours old.
     if (view.mode === "owner") after(async () => (await refreshReels(), await checkAlerts()));
-    return Response.json(await getSnapshot(view), { headers: { "cache-control": "no-store" } });
+    return Response.json(await getSnapshot(view, new Date(), live), { headers: { "cache-control": "no-store" } });
   } catch (err) {
     console.error("[station] state", err);
     return Response.json({ error: "store unavailable" }, { status: 503, headers: { "cache-control": "no-store" } });

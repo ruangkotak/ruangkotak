@@ -18,6 +18,22 @@ name changed: the address is still `/station`, and the code, API routes, env
 vars, job ids and the `Station/` notes folder keep their names. The rest of
 this section still says "Station" when it means those.
 
+Since 14 Nov 2026 the owner's page uses the Station Lite layout: a header of
+business numbers, a command box that reads the board back (it never changes
+or sends anything), the five stages as one floor strip with an avatar each,
+and the tabs Needs me, Clients, Carousel, Money, Reports, Health and How it
+works. Health holds what used to be the Mission, Jobs and Alerts tabs; old
+`#station`, `#jobs` and `#alerts` links open it. A client's page is unchanged.
+Quotations, invoices, brief upload and adding leads by command were part of
+Lite and are not here: the site stores no documents.
+
+**Ask for work** (Needs me tab): the owner types an ask and picks a desk. The
+ask waits on the site (`/api/station/asks`, owner only) until the laptop's
+`route-asks` job collects it, writes it as a line in `Station/Asks.md` and
+confirms; the site then deletes its copy. From there it is an ordinary ask:
+routed to the desk, drafted by that desk's agent, and listed under Make as an
+agent draft. The site never runs an agent and never touches the notes folder.
+
 `/station` shows every department, desk, scheduled job, approval gate and
 infra probe on one screen, for @alanazizreview and for paying clients. It
 is a 404 to anyone without a key.
@@ -44,8 +60,8 @@ is a 404 to anyone without a key.
 - **Update to send:** viewing one account as the owner shows its week as
   plain text with a Copy button. It uses only what the client page already
   shows, never prices. You send it yourself.
-- **Carousel studio:** `/station/carousel` (owner only, linked beside the
-  account pills). Paste a script, one line per slide, add product photos,
+- **Carousel studio:** the **Carousel** tab (owner only; also on its own page
+  at `/station/carousel`). Paste a script, one line per slide, add product photos,
   pick one of five grid backgrounds and six colours, then download up to 8
   PNGs (1080 × 1350) as a zip and copy the caption and hashtags. Everything
   is drawn in the browser: nothing is uploaded or stored.
@@ -90,16 +106,15 @@ is a 404 to anyone without a key.
   | `vault-conflict-scan` | Librarian | every 30m | fails if sync left conflict copies in your notes vault (only with `--vault`) |
   | `ig-velocity-6h` | Performance Analyst | every 6h | plays per hour on the newest reels vs the last scrape; fails if no reels come back (needs `--apify-token`) |
   | `ig-comment-dm` | Funnel Operator | every 15m | comments with a trigger word on reels from the last 7 days go into a DM checklist (needs `--apify-token` and `--ig-keywords "AUDIT,KOTAK"`) |
-
   | `reminder-check` | Digest Editor | 08:00, 20:00 | reads `TASKS.md` (repo root or vault, or `--tasks <file>`); writes `<vault>/Station/Digest.md`; overdue tasks and waits over 7 days go to *Needs you* |
   | `brief-sweep` | Dispatcher | 07:00 Mon–Sat | new monthly applications from the site go into `<vault>/Station/brief-queue.md`; the **Brief** gate counts unticked ones (24h window) |
-
   | `board-completeness` | CMO Reviewer | 09:00 | reads `content/<date>/*.md` and their `**Status:**` line; the **Review** gate counts drafts dated today or later; a draft publishing within a day that isn't approved goes to *Needs you* |
   | `<client>-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
   | `needs-me-sync` | Router | every 5m | carries out the Done presses from Needs me: ticks the matching lines in the checklist files and re-reads a final-review file at once; presses wait on Station while the laptop is off |
   | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
-
-  | `invoice-chase` | Billing Clerk | 10:00 weekdays | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you* |
+  | `draft-review` | Router | every 5m | carries out Approve and Reject from Needs me: rewrites the draft's `**Status:**` line (or ticks an agent draft in `drafts-queue.md`), and sends the drafts still waiting so they can be read on the board |
+  | `agent-work` | Router | every 15m | only with `--agents on`: hands routed asks to the desk's agent and lists each draft in `<vault>/Station/drafts-queue.md`; the **Drafts** gate counts them (see *Agents that draft the work*) |
+  | `invoice-chase` | Billing Clerk | every 15m | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you*; a ticked `job <reference>` line marks that talent job received on the board |
   | `cost-watch` | Cost Analyst | Monday 09:00 | `<vault>/Station/costs.md`: monthly run-rate, renewals within 7 days (→ *Needs you*), and this cycle's real Apify usage when `APIFY_TOKEN` is set (above 80% → *Needs you*) |
   | `books-summary` | Controller | Monday 09:30 | writes `<vault>/Station/Finance.md`: paid this month and last, invoiced, outstanding, costs, paid minus costs |
   | `kpi-weekly` | Payroll & KPI | Monday 10:00 | adds this week's row to `<vault>/Station/KPI.md`: the site funnel's last 7 days plus revenue paid this month |
@@ -184,7 +199,7 @@ is a 404 to anyone without a key.
   after every laptop beat, while you have Station open, and once a day
   (Vercel cron, `CRON_SECRET`) as a safety net. A reworded item (1 → 2 late)
   is re-sent at most every 6 hours; a slow site is not an alert (only down);
-  a closed laptop only after 12 hours. *Alerts* tab → *Send test alert*.
+  a closed laptop only after 12 hours. *Health* tab → *Send test alert*.
 - **Env vars:** `STATION_KEY`, one `CLIENT_KEY_<SLUG>` per client
   (`client-demo` → `CLIENT_KEY_CLIENT_DEMO`), and optionally `NOTION_TOKEN`
   for the Notion tile. Data lives in the same Upstash Redis as the funnel.

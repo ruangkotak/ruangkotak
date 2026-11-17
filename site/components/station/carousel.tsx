@@ -1,20 +1,11 @@
 "use client";
 
-import { ArrowLeft, Check, Copy, DownloadSimple, Images, Plus, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, DownloadSimple, Images, Plus, Trash } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import { assignPhotos, BACKGROUNDS, captionFrom, drawSlide, H, MAX_SLIDES, PALETTES, slidesFrom, W, zip, type Background, type Deck, type Slide } from "@/lib/carousel";
+import { CopyButton } from "./parts";
 
 const START = "Your hook goes here\nFirst point\nSecond point\nThird point\nFollow for more";
-
-function CopyButton({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <button type="button" className="inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink"
-      onClick={async () => { try { await navigator.clipboard.writeText(text); setDone(true); setTimeout(() => setDone(false), 1800); } catch {} }}>
-      {done ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />} {done ? "Copied" : label}
-    </button>
-  );
-}
 
 function save(data: Uint8Array | Blob, name: string, type: string) {
   const a = document.createElement("a");
@@ -27,9 +18,9 @@ function save(data: Uint8Array | Blob, name: string, type: string) {
 }
 
 /** Owner only: script and product photos in, carousel PNGs, caption and hashtags out. Nothing is uploaded anywhere. */
-export function Carousel() {
+export function Carousel({ embedded = false }: { embedded?: boolean } = {}) {
   const [script, setScript] = useState(START);
-  const [deck, setDeck] = useState<Deck>(() => ({ bg: "grid", pal: "cream", handle: "", slides: slidesFrom(START, "") }));
+  const [deck, setDeck] = useState<Deck>(() => ({ bg: "auto", pal: "cream", handle: "", slides: slidesFrom(START, "") }));
   const [sel, setSel] = useState(0);
   const [caption, setCaption] = useState(() => captionFrom(slidesFrom(START, "")));
   const [tags, setTags] = useState("");
@@ -84,12 +75,14 @@ export function Carousel() {
   const button = "inline-flex min-h-[40px] items-center gap-1.5 rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-40";
 
   return (
-    <div className="rk-station min-h-[100dvh] bg-bg text-ink">
-      <main className="mx-auto flex max-w-[1080px] flex-col gap-3 px-4 pt-4 pb-16 md:px-6">
-        <header className="st-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3">
-          <h1 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX Carousel studio</h1>
-          <a href="/station" className="inline-flex min-h-[40px] items-center gap-1.5 text-[12px] text-muted hover:text-ink"><ArrowLeft size={14} aria-hidden /> Back to KNOX Mission Control</a>
-        </header>
+    <div className={embedded ? "" : "rk-station min-h-[100dvh] bg-bg text-ink"}>
+      <main className={embedded ? "flex flex-col gap-3" : "mx-auto flex max-w-[1080px] flex-col gap-3 px-4 pt-4 pb-16 md:px-6"}>
+        {!embedded && (
+          <header className="st-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3">
+            <h1 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX Carousel studio</h1>
+            <a href="/station" className="inline-flex min-h-[40px] items-center gap-1.5 text-[12px] text-muted hover:text-ink"><ArrowLeft size={14} aria-hidden /> Back to KNOX Mission Control</a>
+          </header>
+        )}
 
         <section className="st-card px-3.5 py-3">
           <label className="flex flex-col gap-1 text-[12px]">

@@ -2,7 +2,7 @@
 // Use it for jobs that are not in scripts/station/jobs/, such as a cron entry or a script that lives elsewhere.
 //
 //   node --experimental-strip-types scripts/station-run.mts <jobId> -- <command> [args…]
-//   node --experimental-strip-types scripts/station-run.mts --gate report --waiting 3 [--oldest <ISO>] [--account client-demo]
+//   node --experimental-strip-types scripts/station-run.mts --gate review --waiting 3 [--oldest <ISO>] [--account <account id>]
 //
 // The key and URL come from ~/.config/ruangkotak/station.env (see station-install.mts) or the environment
 // (STATION_KEY, STATION_URL, STATION_SOURCE). The command's exit code is passed through, so cron/launchd still see failures.

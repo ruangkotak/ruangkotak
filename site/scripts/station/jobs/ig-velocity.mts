@@ -1,5 +1,5 @@
-// Performance Analyst, every 6 hours (ig-velocity-6h for @alanazizreview; client-demo-velocity and future client jobs
-// share this script): how fast are the latest reels gaining plays?
+// Performance Analyst, every 6 hours (ig-velocity-6h for @alanazizreview; every "<client>-velocity" job
+// shares this script): how fast are the latest reels gaining plays?
 // Skips when Station (the site) checked the account's reels in the last 5 hours. Otherwise scrapes the newest 12 reels, compares plays with the previous snapshot, and reports plays per hour. The first run
 // only saves a baseline. Fails when the scrape fails or returns no reels (private, renamed, or blocked).
 import { compact, readSnapshot, scrapeReels, writeSnapshot, type ReelSnapshot } from "../apify.mts";
@@ -57,7 +57,7 @@ async function checkedByStation(ctx: JobContext): Promise<number | null> {
 export default async function run(ctx: JobContext): Promise<JobResult> {
   const handle = ctx.account.instagram!;
   const age = await checkedByStation(ctx);
-  if (age !== null && age < 5 * H) return { ok: true, message: `@${handle} · reels checked by Station ${Math.max(1, Math.round(age / 60_000))} min ago; skipped to save Apify` };
+  if (age !== null && age < 5 * H) return { ok: true, message: `@${handle} · reels checked by KNOX ${Math.max(1, Math.round(age / 60_000))} min ago; skipped to save Apify` };
   try {
     const prev = readSnapshot(ctx.stateDir, handle);
     const cur: ReelSnapshot = { handle, at: new Date().toISOString(), reels: await scrapeReels(ctx.env.APIFY_TOKEN!, handle, REELS) };
