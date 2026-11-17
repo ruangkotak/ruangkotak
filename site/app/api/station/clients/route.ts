@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
+import { cleanJobSync, clientCategory, postUrlOf, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
 import { clientLog, clientStore, stationStore } from "@/lib/store";
 
@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
       const cat = clientCategory(body.category);
       if (!cat.ok) return json({ ok: false, error: cat.error }, 400);
       const key = newClientKey();
-      const client: ClientRecord = { ...v.value, createdAt: now, keyHash: hashKey(key), status: "active", ...(cat.value ? { category: cat.value } : {}) };
+      // A Brand is not measured on its own page, so its handle is never kept.
+      const client: ClientRecord = { ...v.value, ...(cat.value === "brand" ? { instagram: undefined } : {}), createdAt: now, keyHash: hashKey(key), status: "active", ...(cat.value ? { category: cat.value } : {}) };
       await clientStore.save(client);
       await clientLog.add(clientLogEntry("added", client, viaKey, now));
       return json({ ok: true, client: { ...client, keyHash: undefined }, key });
@@ -72,7 +73,10 @@ export async function POST(req: NextRequest) {
       if (!cat.ok) return json({ ok: false, error: cat.error }, 400);
       const pct = commissionOf("commission" in body ? body.commission : c.commission);
       if (!pct.ok) return json({ ok: false, error: pct.error }, 400);
-      await clientStore.save({ ...c, label: v.value.label, instagram: v.value.instagram, ...terms.value, category: cat.value, commission: pct.value });
+      const post = postUrlOf("postUrl" in body ? body.postUrl : c.postUrl);
+      if (!post.ok) return json({ ok: false, error: post.error }, 400);
+      const instagram = cat.value === "brand" ? undefined : v.value.instagram;
+      await clientStore.save({ ...c, label: v.value.label, instagram, ...terms.value, category: cat.value, commission: pct.value, postUrl: cat.value === "brand" ? post.value : undefined });
       return json({ ok: true });
     }
     // Talent jobs: what a brand paid for one job, and our percentage of it. Kept on the client's own record.

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
-  answerCommand, ownerReport, clientCategory, CLIENT_CATEGORIES, commissionOf, cutOf, talentJob, talentMoney, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
+  answerCommand, ownerReport, clientCategory, postUrlOf, CLIENT_CATEGORIES, commissionOf, cutOf, talentJob, talentMoney, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
   parseBeat, parseSchedule, resolveView,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
@@ -774,4 +774,21 @@ test("client history: who was added or removed, and whether from the page or a s
     { at: "2026-11-15T20:00:00.000Z", action: "removed", id: "rode", label: "Pixel Distribution", via: "page" });
   assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").via, "key");
   assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").label.length, 60);
+});
+
+test("a Brand never starts reel velocity, even with a handle, and its checklist asks for your own video link", () => {
+  const brand: ClientRecord = { ...kopi, category: "brand" };
+  assert.ok(!clientJobs(brand).some((j) => j.script === "ig-velocity"));
+  assert.ok(clientJobs(kopi).some((j) => j.script === "ig-velocity"));
+  const step = onboarding(brand, {}, {})[2];
+  assert.equal(step.id, "posted");
+  assert.equal(step.done, false);
+  assert.equal(onboarding({ ...brand, postUrl: "https://www.instagram.com/reel/abc/" }, {}, {})[2].done, true);
+});
+
+test("the posted-video link must be an Instagram or TikTok page; blank clears it", () => {
+  assert.deepEqual(postUrlOf("  https://www.tiktok.com/@alanazizreview/video/1 "), { ok: true, value: "https://www.tiktok.com/@alanazizreview/video/1" });
+  assert.deepEqual(postUrlOf(""), { ok: true, value: undefined });
+  assert.equal(postUrlOf("https://evil.example/instagram.com/x").ok, false);
+  assert.equal(postUrlOf("http://instagram.com/reel/a").ok, false);
 });
