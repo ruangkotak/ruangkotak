@@ -632,6 +632,16 @@ test("carousel: a script becomes a cover, body slides and an end page, eight at 
   assert.equal(z.length, 30 + 5 + 3 + 46 + 5 + 22);
 });
 
+test("carousel: Auto changes the grid layout on every slide, a fixed choice never changes", async () => {
+  const { AUTO_ORDER, BACKGROUNDS, layoutFor } = await import("../lib/carousel.ts");
+  const seen = Array.from({ length: 8 }, (_, i) => layoutFor("auto", i));
+  assert.ok(seen.every((l, i) => i === 0 || l !== seen[i - 1]), "neighbouring slides differ");
+  assert.equal(new Set(seen.slice(0, AUTO_ORDER.length)).size, AUTO_ORDER.length, "each layout is used once per round");
+  assert.equal(seen[AUTO_ORDER.length], seen[0], "then it starts again");
+  assert.deepEqual(Array.from({ length: 4 }, (_, i) => layoutFor("dots", i)), ["dots", "dots", "dots", "dots"]);
+  assert.deepEqual(BACKGROUNDS.map((b) => b[0]).filter((b) => b !== "auto").sort(), [...AUTO_ORDER].sort(), "Auto covers every layout");
+});
+
 // ---------- found by testing the live board ----------
 
 test("a warning about posting joins the Post line, not the Review line beside it", () => {
