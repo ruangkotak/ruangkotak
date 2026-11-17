@@ -14,8 +14,16 @@ export const PALETTES: Record<string, Palette> = {
   cobalt: { name: "Cobalt", bg: "#1747B5", line: "#4D78E0", ink: "#FFFFFF", acc: "#FFD84A" },
   ink: { name: "Ink", bg: "#12130E", line: "#34362A", ink: "#ECEBDF", acc: "#E9E24C" },
 };
-export const BACKGROUNDS = [["grid", "Graph paper"], ["dots", "Dot grid"], ["blueprint", "Blueprint"], ["cross", "Crosshatch"], ["glow", "Glow grid"]] as const;
+export const BACKGROUNDS = [["auto", "Auto: change every slide"], ["grid", "Graph paper"], ["dots", "Dot grid"], ["blueprint", "Blueprint"], ["cross", "Crosshatch"], ["glow", "Glow grid"]] as const;
 export type Background = (typeof BACKGROUNDS)[number][0];
+type Layout = Exclude<Background, "auto">;
+/** The order Auto walks through, so neighbouring slides never share a layout. */
+export const AUTO_ORDER: readonly Layout[] = ["grid", "blueprint", "dots", "glow", "cross"];
+
+/** Pure: the layout slide `i` is drawn with. A fixed choice stays the same; Auto changes it on every slide. */
+export function layoutFor(bg: Background, i: number): Layout {
+  return bg === "auto" ? AUTO_ORDER[i % AUTO_ORDER.length] : bg;
+}
 
 export type Slide = { kind: "cover" | "body" | "end"; head: string; body: string; img: number | null };
 export type Deck = { bg: Background; pal: string; handle: string; slides: Slide[] };
@@ -55,7 +63,7 @@ export function assignPhotos(slides: Slide[], count: number): Slide[] {
   return out;
 }
 
-function background(x: CanvasRenderingContext2D, type: Background, p: Palette, i: number) {
+function background(x: CanvasRenderingContext2D, type: Layout, p: Palette, i: number) {
   x.fillStyle = p.bg;
   x.fillRect(0, 0, W, H);
   const lines = (step: number, width: number, a: number) => {
@@ -149,7 +157,7 @@ export function drawSlide(canvas: HTMLCanvasElement, deck: Deck, i: number, phot
   const s = deck.slides[i];
   if (!x || !s) return;
   const p = PALETTES[deck.pal] ?? PALETTES.cream, M = 84, img = s.img === null ? undefined : photos[s.img];
-  background(x, deck.bg, p, i);
+  background(x, layoutFor(deck.bg, i), p, i);
   x.fillStyle = p.ink; x.font = `700 30px ${FONT}`; x.textBaseline = "top";
   x.fillText(deck.handle, M, 62);
   const count = `${i + 1}/${deck.slides.length}`;

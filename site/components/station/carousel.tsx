@@ -20,7 +20,7 @@ function save(data: Uint8Array | Blob, name: string, type: string) {
 /** Owner only: script and product photos in, carousel PNGs, caption and hashtags out. Nothing is uploaded anywhere. */
 export function Carousel({ embedded = false }: { embedded?: boolean } = {}) {
   const [script, setScript] = useState(START);
-  const [deck, setDeck] = useState<Deck>(() => ({ bg: "grid", pal: "cream", handle: "", slides: slidesFrom(START, "") }));
+  const [deck, setDeck] = useState<Deck>(() => ({ bg: "auto", pal: "cream", handle: "", slides: slidesFrom(START, "") }));
   const [sel, setSel] = useState(0);
   const [caption, setCaption] = useState(() => captionFrom(slidesFrom(START, "")));
   const [tags, setTags] = useState("");
