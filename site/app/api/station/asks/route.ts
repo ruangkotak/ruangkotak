@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { ASK_PENDING_MAX, cleanAsk, type AskRecord } from "@/lib/station";
-import { json, liveRegistry, ownerRequest } from "@/lib/station-live";
+import { addAsk, json, ownerRequest } from "@/lib/station-live";
 import { askStore } from "@/lib/store";
 
 // Asks typed on the Needs me tab. Owner only; anyone else gets a 404.
@@ -29,15 +27,8 @@ export async function POST(req: NextRequest) {
       await askStore.remove(body.ack.filter((k): k is string => typeof k === "string").slice(0, 200));
       return json({ ok: true });
     }
-    const { registry } = await liveRegistry();
-    const ask = cleanAsk(body ?? {}, registry);
-    if (!ask.ok) return json({ ok: false, error: ask.error }, 400);
-    const waiting = await askStore.all();
-    if (waiting.length >= ASK_PENDING_MAX) return json({ ok: false, error: "Your laptop has not collected the earlier asks yet. Wake it, then try again." }, 409);
-    if (waiting.some((a) => a.text === ask.value.text)) return json({ ok: true }); // a double press
-    const record: AskRecord = { id: randomUUID(), ...ask.value, at: new Date().toISOString() };
-    await askStore.add(record);
-    return json({ ok: true, ask: record });
+    const added = await addAsk(body ?? {});
+    return added.ok ? json(added) : json({ ok: false, error: added.error }, added.status);
   } catch (err) {
     console.error("[station] asks", err);
     return json({ ok: false, error: "Store unavailable. Nothing was saved." }, 503);
