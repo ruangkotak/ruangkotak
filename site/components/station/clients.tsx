@@ -66,7 +66,7 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
         setBusy(true);
         setError(null);
         try {
-          const r = await call({ action: "create", label, instagram, slug: shown, category });
+          const r = await call({ action: "create", label, instagram: category === "brand" ? "" : instagram, slug: shown, category });
           onAdded({ id: shown, label: label.trim(), key: r.key!, fresh: true });
           setLabel("");
           setInstagram("");
@@ -101,10 +101,12 @@ function AddClient({ onAdded }: { onAdded: (i: Issued) => void }) {
           Name
           <input className="field !min-h-[42px]" required minLength={2} maxLength={60} value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Kopi Kita" autoComplete="off" />
         </label>
-        <label className="flex flex-col gap-1 text-[12px]">
-          <span>Instagram handle <span className="text-muted">(optional)</span></span>
-          <input className="field !min-h-[42px]" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@kopikita" autoComplete="off" autoCapitalize="none" spellCheck={false} />
-        </label>
+        {category !== "brand" && (
+          <label className="flex flex-col gap-1 text-[12px]">
+            <span>Instagram handle <span className="text-muted">(optional)</span></span>
+            <input className="field !min-h-[42px]" value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="@kopikita" autoComplete="off" autoCapitalize="none" spellCheck={false} />
+          </label>
+        )}
         <label className="flex flex-col gap-1 text-[12px]">
           <span>Short name <span className="text-muted">(in links and file names)</span></span>
           <input
@@ -199,6 +201,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
   const [error, setError] = useState<string | null>(null);
   const [handle, setHandle] = useState(c.instagram ?? "");
   const [price, setPrice] = useState(c.price === undefined ? "" : String(c.price));
+  const [postUrl, setPostUrl] = useState(c.postUrl ?? "");
   const [perMonth, setPerMonth] = useState(c.perMonth === undefined ? "" : String(c.perMonth));
   const monthly = c.price !== undefined && c.perMonth ? c.price * c.perMonth : null;
   const act = async (action: string, extra: Record<string, unknown> = {}, confirmText?: string) => {
@@ -258,7 +261,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         ))}
       </ol>
 
-      {!c.instagram && !paused && (
+      {!c.instagram && !paused && !brand && (
         <form
           className="mt-2.5 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -271,6 +274,17 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
             <input className="field !min-h-[40px] sm:w-[220px]" value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@handle" autoCapitalize="none" spellCheck={false} />
           </label>
           <button type="submit" disabled={!handle.trim() || !!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save</button>
+        </form>
+      )}
+
+      {!paused && brand && (
+        <form className="mt-2.5 flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); act("update", { postUrl }); }}>
+          <label className="flex flex-col gap-1 text-[12px]">
+            Your video for them (link)
+            <input className="field !min-h-[40px] sm:w-[320px]" type="url" value={postUrl} onChange={(e) => setPostUrl(e.target.value)} placeholder="https://www.instagram.com/reel/…" autoCapitalize="none" spellCheck={false} />
+          </label>
+          <button type="submit" disabled={!!busy} className="min-h-[40px] rounded-[6px] border border-line px-3 text-[12px] hover:border-ink disabled:opacity-50">Save link</button>
+          <span className="pb-2.5 text-[11.5px] text-muted">posted on @alanazizreview · only you see this</span>
         </form>
       )}
 

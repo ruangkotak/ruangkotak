@@ -350,6 +350,8 @@ export type ClientRecord = {
   price?: number; perMonth?: number;
   /** Who they are to the business. Owner only; never sent to the client or the laptop. */
   category?: ClientCategory;
+  /** Brand only: the video you posted for them, on your own page. Owner only. */
+  postUrl?: string;
   /** Talent only: our share of each job, in percent, and the jobs themselves. Owner only. */
   commission?: number; jobs?: TalentJob[];
 };
@@ -492,9 +494,10 @@ export function validateClient(input: { label?: unknown; slug?: unknown; instagr
 const minuteFor = (id: string) => [...id].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 9973, 7) % 60;
 
 /** The jobs every client gets: reel velocity (if they have a handle) and the weekday final-review check. */
-export function clientJobs(c: Pick<ClientRecord, "id" | "instagram">): Job[] {
+export function clientJobs(c: Pick<ClientRecord, "id" | "instagram" | "category">): Job[] {
   return [
-    ...(c.instagram ? [{ id: `${c.id}-velocity`, desk: "performance-analyst", schedule: `${minuteFor(c.id)} */6 * * *`, account: c.id, script: "ig-velocity" }] : []),
+    // A Brand's own page is not what you are measured on, so a handle never starts reel velocity for them.
+    ...(c.instagram && c.category !== "brand" ? [{ id: `${c.id}-velocity`, desk: "performance-analyst", schedule: `${minuteFor(c.id)} */6 * * *`, account: c.id, script: "ig-velocity" }] : []),
     { id: `${c.id}-final-check`, desk: "cdo-reviewer", schedule: "0 18 * * 1-5", account: c.id, script: "final-check" },
   ];
 }
@@ -525,7 +528,9 @@ export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: 
   return [
     { id: "link", label: "Private link made", done: true, at: c.createdAt },
     { id: "opened", label: "Client opened their link", done: !!c.openedAt, at: c.openedAt, note: c.openedAt ? undefined : "send them the link" },
-    c.instagram
+    c.category === "brand"
+      ? { id: "posted", label: "Your video posted", done: !!c.postUrl, note: c.postUrl ? undefined : "paste the link to the video on your page" }
+      : c.instagram
       ? { id: "velocity", label: "First reel velocity run", done: !!velocity, at: velocity, note: velocity ? undefined : "runs on your laptop within 6 hours" }
       : { id: "velocity", label: "Reel velocity", done: false, note: "add their Instagram handle to start it" },
     {
@@ -862,6 +867,14 @@ export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { o
   if (price !== undefined && !(Number.isFinite(price) && price >= 0 && price <= 1_000_000)) return { ok: false, error: "The price must be a number in RM." };
   if (perMonth !== undefined && !(Number.isInteger(perMonth) && perMonth >= 1 && perMonth <= 60)) return { ok: false, error: "The number per month must be a whole number from 1 to 60." };
   return { ok: true, value: { price: price === undefined ? undefined : Math.round(price * 100) / 100, perMonth } };
+}
+
+/** Checks the link to the video posted for a Brand: an Instagram or TikTok page. Blank clears it. */
+export function postUrlOf(v: unknown): { ok: true; value: string | undefined } | { ok: false; error: string } {
+  if (v === undefined || v === null || (typeof v === "string" && !v.trim())) return { ok: true, value: undefined };
+  const t = typeof v === "string" ? v.trim() : "";
+  if (t.length > 300 || !/^https:\/\/([a-z0-9-]+\.)?(instagram|tiktok)\.com\/[^\s<>"]+$/i.test(t)) return { ok: false, error: "That should be a link to your video on Instagram or TikTok." };
+  return { ok: true, value: t };
 }
 
 export type PipelineInput = {
