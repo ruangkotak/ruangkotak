@@ -253,21 +253,33 @@ test("asks go to a desk by #tag first, then by the first keyword", () => {
   assert.equal(name("- [ ] call mum"), null);
 });
 
-test("routing marks new asks, retries unrouted ones only when they now match, and never rewrites for nothing", () => {
+test("routing marks new asks; one nothing matches goes to the default desk, and old unrouted ones are picked up", () => {
   const t0 = "2026-11-08T01:00:00.000Z";
   const r1 = route("# Asks\n\n- [ ] cut reel 14\n- [ ] call mum\n- [x] done thing\n", DESKS, t0);
-  assert.deepEqual(r1.routed.map((d) => d.name), ["Editor"]);
+  assert.deepEqual(r1.routed.map((d) => d.name), ["Editor", "COO Lead"]);
   assert.equal(r1.open, 2);
-  assert.equal(r1.unrouted, 1);
+  assert.equal(r1.unrouted, 0);
   assert.match(r1.text, /- \[ \] cut reel 14 · → Editor <!-- rk:id=\S+ at=2026-11-08T01:00:00\.000Z desk=editor -->/);
-  assert.match(r1.text, /- \[ \] call mum · → \? \(add a #desk\) <!-- rk:id=\S+ at=\S+ desk=none -->/);
-  const r2 = route(r1.text, DESKS, "2026-11-08T01:15:00.000Z");
-  assert.equal(r2.changed, false, "an unrouted ask that still matches nothing is left alone");
-  const tagged = r1.text.replace("call mum · → ? (add a #desk)", "call mum · → ? (add a #desk) #coo");
-  const r3 = route(tagged, DESKS, "2026-11-08T01:30:00.000Z");
-  assert.deepEqual(r3.routed.map((d) => d.name), ["COO Lead"]);
-  assert.equal(r3.unrouted, 0);
-  assert.match(r3.text, /call mum #coo · → COO Lead <!-- rk:id=\S+ at=\S+ desk=coo-lead -->/);
+  assert.match(r1.text, /- \[ \] call mum · → COO Lead \(default\) <!-- rk:id=\S+ at=\S+ desk=coo-lead -->/);
+  assert.equal(route(r1.text, DESKS, "2026-11-08T01:15:00.000Z").changed, false, "a routed file is left alone");
+  // A line left unrouted by the old router (or with no default desk in the registry) is routed on the next run.
+  const old = "- [ ] call mum · → ? (add a #desk) <!-- rk:id=a1 at=2026-11-07T01:00:00.000Z desk=none -->\n";
+  const r2 = route(old, DESKS, "2026-11-08T01:30:00.000Z");
+  assert.equal(r2.unrouted, 0);
+  assert.match(r2.text, /call mum · → COO Lead \(default\) <!-- rk:id=\S+ at=\S+ desk=coo-lead -->/);
+  const tagged = route(old.replace("call mum", "call mum #editor"), DESKS, "2026-11-08T01:30:00.000Z");
+  assert.match(tagged.text, /call mum #editor · → Editor <!-- rk:id=\S+ at=\S+ desk=editor -->/, "a tag still wins");
+  // Without a default desk the old behaviour stays: marked, counted, never rewritten for nothing.
+  const noDefault = DESKS.filter((d) => d.id !== "coo-lead");
+  const r3 = route("- [ ] call mum\n", noDefault, t0);
+  assert.equal(r3.unrouted, 1);
+  assert.match(r3.text, /call mum · → \? \(add a #desk\) <!-- rk:id=\S+ at=\S+ desk=none -->/);
+  assert.equal(route(r3.text, noDefault, "2026-11-08T01:15:00.000Z").changed, false);
+  assert.match(route(r3.text.replace("call mum", "call mum #coo"), DESKS, "2026-11-08T01:30:00.000Z").text, /call mum #coo · → COO Lead <!--/);
+});
+
+test("the ask that started this goes to Account Manager", () => {
+  assert.equal(deskFor("- [ ] Check total of clients i have worked with", DESKS)?.name, "Account Manager");
 });
 
 // ---------- CFO ----------
@@ -426,7 +438,7 @@ test("only open asks routed to a desk with an agent are worked, once, with at mo
   const text = route("# Asks\n- [ ] write 5 hooks for reel 14 #scriptwriter\n- [ ] cut reel 14\n- [ ] call the venue\n- [x] old ask #designer\n", DESKS, "2026-11-08T01:00:00.000Z").text;
   const agentOf = new Map([["scriptwriter", "creative-lead"], ["designer", "creative-lead"]]);
   const asks = asksToWork(text, agentOf, { done: {}, failed: {} });
-  assert.deepEqual(asks.map((a) => [a.desk, a.text]), [["scriptwriter", "write 5 hooks for reel 14 #scriptwriter"]], "Editor has no agent; the unrouted and ticked ones are skipped");
+  assert.deepEqual(asks.map((a) => [a.desk, a.text]), [["scriptwriter", "write 5 hooks for reel 14 #scriptwriter"]], "Editor has no agent; the ticked one and the one at COO Lead (not in this agent map) are skipped");
   assert.deepEqual(asksToWork(text, agentOf, { done: { [asks[0].id]: { at: "x", file: "y" } }, failed: {} }), []);
   assert.equal(asksToWork(text, agentOf, { done: {}, failed: { [asks[0].id]: 1 } }).length, 1, "one failure: retried");
   assert.equal(asksToWork(text, agentOf, { done: {}, failed: { [asks[0].id]: 2 } }).length, 0, "two failures: left for you");
