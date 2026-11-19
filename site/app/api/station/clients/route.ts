@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
+import { BRAND_JOBS_MAX, brandJob, brandJobFee, cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
 import { clientLog, clientStore, stationStore } from "@/lib/store";
 
@@ -87,6 +87,28 @@ export async function POST(req: NextRequest) {
     if (body.action === "job-remove") {
       if (!c.jobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
       await clientStore.save({ ...c, jobs: c.jobs.filter((j) => j.id !== body.jobId) });
+      return json({ ok: true });
+    }
+    // Brand jobs: the Onboarding department's category, fee and invoice steps for a brand offering a job.
+    if (body.action === "brand-job-add") {
+      if (c.category !== "brand") return json({ ok: false, error: "Brand jobs are for Brand clients only." }, 400);
+      if ((c.brandJobs?.length ?? 0) >= BRAND_JOBS_MAX) return json({ ok: false, error: "That is a lot of jobs. Remove old ones first." }, 400);
+      const j = brandJob(body);
+      if (!j.ok) return json({ ok: false, error: j.error }, 400);
+      await clientStore.save({ ...c, brandJobs: [...(c.brandJobs ?? []), { id: randomUUID(), ...j.value }] });
+      return json({ ok: true });
+    }
+    if (body.action === "brand-job-fee") {
+      const j = c.brandJobs?.find((x) => x.id === body.jobId);
+      if (!j) return json({ ok: false, error: "No such job." }, 404);
+      const fee = brandJobFee(j, body.fee);
+      if (!fee.ok) return json({ ok: false, error: fee.error }, 400);
+      await clientStore.save({ ...c, brandJobs: c.brandJobs!.map((x) => (x.id === j.id ? { ...x, fee: fee.value } : x)) });
+      return json({ ok: true });
+    }
+    if (body.action === "brand-job-remove") {
+      if (!c.brandJobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
+      await clientStore.save({ ...c, brandJobs: c.brandJobs.filter((j) => j.id !== body.jobId) });
       return json({ ok: true });
     }
     if (body.action === "remove") {

@@ -2,7 +2,7 @@
 
 import { ArrowsClockwise, CheckCircle, Circle, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { CLIENT_CATEGORIES, cutOf, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
+import { brandInvoiceLine, brandJobStep, CLIENT_CATEGORIES, cutOf, DEAL_TYPES, dealLabel, RATE_CARD_FEE, type BrandJob, type DealType, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
 import { CopyButton, rm } from "./parts";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
@@ -14,7 +14,7 @@ const catOf = (id?: ClientCategory) => CLIENT_CATEGORIES.find((c) => c.id === id
 // The headings on the tab, in order. Clients added before categories existed sit under the last one until you pick.
 const GROUPS: { title: string; ids: (ClientCategory | undefined)[]; note: string }[] = [
   { title: "Creator / Talent", ids: ["creator", "talent"], note: "Creators on a retainer who pay us, and our own talent." },
-  { title: "Brand", ids: ["brand"], note: "Brands offering a job to @alanazizreview." },
+  { title: "Brand", ids: ["brand"], note: "Onboarding: brands offering @alanazizreview a job. Register, category, fee, invoice." },
   { title: "No category yet", ids: [undefined], note: "Pick Creator, Talent or Brand on each card." },
 ];
 
@@ -194,6 +194,79 @@ function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (a
   );
 }
 
+const STEP_TEXT = { fee: "no fee yet", invoice: "to invoice", unpaid: "invoiced · unpaid", paid: "paid" } as const;
+
+/** Brand only: the Onboarding department's job list. Category and fee are set here; invoices.md decides paid. */
+function BrandJobs({ c, busy, act }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void> }) {
+  const [deal, setDeal] = useState<DealType | "">("");
+  const [what, setWhat] = useState("");
+  const [fee, setFee] = useState(String(RATE_CARD_FEE));
+  const [date, setDate] = useState(todayMyt);
+  const [fees, setFees] = useState<Record<string, string>>({});
+  const [copied, setCopied] = useState<string | null>(null);
+  const jobs: BrandJob[] = [...(c.brandJobs ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  const type = DEAL_TYPES.find((d) => d.id === deal);
+  const sum = (xs: BrandJob[]) => xs.reduce((n, j) => n + j.fee, 0);
+  const unpaid = sum(jobs.filter((j) => brandJobStep(j) === "unpaid"));
+  return (
+    <div className="mt-2.5 rounded-[6px] border border-line">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-2.5 py-2">
+        <span className="label">Jobs offered · {jobs.length}</span>
+        <span className="text-[11.5px] text-muted">agreed {rm(sum(jobs))}{unpaid ? <> · <span className="text-mark">{rm(unpaid)} unpaid</span></> : null}</span>
+      </div>
+      {jobs.length ? (
+        <ul className="divide-y divide-line">
+          {jobs.map((j) => {
+            const step = brandJobStep(j);
+            return (
+              <li key={j.id} className="flex flex-col gap-1.5 px-2.5 py-2 text-[12px]">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="min-w-0 break-words">{dealLabel(j.deal)}: {j.what} <span className="text-muted">· {day(`${j.date}T00:00:00+08:00`)}</span></div>
+                  <span className={`label rounded-full border px-2 py-0.5 ${step === "paid" ? "border-[var(--good)] text-good" : step === "fee" || step === "invoice" ? "border-[var(--mark)] !text-[var(--mark)]" : "border-line"}`}>{STEP_TEXT[step]}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {step === "fee" || step === "invoice" ? (
+                    <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); act("brand-job-fee", { jobId: j.id, fee: fees[j.id] ?? String(j.fee || RATE_CARD_FEE) }); }}>
+                      <label className="flex items-center gap-1.5 whitespace-nowrap text-[11.5px]">Fee RM
+                        <input className="field !min-h-[36px] w-[110px]" type="number" min={0} step="any" inputMode="decimal" value={fees[j.id] ?? String(j.fee || RATE_CARD_FEE)} onChange={(e) => setFees({ ...fees, [j.id]: e.target.value })} />
+                      </label>
+                      <button type="submit" disabled={!!busy} className="min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink disabled:opacity-50">{step === "fee" ? "They agreed" : "Change fee"}</button>
+                    </form>
+                  ) : <span className="num text-[11.5px] text-muted">fee {rm(j.fee)}{j.invoicedAt ? ` · invoiced ${day(j.invoicedAt)}` : ""}</span>}
+                  {step === "invoice" && <button type="button" onClick={async () => { await navigator.clipboard?.writeText(brandInvoiceLine(j, c.label, todayMyt())).catch(() => {}); setCopied(j.id); }} className="min-h-[36px] rounded-[6px] bg-[var(--mark)] px-2.5 text-[11.5px] text-[var(--on-solid)]">{copied === j.id ? "Copied" : "Copy invoice line"}</button>}
+                  {step === "paid" && <span className="inline-flex min-h-[36px] items-center gap-1 px-1 text-[11.5px] text-good"><CheckCircle size={14} aria-hidden /> paid {day(j.paidAt)}</span>}
+                  <button type="button" disabled={!!busy} aria-label={`Remove the ${j.what} job`} onClick={() => act("brand-job-remove", { jobId: j.id }, `Remove the ${dealLabel(j.deal)} job "${j.what}"? This cannot be undone.`)} className="ml-auto inline-flex min-h-[36px] items-center px-1.5 text-bad hover:underline disabled:opacity-50"><Trash size={14} aria-hidden /></button>
+                </div>
+                {step === "fee" && <p className="text-[11px] text-muted">Ask for the fee anyway: rate card RM{RATE_CARD_FEE} + review unit for one video on Instagram &amp; TikTok.</p>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p className="px-2.5 py-2 text-[12px] text-muted">No job yet. Add what {c.label} offered: the kind of job, what it is for, and the fee.</p>}
+      {jobs.some((j) => brandJobStep(j) === "invoice" || brandJobStep(j) === "unpaid") && <p className="border-t border-line px-2.5 py-2 text-[11.5px] text-muted">Paid is decided in <code>Station/invoices.md</code>. Copy the invoice line, paste it there, send the invoice yourself, and tick it when the money arrives. This card follows within about 15 minutes.</p>}
+      <form className="flex flex-col gap-2 border-t border-line px-2.5 py-2.5"
+        onSubmit={async (e) => { e.preventDefault(); await act("brand-job-add", { deal, what, fee, date }); setDeal(""); setWhat(""); setFee(String(RATE_CARD_FEE)); }}>
+        <fieldset>
+          <legend className="text-[12px]">Category: what kind of job?</legend>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {DEAL_TYPES.map((d) => (
+              <label key={d.id} className={`st-tile flex min-h-[36px] cursor-pointer items-center gap-1.5 px-2.5 text-[12px] ${deal === d.id ? "!border-[var(--mark)]" : ""}`}>
+                <input type="radio" name={`deal-${c.id}`} value={d.id} checked={deal === d.id} onChange={() => setDeal(d.id)} required className="accent-[var(--mark)]" />{d.label}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-[12px]">For what<input className="field !min-h-[40px] sm:w-[220px]" required minLength={2} maxLength={80} value={what} onChange={(e) => setWhat(e.target.value)} placeholder="Wireless Micro review" autoComplete="off" /></label>
+          <label className="flex flex-col gap-1 text-[12px]"><span>Fee (RM) <span className="text-muted">{type && !type.fee ? "(0 = not agreed yet)" : ""}</span></span><input className="field !min-h-[40px] sm:w-[120px]" type="number" min={type?.fee ? 1 : 0} step="any" inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
+          <label className="flex flex-col gap-1 text-[12px]">Date<input className="field !min-h-[40px]" required type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
+          <button type="submit" disabled={!!busy || !deal || what.trim().length < 2} className="min-h-[40px] rounded-[6px] bg-[var(--mark)] px-3.5 text-[12.5px] text-[var(--on-solid)] disabled:opacity-50">Add job</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void; onIssued: (i: Issued) => void }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +331,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
         ))}
       </ol>
 
-      {!c.instagram && !paused && (
+      {!c.instagram && !paused && !brand && (
         <form
           className="mt-2.5 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
@@ -275,8 +348,10 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
       )}
 
       {!paused && c.category === "talent" && <TalentTerms c={c} busy={busy} act={act} />}
+      {!paused && brand && <BrandJobs c={c} busy={busy} act={act} />}
 
-      {!paused && c.category !== "talent" && (
+      {/* A brand's fee lives on each job now; the old per-video price stays editable only where one was already set. */}
+      {!paused && c.category !== "talent" && (!brand || c.price !== undefined) && (
         <form
           className="mt-2.5 flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
