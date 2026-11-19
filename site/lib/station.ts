@@ -674,7 +674,7 @@ export function brandOnboarding(c: ClientRecord): OnboardingStep[] {
   return [
     { id: "register", label: "1 Registered", done: true, at: c.createdAt },
     { id: "category", label: "2 Job category", done: !!j, note: j ? `${dealLabel(j.deal)}: ${j.what}${more}` : "add the job below: what kind, and for what" },
-    { id: "fee", label: "3 Fee agreed", done: !!j && j.fee > 0, note: !j ? `rate card RM${RATE_CARD_FEE} + review unit` : j.fee > 0 ? `RM${j.fee.toLocaleString("en-MY")}` : `ask for a fee: rate card RM${RATE_CARD_FEE} + review unit` },
+    { id: "fee", label: "3 Fee agreed", done: !!j && j.fee > 0, note: !j ? (c.price ? `usual fee RM${c.price.toLocaleString("en-MY")}` : `rate card RM${RATE_CARD_FEE} + review unit`) : j.fee > 0 ? `RM${j.fee.toLocaleString("en-MY")}` : `ask for a fee: rate card RM${RATE_CARD_FEE} + review unit` },
     {
       id: "invoice", label: "4 Invoiced", done: step === "unpaid" || step === "paid", at: j?.invoicedAt,
       note: step === "paid" ? `paid ${mytDate(new Date(j!.paidAt!))}` : step === "unpaid" ? "in invoices.md · tick it when the money arrives" : step === "invoice" ? "copy the invoice line into Station/invoices.md" : "after the fee is agreed",
