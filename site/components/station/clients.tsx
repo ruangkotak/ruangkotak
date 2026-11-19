@@ -2,7 +2,7 @@
 
 import { ArrowsClockwise, CheckCircle, Circle, Eye, PauseCircle, PlayCircle, Trash, UserPlus } from "@phosphor-icons/react";
 import { useCallback, useEffect, useState } from "react";
-import { brandInvoiceLine, brandJobStep, CLIENT_CATEGORIES, cutOf, DEAL_TYPES, dealLabel, RATE_CARD_FEE, type BrandJob, type DealType, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
+import { brandInvoiceLine, brandJobStep, CLIENT_CATEGORIES, cutOf, DEAL_TYPES, dealLabel, RATE_CARD_FEE, type BrandJob, type BrandRequest, type DealType, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
 import { CopyButton, rm } from "./parts";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
@@ -393,9 +393,54 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
   );
 }
 
+/** Brand requests from the public /onboarding page. Accept makes the Brand and its first job; nothing is sent to them. */
+function BrandRequests({ requests, onChange }: { requests: BrandRequest[]; onChange: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (action: "request-accept" | "request-decline", q: BrandRequest) => {
+    if (action === "request-decline" && !window.confirm(`Decline ${q.brand}'s request? It is deleted from KNOX. Nothing is sent to them.`)) return;
+    setBusy(q.id);
+    setError(null);
+    try {
+      await call({ action, requestId: q.id });
+      onChange();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <section aria-label="Brand requests" className="st-card px-3.5 py-3" style={{ borderColor: "var(--mark)" }}>
+      <h2 className="text-[13px] uppercase" style={{ fontWeight: 500, letterSpacing: "0.06em" }}>KNOX Brand requests <span className="num text-muted">· {requests.length}</span></h2>
+      <p className="mt-1 text-[11.5px] text-muted">From the public page ruangkotak.com/onboarding. Accept adds the brand under Brand with this job; reply to them yourself.</p>
+      <ul className="mt-2.5 divide-y divide-line">
+        {requests.map((q) => (
+          <li key={q.id} className="flex flex-col gap-1.5 py-2.5 text-[12px]">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="text-[13.5px]">{q.brand}{q.instagram ? <span className="text-muted"> · @{q.instagram}</span> : null}</span>
+              <span className="text-[11px] text-muted">{when(q.at)}</span>
+            </div>
+            <div>{dealLabel(q.deal)}: {q.what} · <span className={q.offer ? "" : "text-mark"}>{q.offer ? `offers ${rm(q.offer)}` : `no fee offered · rate card RM${RATE_CARD_FEE}`}</span></div>
+            <div className="text-muted">Reply to: <span className="mono text-ink">{q.reach}</span>{q.name ? ` (${q.name})` : ""}</div>
+            {q.notes && <p className="break-words text-muted">{q.notes}</p>}
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" disabled={!!busy} onClick={() => act("request-accept", q)} className="min-h-[38px] rounded-[6px] bg-[var(--mark)] px-3 text-[12px] text-[var(--on-solid)] disabled:opacity-50">{busy === q.id ? "Working…" : "Accept"}</button>
+              <CopyButton text={q.reach} label="Copy contact" />
+              <button type="button" disabled={!!busy} onClick={() => act("request-decline", q)} className="min-h-[38px] rounded-[6px] px-3 text-[12px] text-bad hover:underline disabled:opacity-50">Decline</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {error && <p className="mt-2 text-[12px] text-bad" role="alert">{error}</p>}
+    </section>
+  );
+}
+
 export function Clients({ onChanged }: { onChanged: () => void }) {
   const [clients, setClients] = useState<Client[] | null>(null);
   const [history, setHistory] = useState<ClientLogEntry[]>([]);
+  const [requests, setRequests] = useState<BrandRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
 
@@ -403,7 +448,8 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
     try {
       const res = await fetch("/api/station/clients", { cache: "no-store", credentials: "same-origin" });
       if (!res.ok) throw new Error(`KNOX answered ${res.status}`);
-      const data = (await res.json()) as { clients: Client[]; history?: ClientLogEntry[] };
+      const data = (await res.json()) as { clients: Client[]; history?: ClientLogEntry[]; requests?: BrandRequest[] };
+      setRequests(data.requests ?? []);
       setClients(data.clients);
       setHistory(data.history ?? []);
       setError(null);
@@ -421,6 +467,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {requests.length > 0 && <BrandRequests requests={requests} onChange={changed} />}
       {issued ? <IssuedLink issued={issued} onDone={() => setIssued(null)} /> : <AddClient onAdded={(i) => (setIssued(i), changed())} />}
       {error && <p className="text-[12px] text-bad" role="alert">Could not load clients: {error}</p>}
       {clients && !clients.length && <p className="text-[12px] text-muted">No clients added to KNOX yet. Add the first one above.</p>}

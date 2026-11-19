@@ -7,6 +7,7 @@
 //   run       one execution of a job, built from its beats. The last 10 are kept per job.
 //   snapshot  everything the page draws, already filtered for who is looking (owner or one client).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { DEAL_TYPES, RATE_CARD_FEE, type DealType } from "./deals.ts";
 
 // ---------- registry ----------
 
@@ -402,20 +403,8 @@ export function talentMoney(clients: Pick<ClientRecord, "category" | "jobs" | "s
 // 2 category (what kind of job), 3 fee (what they pay), 4 invoice (the line in invoices.md, ticked when paid).
 // Every job is asked for a fee, gifted and loan included: brands only offer gear until you ask.
 
-/** The kinds of brand job. `fee: true` means the job cannot be added without a fee above RM0. */
-export const DEAL_TYPES = [
-  { id: "paid", label: "Paid", fee: true },
-  { id: "paid-unit", label: "Paid + unit", fee: true },
-  { id: "gifted", label: "Gifted review", fee: false },
-  { id: "loan", label: "Loan", fee: false },
-  { id: "affiliate", label: "Affiliate", fee: false },
-  { id: "event", label: "Event / launch", fee: true },
-  { id: "ambassador", label: "Ambassador", fee: true },
-] as const;
-export type DealType = (typeof DEAL_TYPES)[number]["id"];
+export { DEAL_TYPES, RATE_CARD_FEE, type DealType };
 export const dealLabel = (id: DealType) => DEAL_TYPES.find((d) => d.id === id)?.label ?? id;
-/** The rate card: RM500 plus the review unit for one video on Instagram & TikTok. The fee box starts here. */
-export const RATE_CARD_FEE = 500;
 export const BRAND_JOBS_MAX = 200;
 
 /**
@@ -473,6 +462,57 @@ export function brandMoney(clients: Pick<ClientRecord, "category" | "brandJobs" 
     brands: brands.length, jobs: jobs.length, noFee: at("fee").length, agreed: sum(jobs), toInvoice: sum(at("invoice")),
     outstanding: sum(at("unpaid")), received: sum(at("paid")), thisMonth: sum(jobs.filter((j) => j.date.startsWith(month))),
   };
+}
+
+// ---------- brand requests from the public /onboarding page ----------
+// A brand fills in the form on ruangkotak.com/onboarding (register + category + fee offered). It waits here until
+// the owner accepts it on the Clients tab, which makes the Brand client and its first job, or declines it. Nothing is
+// sent back to the brand from the board; the owner replies himself.
+
+export type BrandRequest = {
+  id: string; at: string; brand: string; name?: string; reach: string; instagram?: string;
+  deal: DealType; what: string; offer?: number; notes?: string; consentVersion: string; consentAt: string; consentIp?: string;
+};
+export const BRAND_REQUESTS_MAX = 100;
+const line = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+
+/** Checks the public form. `reach` is a WhatsApp number or an email; one of the two must look real. */
+export function cleanBrandRequest(body: Record<string, unknown> | null):
+  { ok: true; value: Omit<BrandRequest, "id" | "at" | "consentVersion" | "consentAt" | "consentIp"> } | { ok: false; error: string } {
+  if (!body) return { ok: false, error: "Fill in the form." };
+  const brand = line(body.brand, 60);
+  if (brand.length < 2) return { ok: false, error: "Add your brand name." };
+  const reach = line(body.reach, 120);
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(reach), phone = (reach.match(/\d/g) ?? []).length >= 8 && /^[+\d\s()-]+$/.test(reach);
+  if (!email && !phone) return { ok: false, error: "Add a WhatsApp number or an email we can reply to." };
+  const type = DEAL_TYPES.find((d) => d.id === body.deal);
+  if (!type) return { ok: false, error: "Pick the kind of job." };
+  const what = line(body.what, 80);
+  if (what.length < 2) return { ok: false, error: "Tell us the product or what the job is." };
+  const fee = feeOf(body.offer);
+  if (fee === null) return { ok: false, error: "The fee must be a number in RM." };
+  const ig = line(body.instagram, 60).replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/[/?#].*$/, "").replace(/^@/, "").toLowerCase();
+  return {
+    ok: true,
+    value: {
+      brand, reach, deal: type.id, what,
+      ...(line(body.name, 60) ? { name: line(body.name, 60) } : {}),
+      ...(/^[a-z0-9._]{2,30}$/.test(ig) ? { instagram: ig } : {}),
+      ...(fee ? { offer: fee } : {}),
+      ...(line(body.notes, 500) ? { notes: line(body.notes, 500) } : {}),
+    },
+  };
+}
+
+/** The client a request becomes (an existing Brand with the same short name gets the job instead) and its first job. */
+export function acceptBrandRequest(q: BrandRequest, clients: ClientRecord[], taken: Set<string>, today: string):
+  { ok: true; existing?: ClientRecord; client: { id: string; label: string; instagram?: string }; job: Omit<BrandJob, "id"> } | { ok: false; error: string } {
+  const job = { deal: q.deal, what: q.what, fee: q.offer ?? 0, date: today };
+  const existing = clients.find((c) => c.category === "brand" && (c.id === slugify(q.brand) || c.label.toLowerCase() === q.brand.toLowerCase()));
+  if (existing) return { ok: true, existing, client: existing, job };
+  const v = validateClient({ label: q.brand, instagram: q.instagram ?? "" }, taken);
+  if (!v.ok) return v;
+  return { ok: true, client: v.value, job };
 }
 
 // A short history of who was added to or taken off the Clients tab, because a removed client leaves nothing else behind.
@@ -778,6 +818,8 @@ export type SnapshotInput = {
   clients?: ClientRecord[];
   /** Done presses on Needs me (owner view only). */
   done?: DoneMarks;
+  /** Brand requests from the public /onboarding page, waiting for Accept or Decline (owner view only). */
+  requests?: BrandRequest[];
   now: Date;
 };
 
@@ -842,7 +884,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   ];
 
   const pipeline = client ? undefined
-    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, done: input.done, now });
+    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], requests: input.requests, inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, done: input.done, now });
 
   const feed = events[0];
   const account = view.account === "all" ? null : r.accounts.find((a) => a.id === view.account);
@@ -967,7 +1009,7 @@ export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { o
 }
 
 export type PipelineInput = {
-  registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[];
+  registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[]; requests?: BrandRequest[];
   inAccount: (account: string) => boolean; needsYou: NeedsYou[]; invoiceNote?: string; done?: DoneMarks; now: Date;
 };
 
@@ -1013,6 +1055,9 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
     if (!c.openedAt && c.category !== "brand") needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
   }
+  if (input.inAccount("internal") || input.inAccount("alanazizreview"))
+    for (const q of input.requests ?? [])
+      needsMe.push({ key: `request:${q.id}`, stage: "onboard", title: `New brand request: ${q.brand}`, detail: `${dealLabel(q.deal)}: ${q.what} · ${q.offer ? `offers RM${q.offer.toLocaleString("en-MY")}` : "no fee offered"}`, since: q.at, overdue: now.getTime() - Date.parse(q.at) > 48 * 3600_000, where: "Clients tab → Brand requests", client: q.brand });
   for (const n of input.needsYou) {
     if (n.kind === "gate") continue; // a gate past its window is already on the queue, marked overdue
     // A job's own warning about a gate it reads (e.g. drafts publishing tomorrow) joins that gate's line instead of

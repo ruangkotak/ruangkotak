@@ -875,6 +875,32 @@ test("onboarding department: register, category, fee, invoice for a brand job", 
   assert.doesNotMatch(JSON.stringify(c), /brandJobs|Phone|Light|"fee"|onboarding/i);
 });
 
+test("brand requests from the public /onboarding page: checked, shown on Needs me, accepted into a Brand", async () => {
+  const { cleanBrandRequest, acceptBrandRequest } = await import("../lib/station.ts");
+  const ok = cleanBrandRequest({ brand: " Rode ", reach: "+60 12-345 6789", deal: "paid-unit", what: "Wireless Micro", offer: "700", instagram: "https://instagram.com/Rode/", website: "x" });
+  assert.deepEqual(ok, { ok: true, value: { brand: "Rode", reach: "+60 12-345 6789", deal: "paid-unit", what: "Wireless Micro", instagram: "rode", offer: 700 } });
+  assert.equal((cleanBrandRequest({ brand: "Rode", reach: "hi", deal: "paid", what: "Mic" }) as { error: string }).error, "Add a WhatsApp number or an email we can reply to.");
+  assert.equal(cleanBrandRequest({ brand: "Rode", reach: "a@b.co", deal: "kol", what: "Mic" }).ok, false);
+  assert.equal(cleanBrandRequest({ brand: "Rode", reach: "a@b.co", deal: "gifted", what: "Mic", offer: "-1" }).ok, false);
+  assert.equal(cleanBrandRequest(null).ok, false);
+
+  const q = { id: "q1", at: NOW.toISOString(), consentVersion: "v", consentAt: NOW.toISOString(), ...(ok as { value: Record<string, unknown> }).value } as Parameters<typeof acceptBrandRequest>[0];
+  // A new brand becomes a Brand client with the offered fee on its first job.
+  const fresh = acceptBrandRequest(q, [], new Set(), "2026-11-20");
+  assert.deepEqual(fresh, { ok: true, client: { id: "rode", label: "Rode", instagram: "rode" }, job: { deal: "paid-unit", what: "Wireless Micro", fee: 700, date: "2026-11-20" } });
+  // A brand already on the board gets the job instead of a second card.
+  const known: ClientRecord = { ...kopi, id: "rode", label: "Rode", category: "brand", brandJobs: [] };
+  assert.equal((acceptBrandRequest(q, [known], new Set(["rode"]), "2026-11-20") as { existing?: ClientRecord }).existing?.id, "rode");
+  // A creator with the same short name is not taken over: the brand needs another name.
+  assert.equal(acceptBrandRequest(q, [{ ...known, category: "creator" }], new Set(["rode"]), "2026-11-20").ok, false);
+
+  const s = buildSnapshot({ registry: shipped, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [], requests: [q], now: NOW });
+  const n = s.needsMe!.find((x) => x.key === "request:q1")!;
+  assert.deepEqual([n.title, n.detail, n.stage], ["New brand request: Rode", "Paid + unit: Wireless Micro · offers RM700", "onboard"]);
+  const c = buildSnapshot({ registry: withClients(shipped, [kopi]), view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [kopi], requests: [q], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /Rode|6789|request/);
+});
+
 test("client history: who was added or removed, and whether from the page or a script", async () => {
   const { clientLogEntry } = await import("../lib/station.ts");
   assert.deepEqual(clientLogEntry("removed", { id: "rode", label: "Pixel Distribution" }, false, "2026-11-15T20:00:00.000Z"),
