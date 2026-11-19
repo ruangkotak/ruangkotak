@@ -7,6 +7,7 @@
 //   run       one execution of a job, built from its beats. The last 10 are kept per job.
 //   snapshot  everything the page draws, already filtered for who is looking (owner or one client).
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { DEAL_TYPES, RATE_CARD_FEE, type DealType } from "./deals.ts";
 
 // ---------- registry ----------
 
@@ -352,6 +353,8 @@ export type ClientRecord = {
   category?: ClientCategory;
   /** Talent only: our share of each job, in percent, and the jobs themselves. Owner only. */
   commission?: number; jobs?: TalentJob[];
+  /** Brand only: the jobs this brand offered @alanazizreview. Owner only. */
+  brandJobs?: BrandJob[];
 };
 
 /** One job a brand gave our talent. `percent` is fixed when the job is added, so changing the talent's rate later never rewrites history. */
@@ -395,6 +398,123 @@ export function talentMoney(clients: Pick<ClientRecord, "category" | "jobs" | "s
   };
 }
 
+// ---------- brand jobs: the Onboarding department ----------
+// A brand offering @alanazizreview a job goes through four steps: 1 register (add the brand on the Clients tab),
+// 2 category (what kind of job), 3 fee (what they pay), 4 invoice (the line in invoices.md, ticked when paid).
+// Every job is asked for a fee, gifted and loan included: brands only offer gear until you ask.
+
+export { DEAL_TYPES, RATE_CARD_FEE, type DealType };
+export const dealLabel = (id: DealType) => DEAL_TYPES.find((d) => d.id === id)?.label ?? id;
+export const BRAND_JOBS_MAX = 200;
+
+/**
+ * One job a brand offered. `fee` 0 means no fee agreed yet. `invoicedAt` is when its line first showed up in
+ * invoices.md and `paidAt` when it was ticked there; the laptop reports both, the board never decides.
+ */
+export type BrandJob = { id: string; deal: DealType; what: string; fee: number; date: string; invoicedAt?: string; paidAt?: string };
+
+const feeOf = (v: unknown): number | null => {
+  if (v === undefined || v === null || v === "") return 0;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 0 && n <= 10_000_000 ? Math.round(n * 100) / 100 : null;
+};
+
+/** Checks the Add job form on a brand's card. */
+export function brandJob(input: { deal?: unknown; what?: unknown; fee?: unknown; date?: unknown }):
+  { ok: true; value: Omit<BrandJob, "id"> } | { ok: false; error: string } {
+  const type = DEAL_TYPES.find((d) => d.id === input.deal);
+  if (!type) return { ok: false, error: "Pick what kind of job it is." };
+  const what = typeof input.what === "string" ? input.what.replace(/\s+/g, " ").trim().slice(0, 80) : "";
+  if (what.length < 2) return { ok: false, error: "Say what the job is, for example the product." };
+  const fee = feeOf(input.fee);
+  if (fee === null) return { ok: false, error: "The fee must be a number in RM." };
+  if (type.fee && fee === 0) return { ok: false, error: `A ${type.label} job needs a fee above RM0.` };
+  const date = typeof input.date === "string" ? input.date : "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return { ok: false, error: "Give the job a date." };
+  return { ok: true, value: { deal: type.id, what, fee, date } };
+}
+
+/** Checks a fee set later, once the brand agreed. Only a job not yet in invoices.md can change its fee. */
+export function brandJobFee(j: BrandJob, v: unknown): { ok: true; value: number } | { ok: false; error: string } {
+  if (j.invoicedAt) return { ok: false, error: "This job is already in invoices.md. Change the amount there." };
+  const fee = feeOf(v);
+  if (fee === null) return { ok: false, error: "The fee must be a number in RM." };
+  if (DEAL_TYPES.find((d) => d.id === j.deal)?.fee && fee === 0) return { ok: false, error: `A ${dealLabel(j.deal)} job needs a fee above RM0.` };
+  return { ok: true, value: fee };
+}
+
+/** Where one brand job is: waiting for a fee, waiting to be invoiced, invoiced and unpaid, or paid. */
+export type BrandJobStep = "fee" | "invoice" | "unpaid" | "paid";
+export const brandJobStep = (j: BrandJob): BrandJobStep => (j.paidAt ? "paid" : j.invoicedAt ? "unpaid" : j.fee > 0 ? "invoice" : "fee");
+
+/** The ready line for invoices.md: the whole fee of one brand job, due 14 days after `today` (YYYY-MM-DD). */
+export const brandInvoiceLine = (j: BrandJob, brand: string, today: string) =>
+  `- [ ] INV-000 · ${flat(brand)} · ${dealLabel(j.deal)}: ${flat(j.what)} · RM ${j.fee.toLocaleString("en-US")} · sent ${today} · due ${new Date(Date.parse(`${today}T00:00:00Z`) + 14 * 86400_000).toISOString().slice(0, 10)} · job ${jobRef(j.id)}`;
+
+/** What brand jobs bring in. `month` is YYYY-MM in Malaysia time. Only active Brand clients count. */
+export type BrandMoney = { brands: number; jobs: number; noFee: number; agreed: number; toInvoice: number; outstanding: number; received: number; thisMonth: number };
+export function brandMoney(clients: Pick<ClientRecord, "category" | "brandJobs" | "status">[], month: string): BrandMoney {
+  const brands = clients.filter((c) => c.category === "brand" && c.status === "active");
+  const jobs = brands.flatMap((c) => c.brandJobs ?? []);
+  const sum = (xs: BrandJob[]) => Math.round(xs.reduce((n, j) => n + j.fee, 0) * 100) / 100;
+  const at = (s: BrandJobStep) => jobs.filter((j) => brandJobStep(j) === s);
+  return {
+    brands: brands.length, jobs: jobs.length, noFee: at("fee").length, agreed: sum(jobs), toInvoice: sum(at("invoice")),
+    outstanding: sum(at("unpaid")), received: sum(at("paid")), thisMonth: sum(jobs.filter((j) => j.date.startsWith(month))),
+  };
+}
+
+// ---------- brand requests from the public /onboarding page ----------
+// A brand fills in the form on ruangkotak.com/onboarding (register + category + fee offered). It waits here until
+// the owner accepts it on the Clients tab, which makes the Brand client and its first job, or declines it. Nothing is
+// sent back to the brand from the board; the owner replies himself.
+
+export type BrandRequest = {
+  id: string; at: string; brand: string; name?: string; reach: string; instagram?: string;
+  deal: DealType; what: string; offer?: number; notes?: string; consentVersion: string; consentAt: string; consentIp?: string;
+};
+export const BRAND_REQUESTS_MAX = 100;
+const line = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
+
+/** Checks the public form. `reach` is a WhatsApp number or an email; one of the two must look real. */
+export function cleanBrandRequest(body: Record<string, unknown> | null):
+  { ok: true; value: Omit<BrandRequest, "id" | "at" | "consentVersion" | "consentAt" | "consentIp"> } | { ok: false; error: string } {
+  if (!body) return { ok: false, error: "Fill in the form." };
+  const brand = line(body.brand, 60);
+  if (brand.length < 2) return { ok: false, error: "Add your brand name." };
+  const reach = line(body.reach, 120);
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(reach), phone = (reach.match(/\d/g) ?? []).length >= 8 && /^[+\d\s()-]+$/.test(reach);
+  if (!email && !phone) return { ok: false, error: "Add a WhatsApp number or an email we can reply to." };
+  const type = DEAL_TYPES.find((d) => d.id === body.deal);
+  if (!type) return { ok: false, error: "Pick the kind of job." };
+  const what = line(body.what, 80);
+  if (what.length < 2) return { ok: false, error: "Tell us the product or what the job is." };
+  const fee = feeOf(body.offer);
+  if (fee === null) return { ok: false, error: "The fee must be a number in RM." };
+  const ig = line(body.instagram, 60).replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/[/?#].*$/, "").replace(/^@/, "").toLowerCase();
+  return {
+    ok: true,
+    value: {
+      brand, reach, deal: type.id, what,
+      ...(line(body.name, 60) ? { name: line(body.name, 60) } : {}),
+      ...(/^[a-z0-9._]{2,30}$/.test(ig) ? { instagram: ig } : {}),
+      ...(fee ? { offer: fee } : {}),
+      ...(line(body.notes, 500) ? { notes: line(body.notes, 500) } : {}),
+    },
+  };
+}
+
+/** The client a request becomes (an existing Brand with the same short name gets the job instead) and its first job. */
+export function acceptBrandRequest(q: BrandRequest, clients: ClientRecord[], taken: Set<string>, today: string):
+  { ok: true; existing?: ClientRecord; client: { id: string; label: string; instagram?: string }; job: Omit<BrandJob, "id"> } | { ok: false; error: string } {
+  const job = { deal: q.deal, what: q.what, fee: q.offer ?? 0, date: today };
+  const existing = clients.find((c) => c.category === "brand" && (c.id === slugify(q.brand) || c.label.toLowerCase() === q.brand.toLowerCase()));
+  if (existing) return { ok: true, existing, client: existing, job };
+  const v = validateClient({ label: q.brand, instagram: q.instagram ?? "" }, taken);
+  if (!v.ok) return v;
+  return { ok: true, client: v.value, job };
+}
+
 // A short history of who was added to or taken off the Clients tab, because a removed client leaves nothing else behind.
 // Owner only. `via` says where the change came from: the board page (your browser) or a script holding the key.
 export type ClientLogAction = "added" | "removed" | "paused" | "resumed" | "new link";
@@ -431,21 +551,24 @@ export function syncJobs(clients: ClientRecord[], sync: JobSync, now: string): C
   const paid = new Map(sync.paid.map((p) => [p.ref, p.on]));
   const open = new Set(sync.open.filter((r) => !paid.has(r)));
   const changed: ClientRecord[] = [];
+  const apply = <J extends { id: string; paidAt?: string; invoicedAt?: string }>(j: J, brand: boolean): J => {
+    const ref = jobRef(j.id);
+    let paidAt = j.paidAt;
+    if (paid.has(ref)) {
+      const on = paid.get(ref);
+      paidAt = on ? new Date(`${on}T00:00:00+08:00`).toISOString() : j.paidAt ?? now;
+    } else if (open.has(ref)) paidAt = undefined;
+    // A brand job also remembers when its line first appeared in the file: that is the Invoice step done.
+    const invoicedAt = brand && (paid.has(ref) || open.has(ref)) ? j.invoicedAt ?? now : j.invoicedAt;
+    if (paidAt === j.paidAt && invoicedAt === j.invoicedAt) return j;
+    const { paidAt: _, ...rest } = j;
+    return { ...rest, ...(invoicedAt ? { invoicedAt } : {}), ...(paidAt ? { paidAt } : {}) } as J;
+  };
   for (const c of clients) {
-    let touched = false;
-    const jobs = (c.jobs ?? []).map((j) => {
-      const ref = jobRef(j.id);
-      let paidAt = j.paidAt;
-      if (paid.has(ref)) {
-        const on = paid.get(ref);
-        paidAt = on ? new Date(`${on}T00:00:00+08:00`).toISOString() : j.paidAt ?? now;
-      } else if (open.has(ref)) paidAt = undefined;
-      if (paidAt === j.paidAt) return j;
-      touched = true;
-      const { paidAt: _, ...rest } = j;
-      return paidAt ? { ...rest, paidAt } : rest;
-    });
-    if (touched) changed.push({ ...c, jobs });
+    const jobs = (c.jobs ?? []).map((j) => apply(j, false));
+    const brandJobs = (c.brandJobs ?? []).map((j) => apply(j, true));
+    if (jobs.some((j, i) => j !== c.jobs![i]) || brandJobs.some((j, i) => j !== c.brandJobs![i]))
+      changed.push({ ...c, ...(c.jobs ? { jobs } : {}), ...(c.brandJobs ? { brandJobs } : {}) });
   }
   return changed;
 }
@@ -518,6 +641,7 @@ export type OnboardingStep = { id: string; label: string; done: boolean; at?: st
 
 /** Pure: where a client is in onboarding, from what Station has seen. */
 export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: Record<string, GateReading>): OnboardingStep[] {
+  if (c.category === "brand") return brandOnboarding(c);
   const firstEnd = (job: string) => (runs[job] ?? []).filter((r) => r.endAt && r.ok).map((r) => r.endAt!).sort()[0];
   const velocity = firstEnd(`${c.id}-velocity`);
   const finalRun = firstEnd(`${c.id}-final-check`);
@@ -535,9 +659,27 @@ export function onboarding(c: ClientRecord, runs: Record<string, Run[]>, gates: 
     c.category === "talent"
       ? { id: "price", label: "Commission agreed", done: c.commission !== undefined, note: c.commission !== undefined ? `${c.commission}% of each job` : "set it below; a job cannot be added without it" }
       : {
-          id: "price", label: c.category === "brand" ? "Fee agreed" : "Price agreed", done: c.price !== undefined,
+          id: "price", label: "Price agreed", done: c.price !== undefined,
           note: c.price !== undefined ? `RM${c.price} a reel${c.perMonth ? ` · ${c.perMonth} a month` : ""}` : "set it below; nothing can be invoiced without it",
         },
+  ];
+}
+
+/** Pure: the Onboarding department's four steps for a brand, read from its newest job. */
+export function brandOnboarding(c: ClientRecord): OnboardingStep[] {
+  const jobs = [...(c.brandJobs ?? [])].sort((a, b) => b.date.localeCompare(a.date));
+  const j = jobs[0];
+  const step = j ? brandJobStep(j) : null;
+  const more = jobs.length > 1 ? ` · newest of ${jobs.length} jobs` : "";
+  return [
+    { id: "register", label: "1 Registered", done: true, at: c.createdAt },
+    { id: "category", label: "2 Job category", done: !!j, note: j ? `${dealLabel(j.deal)}: ${j.what}${more}` : "add the job below: what kind, and for what" },
+    { id: "fee", label: "3 Fee agreed", done: !!j && j.fee > 0, note: !j ? `rate card RM${RATE_CARD_FEE} + review unit` : j.fee > 0 ? `RM${j.fee.toLocaleString("en-MY")}` : `ask for a fee: rate card RM${RATE_CARD_FEE} + review unit` },
+    {
+      id: "invoice", label: "4 Invoiced", done: step === "unpaid" || step === "paid", at: j?.invoicedAt,
+      note: step === "paid" ? `paid ${mytDate(new Date(j!.paidAt!))}` : step === "unpaid" ? "in invoices.md · tick it when the money arrives" : step === "invoice" ? "copy the invoice line into Station/invoices.md" : "after the fee is agreed",
+    },
+    { id: "opened", label: "Brand opened their link", done: !!c.openedAt, at: c.openedAt, note: c.openedAt ? undefined : "optional: send it so they can follow the video" },
   ];
 }
 
@@ -676,6 +818,8 @@ export type SnapshotInput = {
   clients?: ClientRecord[];
   /** Done presses on Needs me (owner view only). */
   done?: DoneMarks;
+  /** Brand requests from the public /onboarding page, waiting for Accept or Decline (owner view only). */
+  requests?: BrandRequest[];
   now: Date;
 };
 
@@ -740,7 +884,7 @@ export function buildSnapshot(input: SnapshotInput): Snapshot {
   ];
 
   const pipeline = client ? undefined
-    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, done: input.done, now });
+    : buildPipeline({ registry: r, gateViews: gates, gates: input.gates, clients: input.clients ?? [], requests: input.requests, inAccount, needsYou, invoiceNote: jobs.find((j) => j.id === "invoice-chase")?.lastMessage, done: input.done, now });
 
   const feed = events[0];
   const account = view.account === "all" ? null : r.accounts.find((a) => a.id === view.account);
@@ -821,7 +965,7 @@ export function parseDoneKey(key: string): { gate: string; account: string; labe
 
 /** The checklist file (name only) a press is carried out in, for the laptop. */
 export const doneFile = (gate: string, a: Account) => (CLEAR_ALL.has(gate) || gate === "final" ? gateFile(gate, a)?.replace(/^Station\//, "") : undefined);
-export type Money = { monthly: number; priced: number; clients: number; invoices?: string; /** Our share of talent jobs. Absent when there is no talent. */ talent?: TalentMoney };
+export type Money = { monthly: number; priced: number; clients: number; invoices?: string; /** Our share of talent jobs. Absent when there is no talent. */ talent?: TalentMoney; /** Brand jobs for @alanazizreview. Absent when there is no brand. */ brand?: BrandMoney };
 
 const STAGES: { id: StageId; name: string; gates: string[] }[] = [
   { id: "audience", name: "Audience", gates: ["dm", "brief"] },
@@ -865,7 +1009,7 @@ export function clientTerms(input: { price?: unknown; perMonth?: unknown }): { o
 }
 
 export type PipelineInput = {
-  registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[];
+  registry: Registry; gateViews: GateView[]; gates: Record<string, GateReading>; clients: ClientRecord[]; requests?: BrandRequest[];
   inAccount: (account: string) => boolean; needsYou: NeedsYou[]; invoiceNote?: string; done?: DoneMarks; now: Date;
 };
 
@@ -900,9 +1044,20 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
   for (const c of clients) {
     if (c.category === "talent") {
       if (c.commission === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the commission for ${c.label}`, detail: "A talent job cannot be added without our percentage", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
-    } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the ${c.category === "brand" ? "fee" : "price"} for ${c.label}`, detail: `Nothing can be invoiced without a ${c.category === "brand" ? "fee per video" : "price per reel"}`, since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
-    if (!c.openedAt) needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    } else if (c.category === "brand") {
+      const jobs = c.brandJobs ?? [];
+      if (!jobs.length) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Add ${c.label}'s job: category and fee`, detail: "What kind of job, for what, and what they pay", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+      for (const j of jobs) {
+        const step = brandJobStep(j), ref = jobRef(j.id), what = `${dealLabel(j.deal)}: ${j.what}`;
+        if (step === "fee") needsMe.push({ key: `fee:${c.id}:${ref}`, stage: "onboard", title: `Ask ${c.label} for a fee`, detail: `${what} · rate card RM${RATE_CARD_FEE} + review unit`, since: `${j.date}T00:00:00+08:00`, overdue: false, where: "Clients tab", client: c.label });
+        if (step === "invoice") needsMe.push({ key: `bill:${c.id}:${ref}`, stage: "paid", title: `Invoice ${c.label} RM${j.fee.toLocaleString("en-MY")}`, detail: what, since: `${j.date}T00:00:00+08:00`, overdue: false, where: "Clients tab → Copy invoice line → Station/invoices.md", client: c.label });
+      }
+    } else if (c.price === undefined) needsMe.push({ key: `price:${c.id}`, stage: "onboard", title: `Set the price for ${c.label}`, detail: "Nothing can be invoiced without a price per reel", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
+    if (!c.openedAt && c.category !== "brand") needsMe.push({ key: `link:${c.id}`, stage: "onboard", title: `Send ${c.label} their private link`, detail: "They have not opened it yet", since: c.createdAt, overdue: false, where: "Clients tab", client: c.label });
   }
+  if (input.inAccount("internal") || input.inAccount("alanazizreview"))
+    for (const q of input.requests ?? [])
+      needsMe.push({ key: `request:${q.id}`, stage: "onboard", title: `New brand request: ${q.brand}`, detail: `${dealLabel(q.deal)}: ${q.what} · ${q.offer ? `offers RM${q.offer.toLocaleString("en-MY")}` : "no fee offered"}`, since: q.at, overdue: now.getTime() - Date.parse(q.at) > 48 * 3600_000, where: "Clients tab → Brand requests", client: q.brand });
   for (const n of input.needsYou) {
     if (n.kind === "gate") continue; // a gate past its window is already on the queue, marked overdue
     // A job's own warning about a gate it reads (e.g. drafts publishing tomorrow) joins that gate's line instead of
@@ -936,19 +1091,23 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
   // A price of 0 is a client you do not charge. Talent never pays a price: what they bring in is our share of each job.
   const priced = clients.filter((c) => !!c.price && c.category !== "talent");
   const talent = talentMoney(clients, today.slice(0, 7));
-  const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote, ...(talent.talents ? { talent } : {}) };
-  const unset = (c: ClientRecord) => (c.category === "talent" ? c.commission === undefined : c.price === undefined);
+  const brand = brandMoney(clients, today.slice(0, 7));
+  const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote, ...(talent.talents ? { talent } : {}), ...(brand.brands ? { brand } : {}) };
+  const unset = (c: ClientRecord) =>
+    c.category === "talent" ? c.commission === undefined
+    : c.category === "brand" ? !c.brandJobs?.length || c.brandJobs.some((j) => brandJobStep(j) === "fee")
+    : c.price === undefined;
 
   const stages: StageView[] = STAGES.map((s, i) => {
     const base = { id: s.id, no: `0${i + 1}`, name: s.name };
     if (s.id === "onboard") {
-      const noPrice = clients.filter(unset), unopened = clients.filter((c) => !c.openedAt);
-      const open = clients.filter((c) => unset(c) || !c.openedAt);
+      const noPrice = clients.filter(unset), unopened = clients.filter((c) => !c.openedAt && c.category !== "brand");
+      const open = clients.filter((c) => unset(c) || (!c.openedAt && c.category !== "brand"));
       return { ...base, waiting: open.length, oldestAt: open.map((c) => c.createdAt).sort()[0], overdue: false, parts: [{ label: "No price yet", waiting: noPrice.length }, { label: "Link not opened", waiting: unopened.length }] };
     }
     const views = input.gateViews.filter((g) => s.gates.includes(g.id));
     const read = views.filter((g) => g.waiting !== null);
-    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients ? "no paying client yet" : undefined, money.talent?.outstanding ? `RM${money.talent.outstanding.toLocaleString("en-MY")} talent commission outstanding` : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
+    const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients && !money.brand?.agreed ? "no paying client yet" : undefined, money.talent?.outstanding ? `RM${money.talent.outstanding.toLocaleString("en-MY")} talent commission outstanding` : undefined, money.brand?.toInvoice ? `RM${money.brand.toInvoice.toLocaleString("en-MY")} brand fees not invoiced` : undefined, money.brand?.outstanding ? `RM${money.brand.outstanding.toLocaleString("en-MY")} brand fees unpaid` : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
       : s.id === "post" ? `${delivered} passed final review in the last 7 days` : undefined;
     return {
       ...base, waiting: read.length ? read.reduce((n, g) => n + g.waiting!, 0) : null, oldestAt: views.map((g) => g.oldestAt).filter((x): x is string => !!x).sort()[0],
@@ -1078,6 +1237,7 @@ const needLine = (n: NeedsMe) => `  • ${n.overdue ? "OVERDUE · " : ""}${n.cli
 const moneyLines = (m: Money) => [
   m.priced ? `  RM${m.monthly.toLocaleString("en-MY")} a month agreed with ${m.priced} of ${m.clients} clients` : m.clients ? `  ${m.clients} client${m.clients === 1 ? "" : "s"}, none with a price yet` : "  No clients yet",
   ...(m.talent ? [`  Talent commission: RM${m.talent.thisMonth.toLocaleString("en-MY")} this month · RM${m.talent.outstanding.toLocaleString("en-MY")} outstanding · RM${m.talent.received.toLocaleString("en-MY")} received (${m.talent.jobs} job${m.talent.jobs === 1 ? "" : "s"})`] : []),
+  ...(m.brand ? [`  Brand jobs: RM${m.brand.agreed.toLocaleString("en-MY")} agreed (${m.brand.jobs} job${m.brand.jobs === 1 ? "" : "s"}) · RM${m.brand.toInvoice.toLocaleString("en-MY")} to invoice · RM${m.brand.outstanding.toLocaleString("en-MY")} unpaid · RM${m.brand.received.toLocaleString("en-MY")} received${m.brand.noFee ? ` · ${m.brand.noFee} without a fee` : ""}`] : []),
   ...(m.invoices ? [`  Invoices: ${m.invoices}`] : []),
 ];
 const systemLines = (s: Snapshot) => {

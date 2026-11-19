@@ -1,5 +1,7 @@
 // Public facts about the site, shared by the metadata, JSON-LD, llms.txt-style Markdown and the trust pages.
-// Dependency-free on purpose so proxy.ts and the tests can import it.
+// Dependency-free on purpose so proxy.ts and the tests can import it. (deals.ts is dependency-free too.)
+
+import { DEAL_TYPES, RATE_CARD_FEE } from "./deals.ts";
 
 export const SITE = "https://ruangkotak.com";
 export const SITE_NAME = "RUANGKOTAK";
@@ -147,10 +149,27 @@ Privacy questions: ${EMAIL}
 [Home](${SITE}/) · [About](${SITE}/about) · [Contact](${SITE}/contact)
 `;
 
+const ONBOARDING_MD = `# Work with @alanazizreview
+
+For brands. Alan reviews creator gear (mics, lights, cameras, phones) hands-on in his studio and posts on Instagram & TikTok.
+
+1. **Register**: who you are and how to reach you.
+2. **Category**: the kind of job: ${DEAL_TYPES.map((d) => d.label).join(", ")}.
+3. **Fee**: RM${RATE_CARD_FEE} plus the review unit for one video on Instagram & TikTok. Gifted and loan jobs still get a fee quote.
+4. **Invoice**: once agreed, an invoice from RUANGKOTAK, due in 14 days.
+
+Brands can check facts and specs before anything goes up; the verdict stays Alan's, paid or not.
+
+Send a job offer with the form at ${SITE}/onboarding. A person reads every request and replies on WhatsApp or email.
+
+[Home](${SITE}/) · [Contact](${SITE}/contact) · [Privacy](${SITE}/privacy)
+`;
+
 export const PAGES: PageSpec[] = [
   { path: "/", title: "RUANGKOTAK", markdown: HOME_MD },
   { path: "/about", title: "About", markdown: ABOUT_MD },
   { path: "/contact", title: "Contact", markdown: CONTACT_MD },
+  { path: "/onboarding", title: "Work with @alanazizreview", markdown: ONBOARDING_MD },
   { path: "/privacy", title: "Privacy Notice", markdown: PRIVACY_MD },
 ];
 

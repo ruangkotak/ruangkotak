@@ -15,6 +15,15 @@
   ],
   "departments": [
     {
+      "id": "onboarding", "no": "01", "name": "Onboarding", "client": false,
+      "desks": [
+        { "id": "registrar", "name": "Register", "agent": "account-director" },
+        { "id": "deal-desk", "name": "Category" },
+        { "id": "rate-desk", "name": "Fee", "agent": "account-director" },
+        { "id": "brand-billing", "name": "Invoice" }
+      ]
+    },
+    {
       "id": "cmo", "no": "02", "name": "CMO", "client": true,
       "desks": [
         { "id": "strategist", "name": "Strategist", "agent": "social-lead" },

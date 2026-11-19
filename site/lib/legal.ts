@@ -32,3 +32,6 @@ export type ConsentRecord = {
 export function consentRecord(sentences: string[], ip: string): ConsentRecord {
   return { version: NOTICE_VERSION, at: new Date().toISOString(), ip, accepted: sentences };
 }
+
+export const ONBOARD_CONSENT =
+  "I agree to the Privacy Notice. RUANGKOTAK may use these details to review this job offer and reply about it, including on service providers outside Malaysia. I am allowed to offer this job for the brand.";

@@ -252,7 +252,7 @@ test("the client view never leaks internal departments, other accounts, infra or
 test("the owner can filter to one account", () => {
   const s = snapshot({ mode: "owner", account: "alanazizreview" });
   assert.deepEqual([...new Set(s.departments.flatMap((d) => d.jobs).map((j) => j.account))], ["alanazizreview"]);
-  assert.equal(s.departments.length, 6);
+  assert.equal(s.departments.length, 7);
 });
 
 // ---------- laptop scheduler ----------
@@ -814,17 +814,91 @@ test("talent jobs: invoices.md decides what is received, matched by a short refe
   assert.equal(syncJobs([c], { paid: [{ ref: "1a2b3c4d" }], open: [] }, now)[0].jobs![0].paidAt, now); // ticked with no date
 });
 
-test("a Brand is asked for a fee per video, everyone else for a price per reel", () => {
+test("a Creator is asked for a price per reel; a Brand goes through Onboarding instead", () => {
   const base = { ...kopi, openedAt: NOW.toISOString() };
   const clients: ClientRecord[] = [{ ...base, id: "brand-co", label: "Brand Co", category: "brand" }, { ...base, id: "creator-co", label: "Creator Co", category: "creator" }, { ...base, id: "plain-co", label: "Plain Co" }];
   const r = withClients(shipped, clients);
   const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients, now: NOW });
   const of = (id: string) => s.needsMe!.find((n) => n.key === `price:${id}`)!;
-  assert.deepEqual([of("brand-co").title, of("brand-co").detail], ["Set the fee for Brand Co", "Nothing can be invoiced without a fee per video"]);
+  assert.deepEqual([of("brand-co").title, of("brand-co").detail], ["Add Brand Co's job: category and fee", "What kind of job, for what, and what they pay"]);
   assert.deepEqual([of("creator-co").title, of("creator-co").detail], ["Set the price for Creator Co", "Nothing can be invoiced without a price per reel"]);
   assert.equal(of("plain-co").title, "Set the price for Plain Co");
-  assert.equal(onboarding(clients[0], {}, {}).find((x) => x.id === "price")!.label, "Fee agreed");
+  assert.deepEqual(onboarding(clients[0], {}, {}).map((x) => [x.id, x.done]), [["register", true], ["category", false], ["fee", false], ["invoice", false], ["opened", true]]);
   assert.equal(onboarding(clients[1], {}, {}).find((x) => x.id === "price")!.label, "Price agreed");
+});
+
+test("onboarding department: register, category, fee, invoice for a brand job", async () => {
+  const { brandJob, brandJobFee, brandJobStep, brandInvoiceLine, brandMoney, syncJobs, checkRegistry } = await import("../lib/station.ts");
+  assert.deepEqual(checkRegistry(shipped), []);
+  assert.deepEqual(shipped.departments[0].desks.map((d) => d.name), ["Register", "Category", "Fee", "Invoice"]);
+  // Category and fee: paid kinds need a fee, gifted and loan may start at 0 (and are then asked for one).
+  assert.deepEqual(brandJob({ deal: "paid-unit", what: " Wireless  Micro ", fee: "500", date: "2026-11-20" }), { ok: true, value: { deal: "paid-unit", what: "Wireless Micro", fee: 500, date: "2026-11-20" } });
+  assert.match((brandJob({ deal: "paid", what: "Mic", fee: "0", date: "2026-11-20" }) as { error: string }).error, /needs a fee/);
+  assert.equal(brandJob({ deal: "gifted", what: "Mic", fee: "", date: "2026-11-20" }).ok, true);
+  assert.equal(brandJob({ deal: "kol", what: "Mic", fee: "1", date: "2026-11-20" }).ok, false);
+  assert.equal(brandJob({ deal: "loan", what: "Mic", fee: "-5", date: "2026-11-20" }).ok, false);
+
+  const gifted = { id: "1a2b3c4d-0000-4000-8000-000000000000", deal: "gifted" as const, what: "Light · Pro", fee: 0, date: "2026-11-18" };
+  const paid = { id: "eeeeeeee-0000-4000-8000-000000000000", deal: "paid" as const, what: "Phone", fee: 800, date: "2026-11-02" };
+  assert.equal(brandJobStep(gifted), "fee");
+  assert.deepEqual(brandJobFee(gifted, "500"), { ok: true, value: 500 });
+  assert.equal(brandJobFee({ ...paid, invoicedAt: NOW.toISOString() }, "900").ok, false); // the file owns it once invoiced
+  assert.equal(brandInvoiceLine({ ...gifted, fee: 500 }, "Brand Co", "2026-11-20"), "- [ ] INV-000 · Brand Co · Gifted review: Light Pro · RM 500 · sent 2026-11-20 · due 2026-12-04 · job 1a2b3c4d");
+
+  const brand: ClientRecord = { ...kopi, id: "brand-co", label: "Brand Co", category: "brand", brandJobs: [gifted, paid] };
+  // Newest job drives the four steps.
+  assert.deepEqual(onboarding(brand, {}, {}).slice(0, 4).map((x) => [x.id, x.done]), [["register", true], ["category", true], ["fee", false], ["invoice", false]]);
+
+  const r = withClients(shipped, [brand]);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: { "invoice:internal": { waiting: 0, at: NOW.toISOString() } }, probes: [], funnel: null, clients: [brand], now: NOW });
+  const keys = s.needsMe!.map((n) => n.key);
+  assert.ok(keys.includes("fee:brand-co:1a2b3c4d"));
+  assert.ok(keys.includes("bill:brand-co:eeeeeeee"));
+  assert.equal(keys.includes("link:brand-co"), false); // a brand is not nagged for its link
+  assert.equal(s.needsMe!.find((n) => n.key === "fee:brand-co:1a2b3c4d")!.title, "Ask Brand Co for a fee");
+  assert.deepEqual(s.money!.brand, { brands: 1, jobs: 2, noFee: 1, agreed: 800, toInvoice: 800, outstanding: 0, received: 0, thisMonth: 800 });
+  assert.match(s.stages!.find((x) => x.id === "paid")!.note!, /RM800 brand fees not invoiced/);
+  assert.match(ownerReport(s), /Brand jobs: RM800 agreed \(2 jobs\) · RM800 to invoice · RM0 unpaid · RM0 received · 1 without a fee/);
+
+  // invoices.md: a line showing up is the Invoice step; ticking it is paid.
+  const now = "2026-11-21T03:00:00.000Z";
+  const [inv] = syncJobs([brand], { paid: [], open: ["eeeeeeee"] }, now);
+  assert.equal(inv.brandJobs![1].invoicedAt, now);
+  assert.equal(brandJobStep(inv.brandJobs![1]), "unpaid");
+  assert.equal(inv.jobs, undefined); // no talent jobs appear out of nowhere
+  const [done] = syncJobs([inv], { paid: [{ ref: "eeeeeeee", on: "2026-11-25" }], open: [] }, "2026-11-26T00:00:00.000Z");
+  assert.deepEqual([done.brandJobs![1].invoicedAt, brandJobStep(done.brandJobs![1])], [now, "paid"]);
+  assert.deepEqual(brandMoney([done], "2026-11").received, 800);
+
+  // None of it reaches the brand's own page.
+  const c = buildSnapshot({ registry: r, view: { mode: "client", account: "brand-co" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [brand], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /brandJobs|Phone|Light|"fee"|onboarding/i);
+});
+
+test("brand requests from the public /onboarding page: checked, shown on Needs me, accepted into a Brand", async () => {
+  const { cleanBrandRequest, acceptBrandRequest } = await import("../lib/station.ts");
+  const ok = cleanBrandRequest({ brand: " Rode ", reach: "+60 12-345 6789", deal: "paid-unit", what: "Wireless Micro", offer: "700", instagram: "https://instagram.com/Rode/", website: "x" });
+  assert.deepEqual(ok, { ok: true, value: { brand: "Rode", reach: "+60 12-345 6789", deal: "paid-unit", what: "Wireless Micro", instagram: "rode", offer: 700 } });
+  assert.equal((cleanBrandRequest({ brand: "Rode", reach: "hi", deal: "paid", what: "Mic" }) as { error: string }).error, "Add a WhatsApp number or an email we can reply to.");
+  assert.equal(cleanBrandRequest({ brand: "Rode", reach: "a@b.co", deal: "kol", what: "Mic" }).ok, false);
+  assert.equal(cleanBrandRequest({ brand: "Rode", reach: "a@b.co", deal: "gifted", what: "Mic", offer: "-1" }).ok, false);
+  assert.equal(cleanBrandRequest(null).ok, false);
+
+  const q = { id: "q1", at: NOW.toISOString(), consentVersion: "v", consentAt: NOW.toISOString(), ...(ok as { value: Record<string, unknown> }).value } as Parameters<typeof acceptBrandRequest>[0];
+  // A new brand becomes a Brand client with the offered fee on its first job.
+  const fresh = acceptBrandRequest(q, [], new Set(), "2026-11-20");
+  assert.deepEqual(fresh, { ok: true, client: { id: "rode", label: "Rode", instagram: "rode" }, job: { deal: "paid-unit", what: "Wireless Micro", fee: 700, date: "2026-11-20" } });
+  // A brand already on the board gets the job instead of a second card.
+  const known: ClientRecord = { ...kopi, id: "rode", label: "Rode", category: "brand", brandJobs: [] };
+  assert.equal((acceptBrandRequest(q, [known], new Set(["rode"]), "2026-11-20") as { existing?: ClientRecord }).existing?.id, "rode");
+  // A creator with the same short name is not taken over: the brand needs another name.
+  assert.equal(acceptBrandRequest(q, [{ ...known, category: "creator" }], new Set(["rode"]), "2026-11-20").ok, false);
+
+  const s = buildSnapshot({ registry: shipped, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [], requests: [q], now: NOW });
+  const n = s.needsMe!.find((x) => x.key === "request:q1")!;
+  assert.deepEqual([n.title, n.detail, n.stage], ["New brand request: Rode", "Paid + unit: Wireless Micro · offers RM700", "onboard"]);
+  const c = buildSnapshot({ registry: withClients(shipped, [kopi]), view: { mode: "client", account: "kopi-kita" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [kopi], requests: [q], now: NOW });
+  assert.doesNotMatch(JSON.stringify(c), /Rode|6789|request/);
 });
 
 test("client history: who was added or removed, and whether from the page or a script", async () => {

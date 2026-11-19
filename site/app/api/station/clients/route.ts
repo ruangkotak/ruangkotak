@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
-import { cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
+import { acceptBrandRequest, BRAND_JOBS_MAX, brandJob, mytDate, brandJobFee, cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
-import { clientLog, clientStore, stationStore } from "@/lib/store";
+import { brandRequestStore, clientLog, clientStore, stationStore } from "@/lib/store";
 
 // The Clients tab: list, add, rotate a link, pause, resume, update, remove. Owner only; anyone else gets a 404.
 // A new or rotated key is returned once and never stored, only its hash. Writes made with the session cookie must come
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const clients = await clientStore.all(); // always fresh: this is the list being edited
   const jobIds = clients.flatMap((c) => [`${c.id}-velocity`, `${c.id}-final-check`]);
   const [runs, gates] = await Promise.all([stationStore.runs(jobIds), stationStore.gates()]);
-  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)), history: await clientLog.list() });
+  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)), history: await clientLog.list(), requests: await brandRequestStore.all() });
 }
 
 export async function POST(req: NextRequest) {
@@ -47,6 +47,30 @@ export async function POST(req: NextRequest) {
       const changed = syncJobs(clients, cleanJobSync(body), now);
       for (const x of changed) await clientStore.save(x);
       return json({ ok: true, changed: changed.length });
+    }
+    // Brand requests from the public /onboarding page. Accept makes (or reuses) the Brand client and adds the job;
+    // decline only deletes the request. Neither sends anything to the brand.
+    if (body.action === "request-accept" || body.action === "request-decline") {
+      const q = (await brandRequestStore.all()).find((x) => x.id === body.requestId);
+      if (!q) return json({ ok: false, error: "That request is gone. Reload the page." }, 404);
+      if (body.action === "request-decline") {
+        await brandRequestStore.remove(q.id);
+        return json({ ok: true });
+      }
+      const taken = new Set([...fileRegistry.accounts.map((a) => a.id), ...clients.map((c) => c.id), ...fileRegistry.jobs.map((j) => j.id)]);
+      const a = acceptBrandRequest(q, clients, taken, mytDate(new Date()));
+      if (!a.ok) return json({ ok: false, error: a.error }, 400);
+      const job = { id: randomUUID(), ...a.job };
+      if (a.existing) {
+        if ((a.existing.brandJobs?.length ?? 0) >= BRAND_JOBS_MAX) return json({ ok: false, error: "That brand has too many jobs. Remove old ones first." }, 400);
+        await clientStore.save({ ...a.existing, brandJobs: [...(a.existing.brandJobs ?? []), job] });
+      } else {
+        const client: ClientRecord = { ...a.client, createdAt: now, keyHash: hashKey(newClientKey()), status: "active", category: "brand", brandJobs: [job] };
+        await clientStore.save(client);
+        await clientLog.add(clientLogEntry("added", client, viaKey, now));
+      }
+      await brandRequestStore.remove(q.id);
+      return json({ ok: true, id: a.client.id, existing: !!a.existing });
     }
     const c = clients.find((x) => x.id === body.id);
     if (!c) return json({ ok: false, error: "No such client." }, 404);
@@ -87,6 +111,28 @@ export async function POST(req: NextRequest) {
     if (body.action === "job-remove") {
       if (!c.jobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
       await clientStore.save({ ...c, jobs: c.jobs.filter((j) => j.id !== body.jobId) });
+      return json({ ok: true });
+    }
+    // Brand jobs: the Onboarding department's category, fee and invoice steps for a brand offering a job.
+    if (body.action === "brand-job-add") {
+      if (c.category !== "brand") return json({ ok: false, error: "Brand jobs are for Brand clients only." }, 400);
+      if ((c.brandJobs?.length ?? 0) >= BRAND_JOBS_MAX) return json({ ok: false, error: "That is a lot of jobs. Remove old ones first." }, 400);
+      const j = brandJob(body);
+      if (!j.ok) return json({ ok: false, error: j.error }, 400);
+      await clientStore.save({ ...c, brandJobs: [...(c.brandJobs ?? []), { id: randomUUID(), ...j.value }] });
+      return json({ ok: true });
+    }
+    if (body.action === "brand-job-fee") {
+      const j = c.brandJobs?.find((x) => x.id === body.jobId);
+      if (!j) return json({ ok: false, error: "No such job." }, 404);
+      const fee = brandJobFee(j, body.fee);
+      if (!fee.ok) return json({ ok: false, error: fee.error }, 400);
+      await clientStore.save({ ...c, brandJobs: c.brandJobs!.map((x) => (x.id === j.id ? { ...x, fee: fee.value } : x)) });
+      return json({ ok: true });
+    }
+    if (body.action === "brand-job-remove") {
+      if (!c.brandJobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
+      await clientStore.save({ ...c, brandJobs: c.brandJobs.filter((j) => j.id !== body.jobId) });
       return json({ ok: true });
     }
     if (body.action === "remove") {
