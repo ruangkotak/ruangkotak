@@ -1,8 +1,9 @@
 // Router, every 15 minutes: send each new ask to a desk.
 // Asks live in <vault>/Station/Asks.md (created on first run): one line per ask, "- [ ] cut the hook for reel 14".
 // A #tag picks the desk (#editor, #billing-clerk, #cdo …); otherwise the first keyword that names the work does
-// ("caption" → Caption Editor, "invoice" → Billing Clerk). The line gets "→ Desk" and a hidden marker. An ask no desk
-// matches is marked "→ ? (add a #desk)" and checked again each run until it gets one; those go to Needs you.
+// ("caption" → Caption Editor, "invoice" → Billing Clerk). The line gets "→ Desk" and a hidden marker. An ask no tag or
+// keyword matches goes to the default desk (COO Lead) as "→ COO Lead (default)"; retag the line to move it. Only if the
+// registry has no default desk is it marked "→ ? (add a #desk)" and sent to Needs you.
 // Station gets counts per desk, never the ask text.
 // Asks typed on KNOX's Needs me tab wait on the site (KNOX cannot reach this folder). Each run collects them first
 // (/api/station/asks, owner key), writes each as a new line here, and tells KNOX, which then deletes its copy.
@@ -28,7 +29,7 @@ const KEYWORDS: [RegExp, string][] = [
   [/^(post|publish|schedule|upload)$/, "publisher"],
   [/^(shoot|film|filming|recce)$/, "shoot-producer"],
   [/^(invoice|invoices|payment|bill|billing|receipt)$/, "billing-clerk"],
-  [/^(quote|proposal|client|onboard|onboarding)$/, "account-manager"],
+  [/^(quote|quotes|proposal|proposals|client|clients|onboard|onboarding)$/, "account-manager"],
   [/^(website|site|bug|deploy|landing)$/, "web-builder"],
   [/^(analytics|insights|views|report|metrics)$/, "performance-analyst"],
   [/^(scrape|scraper)$/, "scrape-agent"],
@@ -60,10 +61,13 @@ export function deskFor(text: string, desks: DeskRef[]): DeskRef | null {
 }
 
 const UNROUTED = " · → ? (add a #desk)";
+/** The desk that takes an ask nothing else matches: the COO's lead runs general operations. */
+export const DEFAULT_DESK = "coo-lead";
 
 /** Pure: routes new asks and re-tries unrouted ones. Returns the new text and counts. */
 export function route(text: string, desks: DeskRef[], now: string) {
   const routed: DeskRef[] = [];
+  const fallback = desks.find((d) => d.id === DEFAULT_DESK) ?? null;
   // Re-try asks marked unrouted: strip their suffix and marker so they are new again.
   const retried = text
     .split("\n")
@@ -72,13 +76,15 @@ export function route(text: string, desks: DeskRef[], now: string) {
       if (!item || item.ticked || item.marker?.desk !== "none") return line;
       // Only touch the line once a desk matches, so an ask that still matches nothing is never rewritten.
       const bare = line.replace(/ <!-- rk:[^>]*-->\s*$/, "").replace(UNROUTED, "");
-      return deskFor(bare, desks) ? bare : line;
+      return deskFor(bare, desks) || fallback ? bare : line;
     })
     .join("\n");
   const { text: out } = markNewLines(retried, now, (line) => {
-    const desk = deskFor(line, desks);
+    const matched = deskFor(line, desks);
+    const desk = matched ?? fallback;
     if (desk) routed.push(desk);
-    return { text: `${line.trimEnd()}${desk ? ` · → ${desk.name}` : UNROUTED}`, fields: { desk: desk?.id ?? "none" } };
+    const suffix = matched ? ` · → ${matched.name}` : desk ? ` · → ${desk.name} (default)` : UNROUTED;
+    return { text: `${line.trimEnd()}${suffix}`, fields: { desk: desk?.id ?? "none" } };
   });
   let open = 0, unrouted = 0;
   for (const line of out.split("\n")) {
