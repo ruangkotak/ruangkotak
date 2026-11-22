@@ -598,3 +598,91 @@ test("invoice-chase: reads talent job references from invoices.md, and only thos
   assert.deepEqual(jobSync(invoices), { paid: [{ ref: "1a2b3c4d", on: "2026-11-20" }, { ref: "cccccccc" }], open: ["bbbbbbbb"] });
   assert.deepEqual(jobSync(parseInvoices("- [ ] INV-1 · Brand · RM 5", "2026-11-21").invoices), { paid: [], open: [] });
 });
+
+// ---------- posting week: count, pace, formats, the Monday plan ----------
+
+import { awaitingReview, behindPace, formatOf, postingWeek, postTarget } from "../scripts/station/jobs/board-completeness.mts";
+import { FORMATS_TEMPLATE, formatStats, parseFormats, pickFormats, planSlots, planWeek, POSTING_HEADER, reelCode, slotText, upsertPosting, weekRow, type Linked } from "../scripts/station/jobs/posting-week.mts";
+
+const pw = (day: string, status: string, format?: string, instagram?: string): Linked => ({ day, file: `${day}/post.md`, status, changedAt: `${day}T01:00:00.000Z`, ...(format ? { format } : {}), ...(instagram ? { instagram } : {}) });
+
+test("the posting week counts live posts Monday to Sunday and the weeks in a row that hit the target", () => {
+  // Weeks of 9 Nov and 16 Nov both reached 2; this week (23 Nov) has 1 live so far and 1 planned.
+  const posts = [pw("2026-11-09", "PUBLISHED"), pw("2026-11-12", "LIVE"), pw("2026-11-16", "POSTED"), pw("2026-11-22", "PUBLISHED"), pw("2026-11-23", "PUBLISHED"), pw("2026-11-25", "PLANNED"), pw("2026-11-24", "DRAFT")];
+  assert.deepEqual(postingWeek(posts, "2026-11-25", 2), { start: "2026-11-23", posted: 1, target: 2, planned: 1, streak: 2 });
+  assert.equal(postingWeek([...posts, pw("2026-11-29", "PUBLISHED")], "2026-11-29", 2).streak, 3, "this week counts once it is hit");
+  assert.equal(postingWeek(posts, "2026-11-25", 7).streak, 0);
+});
+
+test("behind pace only once the days already gone needed more posts than are live", () => {
+  const week = { start: "2026-11-23", posted: 1, target: 7, planned: 0, streak: 0 };
+  assert.equal(behindPace(week, "2026-11-23"), undefined, "Monday: nothing expected yet");
+  assert.equal(behindPace(week, "2026-11-24"), undefined, "one day gone, one expected");
+  assert.equal(behindPace(week, "2026-11-26"), "posting behind: 1 of 7 live this week, 3 expected by now");
+});
+
+test("a PLANNED slot fills a day but is not a draft for review; the week rides on the Post gate only with a target", () => {
+  assert.equal(awaitingReview("PLANNED"), false);
+  assert.equal(awaitingReview("DRAFT"), true);
+  const posts = [pw("2026-11-23", "PLANNED"), pw("2026-11-24", "DRAFT")];
+  const r = review(posts, "2026-11-23", 7);
+  assert.deepEqual(r.gates![0], { gate: "review", waiting: 1, oldestAt: "2026-11-24T01:00:00.000Z" });
+  assert.deepEqual(r.gates![1].week, { start: "2026-11-23", posted: 0, target: 7, planned: 1, streak: 0 });
+  assert.match(r.message, /^this week: 0 of 7 live, 1 only planned · next 7 days: 2 posts on 2 of 7 days · 1 draft waiting/);
+  assert.match(r.attention!, /1 planned slot within a day has no script yet/);
+  assert.equal(review(posts, "2026-11-23").gates![1].week, undefined, "the old call stays as it was");
+  assert.equal(postTarget({}), 7);
+  assert.equal(postTarget({ STATION_POST_TARGET: "4" }), 4);
+  assert.equal(postTarget({ STATION_POST_TARGET: "lots" }), 7);
+});
+
+test("a post's format is read from its **Format:** line", () => {
+  assert.equal(formatOf("**Format:** Sound test · **Platforms:** Instagram & TikTok\n"), "Sound test");
+  assert.equal(formatOf("**Pillar:** Reviews\n"), undefined);
+  assert.equal(formatOf(slotText("2026-11-23", "Versus")), "Versus");
+  assert.deepEqual(parseFormats(FORMATS_TEMPLATE).length, 7);
+  assert.deepEqual(parseFormats("# F\n- A\n- [ ] not a format\n* B\n- A\n"), ["A", "B"]);
+});
+
+test("formats are ranked by median plays, the best two get a second slot, untried formats still get a turn", () => {
+  const plays = new Map([["a1", 100], ["a2", 300], ["b1", 5000], ["b2", 7000], ["c1", 1000], ["c2", 1200]]);
+  const ig = (code: string) => `https://www.instagram.com/reel/${code}/`;
+  assert.equal(reelCode(ig("C0de_-x")), "C0de_-x");
+  assert.equal(reelCode("https://www.instagram.com/alanazizreview/p/XYZ/"), "XYZ");
+  const posts = [pw("2026-11-02", "PUBLISHED", "A", ig("a1")), pw("2026-11-03", "PUBLISHED", "A", ig("a2")), pw("2026-11-04", "PUBLISHED", "B", ig("b1")), pw("2026-11-05", "LIVE", "B", ig("b2")), pw("2026-11-06", "PUBLISHED", "C", ig("c1")), pw("2026-11-07", "PUBLISHED", "C", ig("c2")), pw("2026-11-08", "DRAFT", "D")];
+  const stats = formatStats(posts, plays, ["A", "B", "C", "D", "E"]);
+  assert.deepEqual(stats.find((s) => s.format === "B"), { format: "B", live: 2, withPlays: 2, median: 6000 });
+  assert.deepEqual(stats.find((s) => s.format === "D"), { format: "D", live: 0, withPlays: 0, median: null });
+  const seven = pickFormats(["A", "B", "C", "D", "E"], stats, 7);
+  assert.deepEqual(seven, ["B", "C", "B", "C", "D", "E", "A"]);
+  assert.ok(seven.every((f, i) => f !== seven[i - 1]), "never the same format two days running");
+  assert.deepEqual(pickFormats(["A", "B"], [], 3), ["A", "B", "A"], "no data yet: list order");
+  assert.deepEqual(pickFormats([], [], 2), ["Open format", "Open format"]);
+});
+
+test("the plan fills empty days from today to Sunday up to the target, and weekends plan next week", () => {
+  assert.equal(planWeek("2026-11-22"), "2026-11-23", "Sunday plans the coming week");
+  assert.equal(planWeek("2026-11-25"), "2026-11-23", "Wednesday plans the rest of this week");
+  const posts = [pw("2026-11-23", "DRAFT"), pw("2026-11-25", "REJECTED"), pw("2026-11-26", "TESTED")];
+  const slots = planSlots(posts, "2026-11-22", 7, ["A", "B"], []);
+  assert.deepEqual(slots.map((s) => s.day), ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27", "2026-11-28", "2026-11-29"], "a rejected or tested day is free again");
+  assert.equal(planSlots(posts, "2026-11-22", 3, ["A"], []).length, 2, "1 post already in the week, 2 more reach 3");
+  assert.deepEqual(planSlots(posts, "2026-11-27", 7, ["A"], []).map((s) => s.day), ["2026-11-27", "2026-11-28", "2026-11-29"], "past days are never planned");
+});
+
+test("Posting.md: one row per week, replaced on a second run, and the formats table rewritten", () => {
+  const plays = new Map([["x", 4200]]);
+  const posts = [pw("2026-11-16", "PUBLISHED", "Versus", "https://www.instagram.com/reel/x/"), pw("2026-11-18", "PUBLISHED", "Sound test"), pw("2026-11-19", "DRAFT", "Quick tip")];
+  const row = weekRow("2026-11-16", posts, plays, 7);
+  assert.equal(row, "| 2026-11-16 | 2 | 7 | no | Versus, Sound test | 2026-11-16 Versus (4,200) |");
+  const stats = formatStats(posts, plays, ["Versus", "Sound test"]);
+  const once = upsertPosting("", row, "2026-11-16", stats);
+  assert.ok(once.startsWith(POSTING_HEADER));
+  assert.match(once, /\| Versus \| 1 \| 1 \| 4,200 \|/);
+  const twice = upsertPosting(once, row.replace("| 2 |", "| 3 |"), "2026-11-16", stats);
+  assert.equal(twice.split("| 2026-11-16 |").length, 2, "the same week is replaced, not added");
+  assert.equal(twice.split("## Formats").length, 2);
+  const next = upsertPosting(twice, "| 2026-11-23 | 7 | 7 | yes | - | - |", "2026-11-23", stats);
+  assert.ok(next.indexOf("| 2026-11-16 |") < next.indexOf("| 2026-11-23 |"));
+  assert.ok(next.indexOf("| 2026-11-23 |") < next.indexOf("## Formats"));
+});

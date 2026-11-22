@@ -86,7 +86,8 @@
   "jobs": [
     { "id": "ig-comment-dm", "desk": "funnel-operator", "schedule": "every 15m", "account": "alanazizreview" },
     { "id": "ig-velocity-6h", "desk": "performance-analyst", "schedule": "0 */6 * * *", "account": "alanazizreview", "script": "ig-velocity" },
-    { "id": "board-completeness", "desk": "cmo-reviewer", "schedule": "0 9 * * *", "account": "internal" },
+    { "id": "board-completeness", "desk": "cmo-reviewer", "schedule": "every 1h", "account": "internal" },
+    { "id": "posting-week", "desk": "strategist", "schedule": "30 9 * * 1", "account": "alanazizreview" },
     { "id": "vault-conflict-scan", "desk": "librarian", "schedule": "every 30m", "account": "internal" },
     { "id": "reminder-check", "desk": "digest-editor", "schedule": "0 8,20 * * *", "account": "internal" },
     { "id": "brief-sweep", "desk": "dispatcher", "schedule": "0 7 * * 1-6", "account": "internal" },
