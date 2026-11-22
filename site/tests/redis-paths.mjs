@@ -116,5 +116,27 @@ assert.equal((await post("/api/station/clients", { action: "request-decline", re
 assert.equal((await get("/api/station/clients")).requests.length, 0);
 step("brand requests: public form, accept, fee, invoiced, paid; decline");
 
+// Production on the brand job: brief → laptop writes → client link → flag → approve; removing the job removes it.
+const prodGet = async () => (await get("/api/station/production")).productions;
+assert.equal((await post("/api/station/production", { action: "brief", clientId: "redis-brand", jobId: bj.id, brief: "Product X. Show battery, screen and weight. Deadline 5 Dec.", write: true })).ok, true);
+const pk = `redis-brand:${bj.id}`;
+assert.deepEqual((await get("/api/station/production?pending=1")).pending.map((x) => x.key), [pk]);
+assert.equal((await post("/api/station/production", { action: "written", key: pk, script: "Hello", storyboard: "1. Shot", notes: "Hook B" })).applied, true);
+const sent = await post("/api/station/production", { action: "send", key: pk });
+assert.equal(sent.production.stage, "client");
+const tok = sent.production.token;
+const view = await (await fetch(`${base}/api/review?t=${tok}`)).json();
+assert.deepEqual(Object.keys(view).sort(), ["brand", "script", "state", "storyboard", "what"]);
+const flag = await (await fetch(`${base}/api/review`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: tok, decision: "changes", note: "Weight is 1.2 kg" }) })).json();
+assert.equal(flag.view.state, "changes");
+assert.ok((await get("/api/station/state")).needsMe.some((n) => n.key === `prod:${pk}`));
+assert.equal((await post("/api/station/production", { action: "send", key: pk })).production.token, tok);
+const ok2 = await (await fetch(`${base}/api/review`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: tok, decision: "approve" }) })).json();
+assert.equal(ok2.view.state, "approved");
+assert.equal((await prodGet())[0].stage, "approved");
+assert.equal((await post("/api/station/clients", { action: "brand-job-remove", id: "redis-brand", jobId: bj.id })).ok, true);
+assert.equal((await prodGet()).length, 0);
+step("production: brief, write, client link, flag, approve, removed with its job");
+
 const seen = await (await fetch(fake + "/_seen")).json();
 console.log("redis commands exercised:", seen.join(" "));

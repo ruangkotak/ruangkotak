@@ -73,7 +73,7 @@ export function claudeArgs(prompt: string, instructions: string) {
   return ["-p", prompt, "--output-format", "json", "--append-system-prompt", instructions, "--allowedTools", TOOLS.join(","), "--disallowedTools", BLOCKED.join(","), "--max-turns", "8"];
 }
 
-function runClaude(args: string[], cwd: string): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
+export function runClaude(args: string[], cwd: string): Promise<{ ok: true; text: string } | { ok: false; reason: string }> {
   return new Promise((done) =>
     execFile("claude", args, { cwd, timeout: TIMEOUT_MS, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
       let out: { result?: string; is_error?: boolean; subtype?: string } | null = null;
