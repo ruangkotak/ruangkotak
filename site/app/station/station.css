@@ -93,10 +93,14 @@
 .st-rail { position: absolute; left: 0; right: 0; top: 102px; height: 1px; background: var(--line); }
 .st-say { margin-top: auto; min-height: 36px; overflow: hidden; font-size: 12px; line-height: 1.5; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .st-say b { font-weight: 500; color: var(--ink); }
+.st-goal { margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 400 11px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
+.st-goal b { font-weight: 500; color: var(--ink); }
 @media (max-width: 640px) {
   .st-station { padding: 10px 6px 8px; }
   .st-station h3 { font-size: 8.5px; letter-spacing: 0.04em; }
   .st-say { font-size: 10.5px; line-height: 1.35; min-height: 42px; -webkit-line-clamp: 3; }
+  .st-goal { font-size: 9.5px; }
+  .st-goal-streak { display: none; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .st-station .st-bot[data-moved] { animation: st-walk-far 1.6s ease-in-out; }

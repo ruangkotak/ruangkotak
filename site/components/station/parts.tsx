@@ -368,6 +368,11 @@ export function Stages({ stages, now }: { stages: StageView[]; now: number }) {
           {stages.map((s) => (
             <li key={s.id} className="st-station" data-late={s.overdue || undefined}>
               <h3><span className="truncate"><span className="mr-1.5">{s.no}</span>{s.name}</span><b className={s.overdue ? "text-bad" : s.waiting ? "text-mark" : ""}>{s.waiting ?? "–"}</b></h3>
+              {s.week && (
+                <p className="st-goal" title={`${s.week.posted} of ${s.week.target} posts live this week${s.week.streak ? `, ${s.week.streak}-week streak` : ""}`}>
+                  Week <b className={s.week.posted >= s.week.target ? "text-mark" : ""}>{s.week.posted}/{s.week.target}</b>{s.week.streak ? <span className="st-goal-streak"> · {s.week.streak}w streak</span> : null}
+                </p>
+              )}
               <StageBot s={s} moved={moved.includes(s.id)} />
               <div className="st-say"><b>{STAGE_BOT[s.id].name}</b> · {say(s)}{s.overdue ? " · overdue" : ""}</div>
             </li>
