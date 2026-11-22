@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { notifyTelegram } from "./notify";
 import { latestReels } from "./source";
 import { SITE } from "./site";
-import { alertStore, askStore, clientStore, doneStore, stationStore } from "./store";
+import { alertStore, askStore, brandRequestStore, clientStore, doneStore, stationStore } from "./store";
 import { dailyCounts } from "./track";
 import {
   alertable, alertText, applyBeat, ASK_PENDING_MAX, buildSnapshot, cleanAsk, COOKIE, cookieScope, reelsDue, reelsMessage, reelTargets, siteProbe, eventFor, keyScope, planAlerts, resolveView, withClients,
@@ -153,20 +153,21 @@ const panelAccount = (r: Registry, view: View) =>
 
 export async function getSnapshot(view: View, now = new Date(), live?: Live): Promise<Snapshot> {
   const { registry, clients } = live ?? (await liveRegistry());
-  const [runs, events, gates, seen, reels, done] = await Promise.all([
+  const [runs, events, gates, seen, reels, done, requests] = await Promise.all([
     stationStore.runs(registry.jobs.map((j) => j.id)),
     stationStore.events(500),
     stationStore.gates(),
     stationStore.seen(),
     panelAccount(registry, view) ? stationStore.reels(panelAccount(registry, view)!) : Promise.resolve([]),
     view.mode === "owner" ? doneStore.all() : Promise.resolve({}),
+    view.mode === "owner" ? brandRequestStore.all().catch(() => []) : Promise.resolve([]),
   ]);
   const wantsFunnel = view.account === "all" || registry.accounts.find((a) => a.id === view.account)?.funnel === "site";
   const [infra, funnel] = await Promise.all([
     view.mode === "owner" ? probes(seen, now) : Promise.resolve([]),
     wantsFunnel ? dailyCounts(7).catch((err) => (console.error("[station] funnel", err), "error" as const)) : Promise.resolve(null),
   ]);
-  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, reels, clients, done, now });
+  const snap = buildSnapshot({ registry, view, runs, events, gates, probes: infra, funnel, reels, clients, done, requests, now });
   return view.mode === "owner" ? { ...snap, alerts: telegramReady() } : snap;
 }
 

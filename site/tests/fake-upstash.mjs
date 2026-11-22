@@ -30,6 +30,7 @@ function run([name, ...a]) {
     case "HSET": { const h = hashes.get(a[0]) ?? new Map(); hashes.set(a[0], h); const fresh = h.has(a[1]) ? 0 : 1; h.set(a[1], String(a[2])); return fresh; }
     case "HGET": return hashes.get(a[0])?.get(a[1]) ?? null;
     case "HGETALL": return [...(hashes.get(a[0]) ?? [])].flat();
+    case "HLEN": return hashes.get(a[0])?.size ?? 0;
     case "HDEL": { const h = hashes.get(a[0]); let n = 0; for (const f of a.slice(1)) if (h?.delete(f)) n++; return n; }
     case "LPUSH": { const l = lists.get(a[0]) ?? []; lists.set(a[0], l); l.unshift(String(a[1])); return l.length; }
     case "RPUSH": { const l = lists.get(a[0]) ?? []; lists.set(a[0], l); l.push(String(a[1])); return l.length; }

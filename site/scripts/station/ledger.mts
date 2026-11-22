@@ -12,7 +12,7 @@ import { dirname } from "node:path";
 import { parseDay } from "./jobs/reminder-check.mts";
 
 export type Money = { currency: string; amount: number };
-/** `job` is the short reference of a talent job ("job 1a2b3c4d") when the line is our commission on one. */
+/** `job` is the short reference of a talent or brand job ("job 1a2b3c4d") when the line bills one. */
 export type Invoice = { paid: boolean; label: string; money: Money; sent?: string; due?: string; paidOn?: string; job?: string };
 export type Cost = { label: string; money: Money; per: "mo" | "yr"; renews?: string };
 
@@ -95,7 +95,7 @@ export const INVOICES_TEMPLATE = `# Invoices
 
 One line per invoice. Tick it when paid and add "paid <date>". KNOX counts the unticked ones (gate: Invoice);
 anything past its due date goes to Needs you.
-A line ending in "job <reference>" is our commission on a talent job: copy it from the talent's card on the Clients tab.
+A line ending in "job <reference>" is a talent or brand job: copy it from that card on the Clients tab.
 Ticking it here is what marks that job received on the board.
 
 <!-- Example (lines inside this comment are ignored):

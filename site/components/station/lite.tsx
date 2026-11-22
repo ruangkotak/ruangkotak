@@ -139,13 +139,14 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
       .then((d) => live && setClients(d.clients))
       .catch((e) => live && setError((e as Error).message));
     return () => { live = false; };
-  }, [snap.money?.monthly, snap.money?.clients, snap.money?.priced, snap.money?.talent?.cut, snap.money?.talent?.outstanding]);
+  }, [snap.money?.monthly, snap.money?.clients, snap.money?.priced, snap.money?.talent?.cut, snap.money?.talent?.outstanding, snap.money?.brand?.agreed, snap.money?.brand?.outstanding]);
 
   const m = snap.money;
   const paid = snap.stages?.find((s) => s.id === "paid");
   const tiles: [string, string, string][] = [
-    ["Agreed a month", rm(m?.monthly ?? 0), m?.priced ? `from ${m.priced} paying client${m.priced === 1 ? "" : "s"}` : "no paying client yet"],
-    ["Active clients", String(m?.clients ?? 0), `${m?.priced ?? 0} with a price above RM0`],
+    // Brand fees are per job, not a month: they are counted under KNOX Brand jobs, so this tile only says where they are.
+    ["Agreed a month", rm(m?.monthly ?? 0), m?.priced ? `from ${m.priced} paying client${m.priced === 1 ? "" : "s"}` : m?.brand?.agreed ? `no monthly client · ${rm(m.brand.agreed)} in brand fees below` : "no paying client yet"],
+    ["Active clients", String(m?.clients ?? 0), `${m?.priced ?? 0} on a monthly price${m?.brand?.brands ? ` · ${m.brand.brands} brand${m.brand.brands === 1 ? "" : "s"} paid per job` : ""}`],
     ["Invoices waiting", paid?.waiting === null || paid?.waiting === undefined ? "–" : String(paid.waiting), paid?.waiting === null ? "not counted yet" : paid?.overdue ? "past their window" : "on the invoice checklist"],
   ];
   return (
@@ -181,7 +182,7 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
                   <tr key={c.id}>
                     <td className="border-b border-line px-2 py-2">{c.label}</td>
                     <td className="border-b border-line px-2 py-2 text-muted">{CLIENT_CATEGORIES.find((k) => k.id === c.category)?.label ?? "not set"}</td>
-                    <td className="num border-b border-line px-2 py-2">{c.category === "talent" ? (c.commission === undefined ? <span className="text-mark">% not set</span> : `${c.commission}% per job`) : c.price === undefined ? <span className="text-mark">not set</span> : rm(c.price)}</td>
+                    <td className="num border-b border-line px-2 py-2">{c.category === "talent" ? (c.commission === undefined ? <span className="text-mark">% not set</span> : `${c.commission}% per job`) : c.category === "brand" && c.price === undefined ? <span className="text-muted">per job · see Brand jobs</span> : c.price === undefined ? <span className="text-mark">not set</span> : rm(c.price)}</td>
                     <td className="num border-b border-line px-2 py-2">{c.category === "talent" ? "–" : c.perMonth ?? "–"}</td>
                     <td className="num border-b border-line px-2 py-2">{c.category !== "talent" && c.price !== undefined && c.perMonth ? rm(c.price * c.perMonth) : "–"}</td>
                     <td className="border-b border-line px-2 py-2 text-muted">{c.status}</td>
@@ -232,6 +233,25 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
             </div>
           )}
           <p className="mt-2.5 text-[11.5px] text-muted">Our share is the job fee times the percentage on that job. Add jobs on the talent&apos;s card in the Clients tab. A job counts as received once its invoice line is ticked in Station/invoices.md. This is kept apart from "Agreed a month", which is retainers and brand fees only.</p>
+        </section>
+      )}
+
+      {m?.brand && (
+        <section className="st-card px-3.5 py-3">
+          <H2>KNOX Brand jobs</H2>
+          <dl className="grid gap-2 sm:grid-cols-4">
+            {([["This month", m.brand.thisMonth, "fees on jobs dated this month"], ["To invoice", m.brand.toInvoice, "fee agreed, no line in invoices.md yet"], ["Unpaid", m.brand.outstanding, "in invoices.md, not ticked"], ["Received", m.brand.received, `of ${rm(m.brand.agreed)} across ${m.brand.jobs} job${m.brand.jobs === 1 ? "" : "s"}`]] as [string, number, string][]).map(([label, value, note]) => (
+              <div key={label} className="st-tile px-3 py-2.5">
+                <dt className="label">{label}</dt>
+                <dd className={`num mt-1.5 text-[22px] leading-none ${(label === "To invoice" || label === "Unpaid") && value ? "text-mark" : ""}`}>{rm(value)}</dd>
+                <dd className="mt-1 text-[11px] text-muted">{note}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2.5 text-[11.5px] text-muted">
+            {m.brand.noFee ? <><span className="text-mark">{m.brand.noFee} job{m.brand.noFee === 1 ? "" : "s"} without a fee: ask for one.</span> </> : null}
+            Jobs are added on each brand&apos;s card in the <button type="button" onClick={onClients} className="underline underline-offset-2 hover:text-ink">Clients tab</button> (register, category, fee, invoice). Paid is decided in Station/invoices.md.
+          </p>
         </section>
       )}
 
@@ -308,7 +328,7 @@ export function HowTab() {
         <H2>KNOX In plain words</H2>
         <ol className="flex max-w-[72ch] list-decimal flex-col gap-1.5 pl-5">
           <li><b>Audience.</b> New comments, DMs and briefs are counted from your notes. You reply yourself, then press Done or Clear all.</li>
-          <li><b>Onboard.</b> Add a client on the Clients tab, pick its category, set the price (or the commission for a Talent) and send them their private link.</li>
+          <li><b>Onboard.</b> Add a client on the Clients tab, pick its category, set the price (or the commission for a Talent) and send them their private link. A Brand offering @alanazizreview a job goes through the Onboarding department instead: register the brand, add the job with its category and fee (ask for a fee even on gifted and loan jobs), then copy its invoice line into Station/invoices.md.</li>
           <li><b>Make.</b> Drafts wait for your Approve or Reject on Needs me. Finished pieces wait for your final check.</li>
           <li><b>Post.</b> Anything approved and not yet live is counted here. You post it by hand. KNOX never touches Instagram.</li>
           <li><b>Paid.</b> Open invoices are counted from your invoice checklist. You send them and confirm the money.</li>

@@ -2,7 +2,7 @@
 // Live: Upstash Redis over its REST API when UPSTASH_REDIS_REST_URL/TOKEN are set (required on Vercel, where memory resets per instance).
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
-import type { Alerted, AskRecord, ClientLogEntry, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Alerted, AskRecord, BrandRequest, ClientLogEntry, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -368,4 +368,26 @@ export const clientLog = REDIS
   : {
       list: async (): Promise<ClientLogEntry[]> => [...clmem],
       add: async (e: ClientLogEntry) => void clmem.splice(0, clmem.length, e, ...clmem.slice(0, CLIENT_LOG_KEEP - 1)),
+    };
+
+// ---------- Station: brand requests from the public /onboarding page ----------
+// st:brandreq = hash of request id -> BrandRequest. Held until the owner accepts or declines it on the Clients tab.
+const gq = globalThis as unknown as { __rkBrandReq?: Record<string, BrandRequest> };
+const reqmem = (gq.__rkBrandReq ??= {});
+
+export const brandRequestStore = REDIS
+  ? {
+      all: async (): Promise<BrandRequest[]> => {
+        const out = Object.values(pairs(await redis<string[] | null>("HGETALL", "st:brandreq"), (v) => JSON.parse(v) as BrandRequest));
+        return out.sort((a, b) => a.at.localeCompare(b.at));
+      },
+      count: async (): Promise<number> => Number(await redis<number>("HLEN", "st:brandreq")),
+      add: async (q: BrandRequest) => void (await redis("HSET", "st:brandreq", q.id, JSON.stringify(q))),
+      remove: async (id: string) => void (await redis("HDEL", "st:brandreq", id)),
+    }
+  : {
+      all: async (): Promise<BrandRequest[]> => Object.values(reqmem).sort((a, b) => a.at.localeCompare(b.at)),
+      count: async (): Promise<number> => Object.keys(reqmem).length,
+      add: async (q: BrandRequest) => void (reqmem[q.id] = q),
+      remove: async (id: string) => void delete reqmem[id],
     };

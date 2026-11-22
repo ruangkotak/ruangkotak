@@ -2,7 +2,7 @@
 // Reads <vault>/Station/invoices.md (created on first run with instructions). Station's Invoice gate counts the unpaid
 // ones; any invoice past its due date goes to Needs you.
 // Station gets counts and totals; invoice numbers and client names stay in the file.
-// A line ending in "job <reference>" is our commission on a talent job. Whether it is ticked here decides whether the
+// A line ending in "job <reference>" bills a talent or brand job. Whether it is ticked here decides whether the
 // board shows that job as received, so the references (and the paid date) are sent to Station: nothing else about the line.
 import { join } from "node:path";
 import type { JobContext, JobResult } from "../client.mts";
@@ -11,7 +11,7 @@ import { plural, stationFolder } from "../queue.mts";
 import { mytDay } from "./reminder-check.mts";
 
 
-/** Pure: which talent-job references invoices.md shows as paid (with the date) and which as still open. */
+/** Pure: which job references invoices.md shows as paid (with the date) and which as still open. */
 export function jobSync(invoices: Invoice[]) {
   const paid = new Map<string, string | undefined>();
   const open = new Set<string>();
@@ -47,9 +47,9 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       method: "POST", headers: { "content-type": "application/json", "x-station-key": ctx.env.STATION_KEY ?? "" },
       body: JSON.stringify({ action: "jobs-sync", ...sync }), signal: AbortSignal.timeout(15_000),
     });
-    if (!res.ok) return { ...result, ok: false, message: `${result.message} · KNOX refused the talent job update (${res.status})` };
+    if (!res.ok) return { ...result, ok: false, message: `${result.message} · KNOX refused the job update (${res.status})` };
     const { changed } = (await res.json()) as { changed?: number };
-    return { ...result, message: `${result.message} · ${plural(sync.paid.length + sync.open.length, "talent job line")}${changed ? ` · ${changed} updated on the board` : ""}` };
+    return { ...result, message: `${result.message} · ${plural(sync.paid.length + sync.open.length, "job line")}${changed ? ` · ${changed} updated on the board` : ""}` };
   } catch (err) {
     return { ok: false, message: `cannot read invoices.md: ${(err as Error).message}` };
   }
