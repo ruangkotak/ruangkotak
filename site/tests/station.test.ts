@@ -940,3 +940,15 @@ test("the Post stage shows this week's count for the owner and nothing of it rea
   const client = snapshot({ mode: "client", account: "client-demo" }, { gates });
   assert.doesNotMatch(JSON.stringify(client), /posted this week|"week":\{"start"/);
 });
+
+test("a Brand's old per-video price is not a monthly deal: the Paid stage does not say RM0 a month agreed", () => {
+  const acer: ClientRecord = { id: "zz-acer", label: "ZZ Acer", createdAt: NOW.toISOString(), keyHash: "x", status: "active", category: "brand", price: 300 };
+  const r = withClients(shipped, [acer]);
+  const s = buildSnapshot({ registry: r, view: { mode: "owner", account: "all" }, runs: {}, events: [], gates: {}, probes: [], funnel: null, clients: [acer], now: NOW });
+  assert.equal(s.money!.priced, 0);
+  assert.equal(s.money!.monthly, 0);
+  const paid = s.stages!.find((x) => x.id === "paid")!.note ?? "";
+  assert.doesNotMatch(paid, /a month agreed/);
+  assert.match(paid, /no paying client yet/);
+  assert.ok(s.needsMe!.some((n) => n.key === "price:zz-acer" && /job: category and fee/.test(n.title)), "asks for the job instead");
+});
