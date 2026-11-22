@@ -104,6 +104,7 @@
     { "id": "needs-me-sync", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "draft-review", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "agent-work", "desk": "router", "schedule": "every 15m", "account": "internal" },
+    { "id": "production-write", "desk": "scriptwriter", "schedule": "every 5m", "account": "internal" },
     { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
     { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
     { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },

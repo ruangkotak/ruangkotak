@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { acceptBrandRequest, BRAND_JOBS_MAX, brandJob, mytDate, brandJobFee, cleanJobSync, clientCategory, clientLogEntry, clientTerms, commissionOf, syncJobs, hashKey, newClientKey, onboarding, TALENT_JOBS_MAX, talentJob, validateClient, type ClientRecord } from "@/lib/station";
 import { fileRegistry, json, ownerRequest } from "@/lib/station-live";
-import { brandRequestStore, clientLog, clientStore, stationStore } from "@/lib/store";
+import { brandRequestStore, clientLog, clientStore, prodStore, stationStore } from "@/lib/store";
 
 // The Clients tab: list, add, rotate a link, pause, resume, update, remove. Owner only; anyone else gets a 404.
 // A new or rotated key is returned once and never stored, only its hash. Writes made with the session cookie must come
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const clients = await clientStore.all(); // always fresh: this is the list being edited
   const jobIds = clients.flatMap((c) => [`${c.id}-velocity`, `${c.id}-final-check`]);
   const [runs, gates] = await Promise.all([stationStore.runs(jobIds), stationStore.gates()]);
-  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)), history: await clientLog.list(), requests: await brandRequestStore.all() });
+  return json({ clients: clients.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((c) => view(c, runs, gates)), history: await clientLog.list(), requests: await brandRequestStore.all(), productions: await prodStore.all() });
 }
 
 export async function POST(req: NextRequest) {
@@ -133,10 +133,12 @@ export async function POST(req: NextRequest) {
     if (body.action === "brand-job-remove") {
       if (!c.brandJobs?.some((j) => j.id === body.jobId)) return json({ ok: false, error: "No such job." }, 404);
       await clientStore.save({ ...c, brandJobs: c.brandJobs.filter((j) => j.id !== body.jobId) });
+      await prodStore.remove([`${c.id}:${body.jobId}`]);
       return json({ ok: true });
     }
     if (body.action === "remove") {
       await clientStore.remove(c.id);
+      await prodStore.remove((await prodStore.all()).filter((p) => p.clientId === c.id).map((p) => p.key));
       await clientLog.add(clientLogEntry("removed", c, viaKey, now));
       return json({ ok: true });
     }

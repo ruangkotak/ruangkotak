@@ -4,6 +4,8 @@ import { ArrowsClockwise, CheckCircle, Circle, Eye, PauseCircle, PlayCircle, Tra
 import { useCallback, useEffect, useState } from "react";
 import { brandInvoiceLine, brandJobStep, CLIENT_CATEGORIES, cutOf, DEAL_TYPES, dealLabel, RATE_CARD_FEE, type BrandJob, type BrandRequest, type DealType, jobInvoiceLine, mytDate, slugify, type ClientCategory, type ClientRecord, type OnboardingStep, type ClientLogEntry, type TalentJob } from "@/lib/station";
 import { CopyButton, rm } from "./parts";
+import { ProductionPanel } from "./production";
+import type { Production } from "@/lib/production";
 
 type Client = Omit<ClientRecord, "keyHash"> & { steps: OnboardingStep[] };
 type Issued = { id: string; label: string; key: string; fresh: boolean };
@@ -198,7 +200,7 @@ function TalentTerms({ c, busy, act }: { c: Client; busy: string | null; act: (a
 const STEP_TEXT = { fee: "no fee yet", invoice: "to invoice", unpaid: "invoiced · unpaid", paid: "paid" } as const;
 
 /** Brand only: the Onboarding department's job list. Category and fee are set here; invoices.md decides paid. */
-function BrandJobs({ c, busy, act }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void> }) {
+function BrandJobs({ c, busy, act, prods, onChange }: { c: Client; busy: string | null; act: (action: string, extra?: Record<string, unknown>, confirmText?: string) => Promise<void>; prods: Production[]; onChange: () => void }) {
   const [deal, setDeal] = useState<DealType | "">("");
   const [what, setWhat] = useState("");
   const usual = c.price || RATE_CARD_FEE; // a fee set the old way (per video) becomes the default for new jobs
@@ -239,6 +241,7 @@ function BrandJobs({ c, busy, act }: { c: Client; busy: string | null; act: (act
                   {step === "paid" && <span className="inline-flex min-h-[36px] items-center gap-1 px-1 text-[11.5px] text-good"><CheckCircle size={14} aria-hidden /> paid {day(j.paidAt)}</span>}
                   <button type="button" disabled={!!busy} aria-label={`Remove the ${j.what} job`} onClick={() => act("brand-job-remove", { jobId: j.id }, `Remove the ${dealLabel(j.deal)} job "${j.what}"? This cannot be undone.`)} className="ml-auto inline-flex min-h-[36px] items-center px-1.5 text-bad hover:underline disabled:opacity-50"><Trash size={14} aria-hidden /></button>
                 </div>
+                <ProductionPanel clientId={c.id} job={j} p={prods.find((x) => x.jobId === j.id && x.clientId === c.id)} onChange={onChange} />
                 {step === "fee" && <p className="text-[11px] text-muted">Ask for the fee anyway: rate card RM{RATE_CARD_FEE} + review unit for one video on Instagram &amp; TikTok.</p>}
               </li>
             );
@@ -282,7 +285,7 @@ function brandNext(c: Client): { text: string; todo: boolean } {
   return { text: "All paid", todo: false };
 }
 
-function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void; onIssued: (i: Issued) => void }) {
+function ClientCard({ c, onChange, onIssued, prods }: { c: Client; onChange: () => void; onIssued: (i: Issued) => void; prods: Production[] }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [handle, setHandle] = useState(c.instagram ?? "");
@@ -367,7 +370,7 @@ function ClientCard({ c, onChange, onIssued }: { c: Client; onChange: () => void
       )}
 
       {!paused && c.category === "talent" && <TalentTerms c={c} busy={busy} act={act} />}
-      {!paused && brand && <BrandJobs c={c} busy={busy} act={act} />}
+      {!paused && brand && <BrandJobs c={c} busy={busy} act={act} prods={prods} onChange={onChange} />}
 
       {/* A brand's fee lives on each job; an old per-video price is only the default fee for new jobs. */}
       {!paused && c.category !== "talent" && !brand && (
@@ -468,6 +471,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
   const [clients, setClients] = useState<Client[] | null>(null);
   const [history, setHistory] = useState<ClientLogEntry[]>([]);
   const [requests, setRequests] = useState<BrandRequest[]>([]);
+  const [prods, setProds] = useState<Production[]>([]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
@@ -476,8 +480,9 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
     try {
       const res = await fetch("/api/station/clients", { cache: "no-store", credentials: "same-origin" });
       if (!res.ok) throw new Error(`KNOX answered ${res.status}`);
-      const data = (await res.json()) as { clients: Client[]; history?: ClientLogEntry[]; requests?: BrandRequest[] };
+      const data = (await res.json()) as { clients: Client[]; history?: ClientLogEntry[]; requests?: BrandRequest[]; productions?: Production[] };
       setRequests(data.requests ?? []);
+      setProds(data.productions ?? []);
       setClients(data.clients);
       setHistory(data.history ?? []);
       setError(null);
@@ -488,6 +493,13 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
   useEffect(() => {
     load();
   }, [load]);
+  // While Claude is writing a script on the laptop, look again every 30 seconds so it appears without a reload.
+  const writing = prods.some((p) => p.stage === "writing");
+  useEffect(() => {
+    if (!writing) return;
+    const t = setInterval(load, 30_000);
+    return () => clearInterval(t);
+  }, [writing, load]);
   const changed = () => {
     load();
     onChanged();
@@ -515,7 +527,7 @@ export function Clients({ onChanged }: { onChanged: () => void }) {
             </div>
             {mine.length ? (
               <ul className="grid gap-3 lg:grid-cols-2">
-                {[...mine].sort((a, b) => g.ids.indexOf(a.category) - g.ids.indexOf(b.category)).map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} />)}
+                {[...mine].sort((a, b) => g.ids.indexOf(a.category) - g.ids.indexOf(b.category)).map((c) => <ClientCard key={c.id} c={c} onChange={changed} onIssued={setIssued} prods={prods} />)}
               </ul>
             ) : null}
           </section>

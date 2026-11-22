@@ -33,5 +33,5 @@ export function proxy(request: NextRequest) {
 
 // Pages only: not the API, report links, the private /station board, static assets (anything with a file extension), or the static SPACE STACK page.
 export const config = {
-  matcher: ["/((?!api/|_next/|r/|station|space-stack|.*\\..*).*)"],
+  matcher: ["/((?!api/|_next/|r/|review|station|space-stack|.*\\..*).*)"],
 };

@@ -3,6 +3,7 @@
 // Local: in-memory, resets on restart.
 import { withoutSample } from "./funnel";
 import type { Alerted, AskRecord, BrandRequest, ClientLogEntry, ClientRecord, DoneMarks, DraftDecision, DraftMarks, DraftView, GateReading, ReelSnapshot, Run, StationEvent } from "./station";
+import type { Production } from "./production";
 import type { Lead, Report } from "./types";
 
 type StoredLead = Lead & { reportId: string; at: string };
@@ -390,4 +391,24 @@ export const brandRequestStore = REDIS
       count: async (): Promise<number> => Object.keys(reqmem).length,
       add: async (q: BrandRequest) => void (reqmem[q.id] = q),
       remove: async (id: string) => void delete reqmem[id],
+    };
+
+// ---------- Station: production on a brand job (brief, script, storyboard, client review) ----------
+// st:prod = hash of "<clientId>:<jobId>" -> Production. Owner data; the client only ever sees clientView() of one.
+// Kept with the client records: no expiry. Removed with its brand job or client.
+const gp = globalThis as unknown as { __rkProd?: Record<string, Production> };
+const prodmem = (gp.__rkProd ??= {});
+
+export const prodStore = REDIS
+  ? {
+      all: async (): Promise<Production[]> => Object.values(pairs(await redis<string[] | null>("HGETALL", "st:prod"), (v) => JSON.parse(v) as Production)),
+      get: async (key: string): Promise<Production | null> => parse<Production>(await redis<string | null>("HGET", "st:prod", key)),
+      save: async (p: Production) => void (await redis("HSET", "st:prod", p.key, JSON.stringify(p))),
+      remove: async (keys: string[]) => void (keys.length && (await redis("HDEL", "st:prod", ...keys))),
+    }
+  : {
+      all: async (): Promise<Production[]> => Object.values(prodmem),
+      get: async (key: string): Promise<Production | null> => prodmem[key] ?? null,
+      save: async (p: Production) => void (prodmem[p.key] = p),
+      remove: async (keys: string[]) => keys.forEach((k) => delete prodmem[k]),
     };
