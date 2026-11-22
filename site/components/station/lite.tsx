@@ -144,8 +144,9 @@ export function MoneyTab({ snap, onClients }: { snap: Snapshot; onClients: () =>
   const m = snap.money;
   const paid = snap.stages?.find((s) => s.id === "paid");
   const tiles: [string, string, string][] = [
-    ["Agreed a month", rm(m?.monthly ?? 0), m?.priced ? `from ${m.priced} paying client${m.priced === 1 ? "" : "s"}` : "no paying client yet"],
-    ["Active clients", String(m?.clients ?? 0), `${m?.priced ?? 0} with a price above RM0`],
+    // Brand fees are per job, not a month: they are counted under KNOX Brand jobs, so this tile only says where they are.
+    ["Agreed a month", rm(m?.monthly ?? 0), m?.priced ? `from ${m.priced} paying client${m.priced === 1 ? "" : "s"}` : m?.brand?.agreed ? `no monthly client · ${rm(m.brand.agreed)} in brand fees below` : "no paying client yet"],
+    ["Active clients", String(m?.clients ?? 0), `${m?.priced ?? 0} on a monthly price${m?.brand?.brands ? ` · ${m.brand.brands} brand${m.brand.brands === 1 ? "" : "s"} paid per job` : ""}`],
     ["Invoices waiting", paid?.waiting === null || paid?.waiting === undefined ? "–" : String(paid.waiting), paid?.waiting === null ? "not counted yet" : paid?.overdue ? "past their window" : "on the invoice checklist"],
   ];
   return (

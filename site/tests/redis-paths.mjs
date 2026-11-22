@@ -91,5 +91,30 @@ assert.equal((await post("/api/station/drafts", { ack: ["agent/abc123"] })).ok, 
 assert.deepEqual((await get("/api/station/drafts")).pending, {});
 step("drafts: list, approve, reject, hand to laptop, confirm (mark applied)");
 
+// Brand requests from the public /onboarding page: kept in a Redis hash, counted (HLEN), accepted into a Brand client
+// whose job then goes fee -> invoiced -> paid from invoices.md, the same as on the live site.
+const offer = { brand: "Redis Brand", reach: "redis-test@example.com", deal: "gifted", what: "mic review", consent: true };
+assert.equal((await post("/api/onboarding", offer)).ok, true);
+let board = await get("/api/station/clients");
+assert.equal(board.requests.length, 1);
+assert.equal((await post("/api/station/clients", { action: "request-accept", requestId: board.requests[0].id })).ok, true);
+board = await get("/api/station/clients");
+assert.equal(board.requests.length, 0);
+const brand = board.clients.find((c) => c.id === "redis-brand");
+assert.equal(brand.category, "brand");
+const bj = brand.brandJobs[0];
+assert.equal((await post("/api/station/clients", { action: "brand-job-fee", id: "redis-brand", jobId: bj.id, fee: "500" })).ok, true);
+assert.equal((await post("/api/station/clients", { action: "jobs-sync", paid: [], open: [ref(bj)] })).changed, 1);
+assert.ok((await get("/api/station/clients")).clients.find((c) => c.id === "redis-brand").brandJobs[0].invoicedAt);
+assert.equal((await post("/api/station/clients", { action: "jobs-sync", paid: [{ ref: ref(bj), on: "2026-11-22" }], open: [] })).changed, 1);
+const paidJob = (await get("/api/station/clients")).clients.find((c) => c.id === "redis-brand").brandJobs[0];
+assert.equal(paidJob.fee, 500);
+assert.ok(paidJob.paidAt);
+assert.equal((await post("/api/onboarding", { ...offer, brand: "Decline Me" })).ok, true);
+const decline = (await get("/api/station/clients")).requests[0];
+assert.equal((await post("/api/station/clients", { action: "request-decline", requestId: decline.id })).ok, true);
+assert.equal((await get("/api/station/clients")).requests.length, 0);
+step("brand requests: public form, accept, fee, invoiced, paid; decline");
+
 const seen = await (await fetch(fake + "/_seen")).json();
 console.log("redis commands exercised:", seen.join(" "));
