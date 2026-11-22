@@ -178,7 +178,7 @@ export async function recordBeat(beat: Beat, registry: Registry, now = new Date(
   } else if (beat.kind === "reels") {
     await stationStore.addReels(beat.account, { at: now.toISOString(), reels: beat.reels });
   } else {
-    await stationStore.setGate(`${beat.gate}:${beat.account}`, { waiting: beat.waiting, oldestAt: beat.oldestAt, at: now.toISOString(), items: beat.items, delivered: beat.delivered });
+    await stationStore.setGate(`${beat.gate}:${beat.account}`, { waiting: beat.waiting, oldestAt: beat.oldestAt, at: now.toISOString(), items: beat.items, delivered: beat.delivered, ...(beat.week ? { week: beat.week } : {}) });
   }
   await stationStore.addEvent(eventFor(beat, registry, now));
   if (beat.source) await stationStore.markSeen(beat.source, now.toISOString());

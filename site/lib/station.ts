@@ -139,13 +139,47 @@ export type JobBeat = { kind: "job"; jobId: string; state: "start" | "ok" | "fai
 /** A named item on a gate's checklist (e.g. a deliverable in final review), shown on the client's page. */
 /** `due` (when the draft goes to the client) and `post` (the posting date) are YYYY-MM-DD, read from the line when it has them. */
 export type GateItem = { label: string; at: string; due?: string; post?: string };
-export type GateBeat = { kind: "gate"; gate: string; account: string; waiting: number; oldestAt?: string; items?: GateItem[]; delivered?: GateItem[]; source?: string };
+/**
+ * The owner's posting week, sent with the Post gate by the content board job. Counts only, never titles.
+ * `start`: the Monday the week began (Malaysia time). `posted`: posts marked live with a date in that week.
+ * `target`: posts a week the owner is aiming for. `planned`: the week's posts still only a slot (format, no script).
+ * `streak`: weeks in a row that reached the target, this week included once it is reached.
+ */
+export type PostingWeek = { start: string; posted: number; target: number; planned: number; streak: number };
+export type GateBeat = { kind: "gate"; gate: string; account: string; waiting: number; oldestAt?: string; items?: GateItem[]; delivered?: GateItem[]; week?: PostingWeek; source?: string };
 /** One reel as Station keeps it: link, publish time, plays. */
 export type Reel = { url: string; at: string; views: number };
 /** The velocity job's scrape, so the account's page can show reels over time. */
 export type ReelsBeat = { kind: "reels"; account: string; reels: Reel[]; source?: string };
 export type Beat = JobBeat | GateBeat | ReelsBeat;
-export type GateReading = { waiting: number; oldestAt?: string; at: string; items?: GateItem[]; delivered?: GateItem[] };
+export type GateReading = { waiting: number; oldestAt?: string; at: string; items?: GateItem[]; delivered?: GateItem[]; week?: PostingWeek };
+
+/** The Monday of the week a YYYY-MM-DD day falls in. */
+export function weekStart(day: string) {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  return new Date(t - ((new Date(t).getUTCDay() + 6) % 7) * 86400_000).toISOString().slice(0, 10);
+}
+
+/** Checks a posting week from a beat: undefined when absent, null when malformed. */
+export function parsePostingWeek(v: unknown): PostingWeek | undefined | null {
+  if (v === undefined) return undefined;
+  if (!v || typeof v !== "object") return null;
+  const w = v as Record<string, unknown>;
+  const whole = (x: unknown, max: number) => Number.isInteger(x) && (x as number) >= 0 && (x as number) <= max;
+  if (typeof w.start !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(w.start) || weekStart(w.start) !== w.start) return null;
+  if (!whole(w.posted, 200) || !whole(w.target, 50) || (w.target as number) < 1 || !whole(w.planned, 200) || !whole(w.streak, 520)) return null;
+  return { start: w.start, posted: w.posted as number, target: w.target as number, planned: w.planned as number, streak: w.streak as number };
+}
+
+/** The Post stage's line about the posting week; undefined when no reading is for the current week. */
+export function postingNote(week: PostingWeek | undefined, today: string): string | undefined {
+  if (!week || week.start !== weekStart(today)) return undefined;
+  return [
+    `${week.posted} of ${week.target} posted this week`,
+    week.planned ? `${week.planned} still only planned` : undefined,
+    week.streak ? `${week.streak}-week streak` : undefined,
+  ].filter(Boolean).join(" · ");
+}
 export type ReelSnapshot = { at: string; reels: Reel[] };
 
 export const KEEP_RUNS = 10;
@@ -188,7 +222,10 @@ export function parseBeat(body: unknown, r: Registry): { ok: true; beat: Beat } 
     const open = items(b.items, 15);
     const delivered = items(b.delivered, 30);
     if (open === null || delivered === null) return { ok: false, error: "items and delivered must be short lists of {label, at}" };
-    return { ok: true, beat: { kind: "gate", gate: gate.id, account, waiting: b.waiting as number, oldestAt: b.oldestAt as string | undefined, items: open, delivered, source } };
+    const week = parsePostingWeek(b.week);
+    if (week === null) return { ok: false, error: "week must be {start (a Monday), posted, target, planned, streak} as whole numbers" };
+    if (week && gate.id !== "post") return { ok: false, error: "only the post gate carries a week" };
+    return { ok: true, beat: { kind: "gate", gate: gate.id, account, waiting: b.waiting as number, oldestAt: b.oldestAt as string | undefined, items: open, delivered, ...(week ? { week } : {}), source } };
   }
   if (typeof b.jobId !== "string" || !r.jobs.some((j) => j.id === b.jobId)) return { ok: false, error: "unknown jobId" };
   if (b.state !== "start" && b.state !== "ok" && b.state !== "fail") return { ok: false, error: "state must be start, ok or fail" };
@@ -923,6 +960,8 @@ export type StageId = "audience" | "onboard" | "make" | "post" | "paid";
 export type StageView = {
   id: StageId; no: string; name: string; waiting: number | null; oldestAt?: string; overdue: boolean;
   parts: { label: string; waiting: number | null }[]; note?: string;
+  /** Post only: this week's posts against the target, when the reading is for the current week. */
+  week?: PostingWeek;
 };
 /** One thing waiting on the owner. `where` names the file or tab to act in: Station itself changes nothing. */
 /** `clear`: what a Done press does. "item" ticks this one line; "all" ticks every line waiting at that moment. Absent: act where it lives. */
@@ -1093,6 +1132,10 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
   const talent = talentMoney(clients, today.slice(0, 7));
   const brand = brandMoney(clients, today.slice(0, 7));
   const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote, ...(talent.talents ? { talent } : {}), ...(brand.brands ? { brand } : {}) };
+  // The posting week rides on the Post gate; the newest reading for an account in view wins.
+  const postWeek = Object.entries(input.gates)
+    .filter(([k, v]) => k.startsWith("post:") && input.inAccount(k.slice(5)) && v.week)
+    .sort(([, a], [, b]) => b.at.localeCompare(a.at))[0]?.[1].week;
   const unset = (c: ClientRecord) =>
     c.category === "talent" ? c.commission === undefined
     : c.category === "brand" ? !c.brandJobs?.length || c.brandJobs.some((j) => brandJobStep(j) === "fee")
@@ -1108,10 +1151,11 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     const views = input.gateViews.filter((g) => s.gates.includes(g.id));
     const read = views.filter((g) => g.waiting !== null);
     const note = s.id === "paid" ? [money.priced ? `RM${money.monthly.toLocaleString("en-MY")} a month agreed with ${money.priced} of ${money.clients} clients` : money.clients && !money.brand?.agreed ? "no paying client yet" : undefined, money.talent?.outstanding ? `RM${money.talent.outstanding.toLocaleString("en-MY")} talent commission outstanding` : undefined, money.brand?.toInvoice ? `RM${money.brand.toInvoice.toLocaleString("en-MY")} brand fees not invoiced` : undefined, money.brand?.outstanding ? `RM${money.brand.outstanding.toLocaleString("en-MY")} brand fees unpaid` : undefined, money.invoices].filter(Boolean).join(" · ") || undefined
-      : s.id === "post" ? `${delivered} passed final review in the last 7 days` : undefined;
+      : s.id === "post" ? [postingNote(postWeek, today), `${delivered} passed final review in the last 7 days`].filter(Boolean).join(" · ") : undefined;
     return {
       ...base, waiting: read.length ? read.reduce((n, g) => n + g.waiting!, 0) : null, oldestAt: views.map((g) => g.oldestAt).filter((x): x is string => !!x).sort()[0],
       overdue: views.some((g) => g.overdue), parts: views.map((g) => ({ label: g.label, waiting: g.waiting })), note,
+      ...(s.id === "post" && postWeek && postingNote(postWeek, today) ? { week: postWeek } : {}),
     };
   });
   return { stages, needsMe, money };

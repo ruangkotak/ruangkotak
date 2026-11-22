@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
   alertable, alertText, planAlerts, REPEAT_MS, type NeedsYou, accountPanel, type ReelSnapshot, reelsDue, reelsMessage, reelTargets, siteProbe,
   answerCommand, ownerReport, clientCategory, CLIENT_CATEGORIES, commissionOf, cutOf, talentJob, talentMoney, applyBeat, buildSnapshot, clientTerms, clientUpdate, doneFile, parseDoneKey, isDue, clientJobs, hashKey, onboarding, publicRegistry, slugify, validateClient, withClients, type ClientRecord, checkRegistry, clientKeyName, cookieFor, cookieScope, eventFor, jobView, keyScope, nextCron,
-  parseBeat, parseSchedule, resolveView,
+  parseBeat, parsePostingWeek, parseSchedule, resolveView, weekStart,
   type Beat, type JobBeat, type Registry, type Run, type SnapshotInput, type View,
 } from "../lib/station.ts";
 
@@ -907,4 +907,36 @@ test("client history: who was added or removed, and whether from the page or a s
     { at: "2026-11-15T20:00:00.000Z", action: "removed", id: "rode", label: "Pixel Distribution", via: "page" });
   assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").via, "key");
   assert.equal(clientLogEntry("added", { id: "x", label: "X".repeat(90) }, true, "2026-11-15T20:00:00.000Z").label.length, 60);
+});
+
+// ---------- posting week (the Post stage counts the week against a target) ----------
+
+test("a posting week starts on Monday, and only the Post gate may carry one", () => {
+  assert.equal(weekStart("2026-11-23"), "2026-11-23"); // a Monday
+  assert.equal(weekStart("2026-11-22"), "2026-11-16"); // a Sunday belongs to the week before
+  assert.equal(weekStart("2026-11-26"), "2026-11-23");
+  const week = { start: "2026-11-02", posted: 3, target: 7, planned: 2, streak: 1 };
+  assert.deepEqual(parsePostingWeek(week), week);
+  assert.equal(parsePostingWeek({ ...week, start: "2026-11-03" }), null, "not a Monday");
+  assert.equal(parsePostingWeek({ ...week, target: 0 }), null);
+  assert.equal(parsePostingWeek({ ...week, posted: 1.5 }), null);
+  const ok = parseBeat({ gate: "post", waiting: 1, week }, registry);
+  assert.ok(ok.ok && ok.beat.kind === "gate" && ok.beat.week?.posted === 3);
+  assert.deepEqual(parseBeat({ gate: "review", waiting: 1, week }, registry), { ok: false, error: "only the post gate carries a week" });
+  const extra = parseBeat({ gate: "post", waiting: 1, week: { ...week, extra: "a title" } }, registry);
+  assert.ok(extra.ok && extra.beat.kind === "gate");
+  assert.deepEqual(extra.beat.week, week, "nothing but the five counts is kept");
+});
+
+test("the Post stage shows this week's count for the owner and nothing of it reaches a client", () => {
+  const week = { start: "2026-11-02", posted: 3, target: 7, planned: 2, streak: 1 };
+  const gates = { "post:internal": { waiting: 1, oldestAt: minutes(-30).toISOString(), at: NOW.toISOString(), week } };
+  const owner = snapshot({ mode: "owner", account: "all" }, { gates });
+  assert.match(owner.stages!.find((x) => x.id === "post")!.note!, /^3 of 7 posted this week · 2 still only planned · 1-week streak · /);
+  const stale = snapshot({ mode: "owner", account: "all" }, { gates: { "post:internal": { ...gates["post:internal"], week: { ...week, start: "2026-10-26" } } } });
+  assert.doesNotMatch(stale.stages!.find((x) => x.id === "post")!.note!, /posted this week/, "last week's count is not shown as this week's");
+  assert.deepEqual(owner.stages!.find((x) => x.id === "post")!.week, week);
+  assert.equal(stale.stages!.find((x) => x.id === "post")!.week, undefined);
+  const client = snapshot({ mode: "client", account: "client-demo" }, { gates });
+  assert.doesNotMatch(JSON.stringify(client), /posted this week|"week":\{"start"/);
 });

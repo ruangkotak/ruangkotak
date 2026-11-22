@@ -15,11 +15,11 @@ import { beat, type JobContext, type JobResult } from "../client.mts";
 import { AGENT_DRAFT, DRAFT_FILE, DRAFT_LIST_MAX, DRAFT_PREVIEW_MAX, type DraftDecision, type DraftView } from "../../../lib/station.ts";
 import { checklistItem, myt, readQueue, stationFolder, tickLine } from "../queue.mts";
 import { labelOf } from "./final-check.mts";
-import { contentDir, DONE, LIVE, readBoard, readDrafts, REJECTED, review, setStatus, statusOf } from "./board-completeness.mts";
+import { awaitingReview, contentDir, LIVE, postTarget, readBoard, readDrafts, review, setStatus, statusOf } from "./board-completeness.mts";
 import { mytDay } from "./reminder-check.mts";
 
 /** Still waiting for the owner's review: not approved (or further along) and not turned down. */
-const waiting = (status: string) => !DONE.has(status) && !REJECTED.has(status);
+const waiting = awaitingReview;
 
 export type Decision = { file: string; decision: DraftDecision; at: string };
 
@@ -108,7 +108,7 @@ export default async function run(ctx: JobContext): Promise<JobResult> {
       const ack = await fetch(url, { method: "POST", headers, body: JSON.stringify({ ack: handled }), signal: AbortSignal.timeout(15_000) });
       if (!ack.ok) return { ok: false, message: `wrote ${written}, but KNOX refused the confirmation (${ack.status})` };
       // A decision changes the Review and Post counts: report them now instead of waiting for 09:00.
-      if (board) for (const g of review(readBoard(dir), mytDay(ctx.now)).gates ?? []) await beat(ctx.env, g);
+      if (board) for (const g of review(readBoard(dir), mytDay(ctx.now), postTarget(ctx.env)).gates ?? []) await beat(ctx.env, g);
     }
     // An agent draft decided here changes the Drafts count: report it with this run.
     const gates = agentDecided ? [{ gate: "drafts", ...readQueue(slurp(queueFile)) }] : undefined;
