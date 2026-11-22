@@ -1128,7 +1128,8 @@ export function buildPipeline(input: PipelineInput): { stages: StageView[]; need
     .flatMap(([, v]) => v.delivered ?? [])
     .filter((d) => now.getTime() - Date.parse(d.at) < 7 * 86400_000).length;
   // A price of 0 is a client you do not charge. Talent never pays a price: what they bring in is our share of each job.
-  const priced = clients.filter((c) => !!c.price && c.category !== "talent");
+  // A Brand is paid per job (its brandJobs); a price kept from before brand jobs is only the default fee, not a monthly deal.
+  const priced = clients.filter((c) => !!c.price && c.category !== "talent" && c.category !== "brand");
   const talent = talentMoney(clients, today.slice(0, 7));
   const brand = brandMoney(clients, today.slice(0, 7));
   const money: Money = { monthly: priced.reduce((n, c) => n + c.price! * (c.perMonth ?? 0), 0), priced: priced.length, clients: clients.length, invoices: input.invoiceNote, ...(talent.talents ? { talent } : {}), ...(brand.brands ? { brand } : {}) };
