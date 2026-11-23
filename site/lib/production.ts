@@ -176,3 +176,23 @@ export function writerPrompt(p: Pick<Production, "brand" | "what" | "brief" | "c
     "BRIEF>>>",
   ].join("\n");
 }
+
+/** A brief file Alan picks: text files are read as they are, a PDF has its text pulled out in the browser. */
+export const BRIEF_FILE_ACCEPT = ".pdf,.txt,.md,.markdown,.csv,application/pdf,text/plain,text/markdown,text/csv";
+export const BRIEF_FILE_MAX_MB = 15;
+export type BriefFileKind = "pdf" | "text" | null;
+export function briefFileKind(name: string, type: string): BriefFileKind {
+  if (/\.pdf$/i.test(name) || type === "application/pdf") return "pdf";
+  if (/\.(txt|md|markdown|csv)$/i.test(name) || type.startsWith("text/")) return "text";
+  return null;
+}
+
+/** The text of a PDF, from pdf.js text items per page: lines kept, runs of spaces and blank lines squeezed. */
+export function joinPdfText(pages: { str?: string; hasEOL?: boolean }[][]): string {
+  return pages
+    .map((items) => items.map((i) => (i.str ?? "") + (i.hasEOL ? "\n" : "")).join(""))
+    .map((page) => page.replace(/[ \t ]+/g, " ").replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, BRIEF_MAX);
+}

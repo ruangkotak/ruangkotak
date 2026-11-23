@@ -106,3 +106,25 @@ test("the writer prompt keeps the verdict Alan's and fences the brief as data", 
 test("blanks for Alan are counted; questions for the brand are not", () => {
   assert.equal(alanBlanks("[ALAN'S VERDICT AFTER TESTING]\n[WHAT ALAN NOTICED]\n[TO CONFIRM] nits\n[SCALE READING]"), 2);
 });
+
+test("a brief file can be a PDF or a text file, nothing else", async () => {
+  const { briefFileKind } = await import("../lib/production.ts");
+  assert.equal(briefFileKind("Acer brief.PDF", ""), "pdf");
+  assert.equal(briefFileKind("brief", "application/pdf"), "pdf");
+  assert.equal(briefFileKind("brief.md", ""), "text");
+  assert.equal(briefFileKind("notes", "text/plain"), "text");
+  assert.equal(briefFileKind("brief.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"), null);
+  assert.equal(briefFileKind("photo.jpg", "image/jpeg"), null);
+});
+
+test("PDF text keeps its lines and pages, squeezes the spacing", async () => {
+  const { joinPdfText, BRIEF_MAX } = await import("../lib/production.ts");
+  const out = joinPdfText([
+    [{ str: "Acer   Swift Go 14", hasEOL: true }, { str: "Battery:" }, { str: " " }, { str: "12 h", hasEOL: true }, {}],
+    [],
+    [{ str: "Deadline 5 Dec", hasEOL: true }, { str: "", hasEOL: true }, { str: "", hasEOL: true }, { str: "", hasEOL: true }, { str: "Do not mention price" }],
+  ]);
+  assert.equal(out, "Acer Swift Go 14\nBattery: 12 h\n\nDeadline 5 Dec\n\nDo not mention price");
+  assert.equal(joinPdfText([[{ str: "x".repeat(BRIEF_MAX + 50) }]]).length, BRIEF_MAX);
+  assert.equal(joinPdfText([[], [{ str: "   " }]]), "");
+});

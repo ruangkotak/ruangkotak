@@ -1,13 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { alanBlanks, PROD_STAGES, type Production } from "@/lib/production";
+import { alanBlanks, BRIEF_FILE_ACCEPT, BRIEF_FILE_MAX_MB, BRIEF_MAX, briefFileKind, joinPdfText, PROD_STAGES, type Production } from "@/lib/production";
 import type { BrandJob } from "@/lib/station";
 
 async function call(body: Record<string, unknown>) {
   const res = await fetch("/api/station/production", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), credentials: "same-origin" });
   const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
   if (!res.ok || !data.ok) throw new Error(data.error ?? `KNOX answered ${res.status}`);
+}
+
+/** The text of a PDF brief, read in this browser: the file itself is never uploaded. pdf.js is loaded only when needed. */
+async function pdfText(f: File): Promise<string> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  // pdf.js runs its worker code on this page (briefs are small), so no separate worker file has to be served.
+  const g = globalThis as { pdfjsWorker?: unknown };
+  // @ts-expect-error pdf.js ships no types for its worker module
+  g.pdfjsWorker ??= await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+  const task = pdfjs.getDocument({ data: new Uint8Array(await f.arrayBuffer()) });
+  try {
+    const doc = await task.promise;
+    const pages: { str?: string; hasEOL?: boolean }[][] = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      pages.push((await page.getTextContent()).items as { str?: string; hasEOL?: boolean }[]);
+      if (pages.flat().reduce((a, i) => a + (i.str?.length ?? 0), 0) > BRIEF_MAX) break;
+    }
+    return joinPdfText(pages);
+  } finally {
+    await task.destroy();
+  }
 }
 
 const btn = "min-h-[36px] rounded-[6px] border border-line px-2.5 text-[11.5px] hover:border-ink disabled:opacity-50";
@@ -45,10 +67,27 @@ export function ProductionPanel({ clientId, job, p, onChange }: { clientId: stri
     }
   };
 
-  const readFile = async (f: File | undefined) => {
+  const [reading, setReading] = useState(false);
+  const readFile = async (input: HTMLInputElement) => {
+    const f = input.files?.[0];
+    input.value = ""; // picking the same file again reads it again
     if (!f) return;
-    if (!/\.(txt|md|markdown|csv)$/i.test(f.name) && !f.type.startsWith("text/")) return setError("Text files only (.txt, .md). For a PDF, open it, copy all the text and paste it here.");
-    setBrief((await f.text()).slice(0, 20_000));
+    const kind = briefFileKind(f.name, f.type);
+    if (!kind) return setError("Pick a PDF or a text file (.pdf, .txt, .md). For a Word file, save it as PDF first.");
+    if (f.size > BRIEF_FILE_MAX_MB * 1024 * 1024) return setError(`That file is over ${BRIEF_FILE_MAX_MB} MB. Paste the brief's text instead.`);
+    setError(null);
+    if (kind === "text") return setBrief((await f.text()).slice(0, BRIEF_MAX));
+    setReading(true);
+    try {
+      const t = await pdfText(f);
+      if (t.length < 20) return setError("This PDF has no text to read (it is probably a scan or a picture). Type or paste the key points instead.");
+      setBrief(t);
+    } catch (e) {
+      const name = (e as { name?: string }).name;
+      setError(name === "PasswordException" ? "This PDF is password-protected. Open it, copy the text and paste it here." : "Could not read this PDF. Open it, copy the text and paste it here.");
+    } finally {
+      setReading(false);
+    }
   };
 
   const stage = p?.stage;
@@ -71,12 +110,13 @@ export function ProductionPanel({ clientId, job, p, onChange }: { clientId: stri
           {stage === "approved" && <p className="text-good">Approved by the client{p?.clientNote ? `: “${p.clientNote}”` : ""}. Record it.</p>}
 
           <label className="flex flex-col gap-1">
-            <span>Brief <span className="text-muted">(paste the client&apos;s brief, or pick a .txt / .md file)</span></span>
+            <span>Brief <span className="text-muted">(paste the client&apos;s brief, or pick a PDF or .txt / .md file: check the text it pulls in)</span></span>
             <textarea className="field !min-h-[120px] text-[12px]" maxLength={20_000} disabled={!briefOpen} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Product, key specs, what they want shown, deadline, do's and don'ts…" />
           </label>
           {briefOpen && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <input type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" onChange={(e) => readFile(e.target.files?.[0])} className="max-w-[220px] text-[11px]" aria-label="Brief file" />
+              <input type="file" accept={BRIEF_FILE_ACCEPT} disabled={reading} onChange={(e) => readFile(e.currentTarget)} className="max-w-[220px] text-[11px]" aria-label="Brief file (PDF or text)" />
+              {reading && <span className="text-[11px] text-muted">Reading the PDF…</span>}
               {(!p || brief !== p.brief) && <button type="button" disabled={busy || brief.trim().length < 20} className={btn} onClick={() => act({ action: "brief", clientId, jobId: job.id, brief })}>Save brief</button>}
               <button type="button" disabled={busy || brief.trim().length < 20} className={solid}
                 onClick={() => act({ action: "brief", clientId, jobId: job.id, brief, write: true }, p?.script ? "Write a new script? Your edits to the current one will be replaced." : undefined)}>
