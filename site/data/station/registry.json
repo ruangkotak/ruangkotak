@@ -20,7 +20,7 @@
         { "id": "registrar", "name": "Register", "agent": "account-director" },
         { "id": "deal-desk", "name": "Category" },
         { "id": "rate-desk", "name": "Fee", "agent": "account-director" },
-        { "id": "brand-billing", "name": "Invoice" }
+        { "id": "billing-clerk", "name": "Billing Clerk" }
       ]
     },
     {
@@ -34,21 +34,8 @@
         { "id": "scrape-agent", "name": "Scrape Agent" },
         { "id": "shoot-producer", "name": "Shoot Producer" },
         { "id": "publisher", "name": "Publisher", "agent": "social-lead" },
-        { "id": "cmo-reviewer", "name": "Reviewer" }
-      ]
-    },
-    {
-      "id": "cdo", "no": "03", "name": "CDO", "client": true,
-      "desks": [
-        { "id": "art-director", "name": "Art Director", "agent": "creative-lead" },
-        { "id": "designer", "name": "Designer", "agent": "creative-lead" },
-        { "id": "editor", "name": "Editor" },
-        { "id": "motion-designer", "name": "Motion Designer" },
-        { "id": "caption-editor", "name": "Caption Editor", "agent": "creative-lead" },
-        { "id": "web-ui-designer", "name": "Web UI Designer" },
-        { "id": "colorist", "name": "Colorist" },
-        { "id": "sound-editor", "name": "Sound Editor" },
-        { "id": "cdo-reviewer", "name": "Reviewer" }
+        { "id": "cmo-reviewer", "name": "Reviewer" },
+        { "id": "cdo-reviewer", "name": "Final Reviewer" }
       ]
     },
     {
@@ -69,27 +56,6 @@
         { "id": "router", "name": "Router" },
         { "id": "inbox", "name": "Inbox" }
       ]
-    },
-    {
-      "id": "cfo", "no": "06", "name": "CFO", "client": false,
-      "desks": [
-        { "id": "controller", "name": "Controller" },
-        { "id": "billing-clerk", "name": "Billing Clerk" },
-        { "id": "cost-analyst", "name": "Cost Analyst" },
-        { "id": "payroll-kpi", "name": "Payroll & KPI" },
-        { "id": "cfo-reviewer", "name": "Reviewer" }
-      ]
-    },
-    {
-      "id": "cto", "no": "07", "name": "CTO", "client": false,
-      "desks": [
-        { "id": "platform-engineer", "name": "Platform Engineer" },
-        { "id": "web-builder", "name": "Web Builder" },
-        { "id": "site-reliability", "name": "Site Reliability" },
-        { "id": "security-officer", "name": "Security Officer", "agent": "security-reviewer" },
-        { "id": "backup-recovery", "name": "Backup & Recovery" },
-        { "id": "cto-reviewer", "name": "Reviewer" }
-      ]
     }
   ],
   "jobs": [
@@ -105,14 +71,6 @@
     { "id": "draft-review", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "agent-work", "desk": "router", "schedule": "every 15m", "account": "internal" },
     { "id": "production-write", "desk": "scriptwriter", "schedule": "every 5m", "account": "internal" },
-    { "id": "credential-registry", "desk": "security-officer", "schedule": "0 3 * * *", "account": "internal" },
-    { "id": "backup-freshness-guard", "desk": "backup-recovery", "schedule": "every 6h", "account": "internal" },
-    { "id": "station-map-obs", "desk": "site-reliability", "schedule": "every 5m", "account": "internal" },
-    { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "every 15m", "account": "internal" },
-    { "id": "cost-watch", "desk": "cost-analyst", "schedule": "0 9 * * 1", "account": "internal" },
-    { "id": "books-summary", "desk": "controller", "schedule": "30 9 * * 1", "account": "internal" },
-    { "id": "kpi-weekly", "desk": "payroll-kpi", "schedule": "0 10 * * 1", "account": "internal" },
-    { "id": "payroll-check", "desk": "payroll-kpi", "schedule": "30 10 * * 1-5", "account": "internal" },
-    { "id": "sync-watchdog", "desk": "platform-engineer", "schedule": "every 15m", "account": "internal" }
+    { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "every 15m", "account": "internal" }
   ]
 }

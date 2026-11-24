@@ -32,8 +32,7 @@ const MOVED: Record<string, Tab> = { station: "health", jobs: "health", alerts: 
 
 // Where each department sits on wide screens (12 columns). Phones stack everything in one column.
 const SPAN: Record<string, string> = {
-  cmo: "md:col-span-6", cdo: "md:col-span-6", coo: "md:col-span-6 xl:col-span-5",
-  router: "md:col-span-6 xl:col-span-2", cfo: "md:col-span-12 xl:col-span-5", cto: "md:col-span-12",
+  onboarding: "md:col-span-6", cmo: "md:col-span-6", coo: "md:col-span-6", router: "md:col-span-6",
 };
 
 const queryOf = (s: Snapshot["view"]) =>
@@ -250,6 +249,12 @@ export function Station({ initial, canSwitch }: { initial: Snapshot; canSwitch: 
                     <div className="mono self-center text-[11px] text-muted md:order-2">{j.schedule}{showAccount ? ` · ${j.account}` : ""}</div>
                     <div className="self-center text-[11px] text-muted md:order-3">{j.startedAt ? `started ${dur(now - Date.parse(j.startedAt))} ago` : j.lastEndAt ? `last ${dur(now - Date.parse(j.lastEndAt))} ago` : "no runs yet"}</div>
                     <div className="col-span-2 self-center md:order-5 md:col-span-1"><Pips runs={j.runs} /></div>
+                    {j.state === "running" && j.progress !== undefined && (
+                      <div className="col-span-2 md:col-span-5 md:order-6">
+                        <div className="h-1 w-full overflow-hidden bg-line" role="progressbar" aria-valuenow={j.progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-mark transition-all" style={{ width: `${j.progress}%` }} /></div>
+                        <div className="mono mt-1 text-[11px] text-muted">{j.progress}%{j.progressMessage ? ` · ${j.progressMessage}` : ""}</div>
+                      </div>
+                    )}
                     {(j.reason || j.lastMessage) && <div className={`col-span-2 min-w-0 break-words text-[11px] md:order-6 md:col-span-5 ${j.reason ? "text-bad" : "text-muted"}`}>{j.reason ?? j.lastMessage}</div>}
                   </li>
                 );

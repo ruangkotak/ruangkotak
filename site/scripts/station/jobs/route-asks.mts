@@ -1,7 +1,7 @@
 // Router, every 15 minutes: send each new ask to a desk.
 // Asks live in <vault>/Station/Asks.md (created on first run): one line per ask, "- [ ] cut the hook for reel 14".
-// A #tag picks the desk (#editor, #billing-clerk, #cdo …); otherwise the first keyword that names the work does
-// ("caption" → Caption Editor, "invoice" → Billing Clerk). The line gets "→ Desk" and a hidden marker. An ask no desk
+// A #tag picks the desk (#scriptwriter, #billing-clerk, #cmo …); otherwise the first keyword that names the work does
+// ("caption" → Scriptwriter, "invoice" → Billing Clerk). The line gets "→ Desk" and a hidden marker. An ask no desk
 // matches is marked "→ ? (add a #desk)" and checked again each run until it gets one; those go to Needs you.
 // Station gets counts per desk, never the ask text.
 // Asks typed on KNOX's Needs me tab wait on the site (KNOX cannot reach this folder). Each run collects them first
@@ -15,27 +15,19 @@ import { checklistItem, markNewLines, stationFolder } from "../queue.mts";
 export type DeskRef = { id: string; name: string; dept: string };
 
 // Department tags land on the desk that takes new work there.
-const DEPT_LEAD: Record<string, string> = { cmo: "strategist", cdo: "art-director", coo: "coo-lead", cfo: "controller", cto: "platform-engineer", router: "router" };
+const DEPT_LEAD: Record<string, string> = { cmo: "strategist", coo: "coo-lead", router: "router" };
 // Keyword → desk, checked in the order the words appear in the ask.
 const KEYWORDS: [RegExp, string][] = [
-  [/^(caption|captions|subtitle|subtitles)$/, "caption-editor"],
-  [/^(reel|reels|edit|cut|trim|recut)$/, "editor"],
-  [/^(thumbnail|cover|carousel|design|banner|slide|slides)$/, "designer"],
-  [/^(motion|animation|animate)$/, "motion-designer"],
-  [/^(colour|color|grade|grading)$/, "colorist"],
-  [/^(sound|audio|music|voiceover|vo|mix)$/, "sound-editor"],
+  [/^(caption|captions|subtitle|subtitles)$/, "scriptwriter"],
+  [/^(thumbnail|cover|carousel|design|banner|slide|slides)$/, "card-writer"],
   [/^(script|hook|hooks|storyboard)$/, "scriptwriter"],
   [/^(post|publish|schedule|upload)$/, "publisher"],
   [/^(shoot|film|filming|recce)$/, "shoot-producer"],
   [/^(invoice|invoices|payment|bill|billing|receipt)$/, "billing-clerk"],
   [/^(quote|proposal|client|onboard|onboarding)$/, "account-manager"],
-  [/^(website|site|bug|deploy|landing)$/, "web-builder"],
   [/^(analytics|insights|views|report|metrics)$/, "performance-analyst"],
   [/^(scrape|scraper)$/, "scrape-agent"],
   [/^(strategy|plan|positioning|pillar|pillars)$/, "strategist"],
-  [/^(cost|costs|budget|spend)$/, "cost-analyst"],
-  [/^(backup|restore)$/, "backup-recovery"],
-  [/^(password|credential|credentials|security|2fa)$/, "security-officer"],
 ];
 
 const slug = (s: string) => s.toLowerCase().replace(/&/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

@@ -134,8 +134,9 @@ export function isDue(schedule: Schedule, e: TickEntry, now: Date): boolean {
 // ---------- runs and beats ----------
 
 /** `attention`: something a successful run wants you to see (e.g. "2 overdue tasks"). It goes to Needs you without failing the job. */
-export type Run = { startAt?: string; endAt?: string; ok?: boolean; exitCode?: number; message?: string; attention?: string; source?: string };
-export type JobBeat = { kind: "job"; jobId: string; state: "start" | "ok" | "fail"; exitCode?: number; message?: string; attention?: string; source?: string };
+export type Run = { startAt?: string; endAt?: string; ok?: boolean; exitCode?: number; message?: string; attention?: string; source?: string; progress?: number };
+/** `progress` (0-100) on a start beat updates the open run in place (a progress bar) instead of opening a new run. */
+export type JobBeat = { kind: "job"; jobId: string; state: "start" | "ok" | "fail"; exitCode?: number; message?: string; attention?: string; source?: string; progress?: number };
 /** A named item on a gate's checklist (e.g. a deliverable in final review), shown on the client's page. */
 /** `due` (when the draft goes to the client) and `post` (the posting date) are YYYY-MM-DD, read from the line when it has them. */
 export type GateItem = { label: string; at: string; due?: string; post?: string };
@@ -232,17 +233,21 @@ export function parseBeat(body: unknown, r: Registry): { ok: true; beat: Beat } 
   if (b.exitCode !== undefined && !Number.isInteger(b.exitCode)) return { ok: false, error: "exitCode must be an integer" };
   if (b.message !== undefined && typeof b.message !== "string") return { ok: false, error: "message must be a string" };
   if (b.attention !== undefined && typeof b.attention !== "string") return { ok: false, error: "attention must be a string" };
+  if (b.progress !== undefined && (b.state !== "start" || typeof b.progress !== "number" || !Number.isFinite(b.progress) || b.progress < 0 || b.progress > 100)) return { ok: false, error: "progress must be 0-100 and only goes on a start beat" };
+  const progress = b.progress === undefined ? undefined : Math.round(b.progress as number);
   const tidy = (v: unknown, max: number) => (v as string | undefined)?.replace(/\s+/g, " ").trim().slice(0, max) || undefined;
   const message = tidy(b.message, 200);
   const attention = b.state === "start" ? undefined : tidy(b.attention, 160);
-  return { ok: true, beat: { kind: "job", jobId: b.jobId, state: b.state, exitCode: b.exitCode as number | undefined, message, attention, source } };
+  return { ok: true, beat: { kind: "job", jobId: b.jobId, state: b.state, exitCode: b.exitCode as number | undefined, message, attention, source, ...(progress === undefined ? {} : { progress }) } };
 }
 
 /** Folds one job beat into its run list (newest first, at most KEEP_RUNS). A finish closes the open run, or stands alone. */
 export function applyBeat(runs: Run[], beat: JobBeat, now: Date): Run[] {
   const at = now.toISOString();
   const head = runs[0];
-  if (beat.state === "start") return [{ startAt: at, source: beat.source, message: beat.message }, ...runs].slice(0, KEEP_RUNS);
+  if (beat.state === "start" && beat.progress !== undefined && head?.startAt && !head.endAt)
+    return [{ ...head, message: beat.message ?? head.message, progress: beat.progress, source: beat.source ?? head.source }, ...runs.slice(1)];
+  if (beat.state === "start") return [{ startAt: at, source: beat.source, message: beat.message, ...(beat.progress === undefined ? {} : { progress: beat.progress }) }, ...runs].slice(0, KEEP_RUNS);
   const ok = beat.state === "ok";
   const exitCode = beat.exitCode ?? (ok ? 0 : 1);
   const end: Run = { endAt: at, ok, exitCode, message: beat.message, attention: beat.attention, source: beat.source };
@@ -256,7 +261,7 @@ export type JobState = "running" | "stuck" | "failing" | "due" | "scheduled" | "
 export type DeskState = "running" | "stuck" | "due" | "failing" | "scheduled" | "idle" | "no-read";
 export type JobView = {
   id: string; desk: string; deskName: string; dept: string; account: string; schedule: string;
-  state: JobState; reason?: string; nextAt: string | null; startedAt?: string; lastEndAt?: string; lastMessage?: string; attention?: string;
+  state: JobState; reason?: string; nextAt: string | null; startedAt?: string; lastEndAt?: string; lastMessage?: string; progress?: number; progressMessage?: string; attention?: string;
   runs: { ok: boolean | null; exitCode?: number; at: string }[];
 };
 
@@ -293,7 +298,7 @@ export function jobView(job: Job, r: Registry, runs: Run[], now: Date): JobView 
   else state = nextAt ? "scheduled" : "never";
   return {
     id: job.id, desk: desk.id, deskName: desk.name, dept: dept.id, account: job.account, schedule: job.schedule,
-    state, reason, nextAt: nextAt?.toISOString() ?? null, startedAt: open?.startAt, lastEndAt: finished[0]?.endAt, lastMessage: finished[0]?.message, attention: finished[0]?.ok ? finished[0].attention : undefined,
+    state, reason, nextAt: nextAt?.toISOString() ?? null, startedAt: open?.startAt, ...(open?.progress === undefined ? {} : { progress: open.progress, progressMessage: open.message }), lastEndAt: finished[0]?.endAt, lastMessage: finished[0]?.message, attention: finished[0]?.ok ? finished[0].attention : undefined,
     runs: runs.slice(0, KEEP_RUNS).map((x) => ({ ok: x.endAt ? !!x.ok : null, exitCode: x.exitCode, at: (x.endAt ?? x.startAt)! })),
   };
 }
