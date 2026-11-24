@@ -75,7 +75,7 @@ test("bad schedules are refused", () => {
 // ---------- runs and states ----------
 
 test("a start without a finish is running", () => {
-  const v = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }], minutes(-2)), NOW);
+  const v = jobView(job("needs-me-sync"), registry, runsFrom([{ state: "start" }], minutes(-2)), NOW);
   assert.equal(v.state, "running");
   assert.ok(v.startedAt);
 });
@@ -89,32 +89,32 @@ test("a finish closes the open run instead of adding a new one", () => {
 
 test("three failures in a row is stuck, with the exit codes in the reason", () => {
   const runs = runsFrom([{ state: "ok" }, { state: "fail", exitCode: 1 }, { state: "fail", exitCode: 2 }, { state: "fail", exitCode: 1 }]);
-  const v = jobView(job("credential-registry"), registry, runs, NOW);
+  const v = jobView(job("brief-sweep"), registry, runs, NOW);
   assert.equal(v.state, "stuck");
   assert.equal(v.reason, "last 3 runs exited 1, 2, 1");
   const long = runsFrom(Array.from({ length: 5 }, () => ({ state: "fail" as const, exitCode: 4 })));
-  assert.equal(jobView(job("credential-registry"), registry, long, NOW).reason, "5 failed runs in a row, latest exits 4, 4, 4");
+  assert.equal(jobView(job("brief-sweep"), registry, long, NOW).reason, "5 failed runs in a row, latest exits 4, 4, 4");
 });
 
 test("two failures is failing, not stuck; a success clears it", () => {
   const two = runsFrom([{ state: "fail" }, { state: "fail" }]);
-  assert.equal(jobView(job("credential-registry"), registry, two, NOW).state, "failing");
+  assert.equal(jobView(job("brief-sweep"), registry, two, NOW).state, "failing");
   const healed = runsFrom([{ state: "fail" }, { state: "fail" }, { state: "fail" }, { state: "ok" }]);
-  assert.notEqual(jobView(job("credential-registry"), registry, healed, NOW).state, "stuck");
+  assert.notEqual(jobView(job("brief-sweep"), registry, healed, NOW).state, "stuck");
 });
 
 test("a run open for over an hour is stuck (hung)", () => {
-  const v = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }], minutes(-90)), NOW);
+  const v = jobView(job("needs-me-sync"), registry, runsFrom([{ state: "start" }], minutes(-90)), NOW);
   assert.equal(v.state, "stuck");
   assert.match(v.reason ?? "", /never finished/);
 });
 
 test("next run follows the last start; a missed slot reads as due", () => {
   // every 5m, last started 26 minutes ago and finished fine: it missed its slot.
-  const late = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-25)), NOW);
+  const late = jobView(job("needs-me-sync"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-25)), NOW);
   assert.equal(late.state, "due");
   assert.equal(late.nextAt, minutes(-21).toISOString());
-  const fresh = jobView(job("station-map-obs"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-2)), NOW);
+  const fresh = jobView(job("needs-me-sync"), registry, runsFrom([{ state: "start" }, { state: "ok" }], minutes(-2)), NOW);
   assert.equal(fresh.state, "scheduled");
 });
 
@@ -133,9 +133,9 @@ test("only the last 10 runs are kept", () => {
 
 test("beats for unknown jobs, gates or bad fields are rejected", () => {
   assert.deepEqual(parseBeat({ jobId: "nope", state: "ok" }, registry), { ok: false, error: "unknown jobId" });
-  assert.equal(parseBeat({ jobId: "sync-watchdog", state: "maybe" }, registry).ok, false);
-  assert.equal(parseBeat({ jobId: "sync-watchdog", state: "fail", exitCode: 1.5 }, registry).ok, false);
-  assert.equal(parseBeat({ jobId: "sync-watchdog", state: "ok", source: "My Laptop!" }, registry).ok, false);
+  assert.equal(parseBeat({ jobId: "route-asks", state: "maybe" }, registry).ok, false);
+  assert.equal(parseBeat({ jobId: "route-asks", state: "fail", exitCode: 1.5 }, registry).ok, false);
+  assert.equal(parseBeat({ jobId: "route-asks", state: "ok", source: "My Laptop!" }, registry).ok, false);
   assert.equal(parseBeat({ gate: "review", waiting: -1 }, registry).ok, false);
   assert.equal(parseBeat({ gate: "nope", waiting: 1 }, registry).ok, false);
   assert.equal(parseBeat({ gate: "review", waiting: 1, account: "someone-else" }, registry).ok, false);
@@ -143,7 +143,7 @@ test("beats for unknown jobs, gates or bad fields are rejected", () => {
 });
 
 test("a valid beat is accepted and its message is trimmed", () => {
-  const r = parseBeat({ jobId: "sync-watchdog", state: "fail", exitCode: 3, message: `  ${"x".repeat(300)}  `, source: "laptop" }, registry);
+  const r = parseBeat({ jobId: "route-asks", state: "fail", exitCode: 3, message: `  ${"x".repeat(300)}  `, source: "laptop" }, registry);
   assert.ok(r.ok);
   assert.equal((r.beat as JobBeat).message?.length, 200);
   const g = parseBeat({ gate: "review", waiting: 2 }, registry);
@@ -151,10 +151,10 @@ test("a valid beat is accepted and its message is trimmed", () => {
 });
 
 test("a failed beat leaves a readable log line", () => {
-  const e = eventFor({ kind: "job", jobId: "credential-registry", state: "fail", exitCode: 1 } as Beat, registry, NOW);
-  assert.equal(e.dept, "cto");
+  const e = eventFor({ kind: "job", jobId: "brief-sweep", state: "fail", exitCode: 1 } as Beat, registry, NOW);
+  assert.equal(e.dept, "coo");
   assert.equal(e.level, "fail");
-  assert.equal(e.message, "credential-registry failed (exit 1)");
+  assert.equal(e.message, "brief-sweep failed (exit 1)");
 });
 
 // ---------- access ----------
@@ -200,7 +200,7 @@ const failing3 = runsFrom([{ state: "fail" }, { state: "fail" }, { state: "fail"
 
 test("needs-you gathers stuck jobs, bad probes and overdue gates", () => {
   const s = snapshot({ mode: "owner", account: "all" }, {
-    runs: { "credential-registry": failing3 },
+    runs: { "brief-sweep": failing3 },
     probes: [
       { id: "site", label: "ruangkotak.com", status: "degraded", detail: "front page slow: 2400 ms" },
       { id: "apify", label: "Apify", status: "no-probe", detail: "APIFY_TOKEN not set" },
@@ -208,10 +208,10 @@ test("needs-you gathers stuck jobs, bad probes and overdue gates", () => {
     gates: { "review:internal": { waiting: 3, oldestAt: minutes(-50 * 60).toISOString(), at: NOW.toISOString() } },
   });
   assert.deepEqual(s.needsYou.map((n) => n.kind), ["job", "probe", "gate"]);
-  assert.equal(s.needsYou[0].title, "Security Officer: credential-registry failing");
+  assert.equal(s.needsYou[0].title, "Dispatcher: brief-sweep failing");
   assert.equal(s.top.stuck, 1);
   assert.equal(s.top.queue, 3);
-  assert.equal(s.departments.find((d) => d.id === "cto")!.desks.find((k) => k.id === "security-officer")!.state, "stuck");
+  assert.equal(s.departments.find((d) => d.id === "coo")!.desks.find((k) => k.id === "dispatcher")!.state, "stuck");
 });
 
 test("a gate nobody reports on says so instead of showing zero", () => {
@@ -222,17 +222,17 @@ test("a gate nobody reports on says so instead of showing zero", () => {
 
 test("the client view never leaks internal departments, other accounts, infra or sources", () => {
   const s = snapshot({ mode: "client", account: "client-demo" }, {
-    runs: { "credential-registry": failing3, "client-demo-velocity": runsFrom([{ state: "start" }], minutes(-1)) },
+    runs: { "brief-sweep": failing3, "client-demo-velocity": runsFrom([{ state: "start" }], minutes(-1)) },
     probes: [{ id: "site", label: "ruangkotak.com", status: "down", detail: "x" }],
     gates: { "review:internal": { waiting: 5, at: NOW.toISOString() }, "review:client-demo": { waiting: 1, at: NOW.toISOString() } },
     events: [
       { at: NOW.toISOString(), dept: "cmo", desk: "performance-analyst", account: "client-demo", level: "info", message: "running client-demo-velocity", source: "laptop" },
       { at: NOW.toISOString(), dept: "cmo", desk: "funnel-operator", account: "alanazizreview", level: "info", message: "running ig-comment-dm" },
-      { at: NOW.toISOString(), dept: "cto", desk: "security-officer", account: "internal", level: "fail", message: "credential-registry failed" },
+      { at: NOW.toISOString(), dept: "coo", desk: "dispatcher", account: "internal", level: "fail", message: "brief-sweep failed" },
     ],
     funnel: [{ day: "2026-11-07", home_view: 9 }],
   });
-  assert.deepEqual(s.departments.map((d) => d.id), ["cmo", "cdo"]);
+  assert.deepEqual(s.departments.map((d) => d.id), ["cmo"]);
   assert.equal(s.infra, null);
   assert.deepEqual(s.accounts.map((a) => a.id), ["client-demo"]);
   assert.ok(s.departments.flatMap((d) => d.jobs).every((j) => j.account === "client-demo"));
@@ -246,13 +246,13 @@ test("the client view never leaks internal departments, other accounts, infra or
   assert.equal(s.top.working, 1);
   assert.ok(s.departments.flatMap((d) => d.desks).every((k) => k.agent === undefined));
   const text = JSON.stringify(s);
-  for (const leak of ["alanazizreview", "credential-registry", "laptop", "internal", "instagram"]) assert.ok(!text.includes(leak), `client snapshot mentions ${leak}`);
+  for (const leak of ["alanazizreview", "brief-sweep", "laptop", "internal", "instagram"]) assert.ok(!text.includes(leak), `client snapshot mentions ${leak}`);
 });
 
 test("the owner can filter to one account", () => {
   const s = snapshot({ mode: "owner", account: "alanazizreview" });
   assert.deepEqual([...new Set(s.departments.flatMap((d) => d.jobs).map((j) => j.account))], ["alanazizreview"]);
-  assert.equal(s.departments.length, 7);
+  assert.equal(s.departments.length, 4);
 });
 
 // ---------- laptop scheduler ----------
@@ -383,10 +383,10 @@ const N = (key: string, title: string, kind: NeedsYou["kind"] = "job"): NeedsYou
 
 test("needs-you items carry keys that name the thing, not the wording", () => {
   const s = snapshot({ mode: "owner", account: "all" }, {
-    runs: { "credential-registry": failing3, "reminder-check": applyBeat([], { kind: "job", jobId: "reminder-check", state: "ok", attention: "2 overdue tasks" }, NOW) },
+    runs: { "brief-sweep": failing3, "reminder-check": applyBeat([], { kind: "job", jobId: "reminder-check", state: "ok", attention: "2 overdue tasks" }, NOW) },
     probes: [{ id: "site", label: "ruangkotak.com", status: "down", detail: "x" }],
   });
-  assert.deepEqual(s.needsYou.map((n) => n.key), ["job:credential-registry", "attention:reminder-check", "probe:site:down"]);
+  assert.deepEqual(s.needsYou.map((n) => n.key), ["job:brief-sweep", "attention:reminder-check", "probe:site:down"]);
 });
 
 test("a new item is announced once; a reworded one again only after 6 hours; a cleared one once as resolved", () => {
@@ -405,9 +405,9 @@ test("a new item is announced once; a reworded one again only after 6 hours; a c
 
 test("the message lists what is new, then what cleared, then the link", () => {
   const prev = { b: { title: "Billing Clerk: 1 invoice past due", at: NOW.toISOString() } };
-  const plan = planAlerts([{ ...N("a", "Security Officer: credential-registry failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
+  const plan = planAlerts([{ ...N("a", "Dispatcher: brief-sweep failing"), detail: "last 3 runs exited 1, 1, 1" }], prev, NOW);
   assert.equal(alertText(plan, "https://ruangkotak.com/station#health"),
-    "KNOX needs you (1)\n• Security Officer: credential-registry failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#health");
+    "KNOX needs you (1)\n• Dispatcher: brief-sweep failing (last 3 runs exited 1, 1, 1)\n\nResolved\n✓ Billing Clerk: 1 invoice past due\n\nhttps://ruangkotak.com/station#health");
   assert.match(alertText(planAlerts([], prev, NOW), "L")!, /^KNOX: cleared\n✓ Billing Clerk/);
 });
 
@@ -554,7 +554,7 @@ test("the five stages and Needs me are built from gates and clients, owner only"
 });
 
 test("a stuck job reaches Needs me as a system item", () => {
-  const s = snapshot({ mode: "owner", account: "all" }, { runs: { "sync-watchdog": runsFrom([{ state: "start" }], minutes(-90)) } });
+  const s = snapshot({ mode: "owner", account: "all" }, { runs: { "route-asks": runsFrom([{ state: "start" }], minutes(-90)) } });
   assert.deepEqual(s.needsMe!.map((n) => [n.stage, n.overdue]), [["system", true]]);
 });
 
@@ -593,7 +593,7 @@ test("Done: only checklists and named final items can be cleared, and a press hi
 test("Done keys name a checklist file and nothing else", () => {
   assert.deepEqual(parseDoneKey("gate:drafts:internal"), { gate: "drafts", account: "internal" });
   assert.deepEqual(parseDoneKey("final:kopi-kita:Reel 3 v2 · due 2026-11-20"), { gate: "final", account: "kopi-kita", label: "Reel 3 v2 · due 2026-11-20" });
-  for (const bad of ["gate:invoice:internal", "gate:review:internal", "price:kopi-kita", "link:kopi-kita", "job:sync-watchdog", "final:../x:y"]) assert.equal(parseDoneKey(bad), null, bad);
+  for (const bad of ["gate:invoice:internal", "gate:review:internal", "price:kopi-kita", "link:kopi-kita", "job:route-asks", "final:../x:y"]) assert.equal(parseDoneKey(bad), null, bad);
   const account = (id: string, instagram?: string) => ({ id, label: id, kind: "client" as const, funnel: null, instagram });
   assert.equal(doneFile("final", account("kopi-kita")), "final-queue-kopi-kita.md");
   assert.equal(doneFile("dm", account("alanazizreview", "alanazizreview")), "dm-queue-alanazizreview.md");
@@ -830,7 +830,7 @@ test("a Creator is asked for a price per reel; a Brand goes through Onboarding i
 test("onboarding department: register, category, fee, invoice for a brand job", async () => {
   const { brandJob, brandJobFee, brandJobStep, brandInvoiceLine, brandMoney, syncJobs, checkRegistry } = await import("../lib/station.ts");
   assert.deepEqual(checkRegistry(shipped), []);
-  assert.deepEqual(shipped.departments[0].desks.map((d) => d.name), ["Register", "Category", "Fee", "Invoice"]);
+  assert.deepEqual(shipped.departments[0].desks.map((d) => d.name), ["Register", "Category", "Fee", "Billing Clerk"]);
   // Category and fee: paid kinds need a fee, gifted and loan may start at 0 (and are then asked for one).
   assert.deepEqual(brandJob({ deal: "paid-unit", what: " Wireless  Micro ", fee: "500", date: "2026-11-20" }), { ok: true, value: { deal: "paid-unit", what: "Wireless Micro", fee: 500, date: "2026-11-20" } });
   assert.match((brandJob({ deal: "paid", what: "Mic", fee: "0", date: "2026-11-20" }) as { error: string }).error, /needs a fee/);
@@ -951,4 +951,29 @@ test("a Brand's old per-video price is not a monthly deal: the Paid stage does n
   assert.doesNotMatch(paid, /a month agreed/);
   assert.match(paid, /no paying client yet/);
   assert.ok(s.needsMe!.some((n) => n.key === "price:zz-acer" && /job: category and fee/.test(n.title)), "asks for the job instead");
+});
+
+test("progress beats update the open run in place and never crowd out history", () => {
+  const runs = runsFrom([{ state: "start", message: "found" }, { state: "start", progress: 20, message: "transcribing 10%" }, { state: "start", progress: 60, message: "writing script" }]);
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].progress, 60);
+  assert.equal(runs[0].message, "writing script");
+  const done = runsFrom([{ state: "start", progress: 5 }, { state: "start", progress: 50 }, { state: "ok" }]);
+  assert.equal(done.length, 1);
+  assert.equal(done[0].ok, true);
+});
+
+test("parseBeat takes progress only on a start beat, 0-100", () => {
+  const reg = { accounts: [], gates: [], departments: [], jobs: [{ id: "j" }] } as never;
+  assert.equal(parseBeat({ jobId: "j", state: "start", progress: 40 }, reg).ok, true);
+  assert.equal(parseBeat({ jobId: "j", state: "ok", progress: 40 }, reg).ok, false);
+  assert.equal(parseBeat({ jobId: "j", state: "start", progress: 140 }, reg).ok, false);
+});
+
+test("filmscribe is a registered job that reports its own progress and is never due on a timer", () => {
+  const j = shipped.jobs.find((x) => x.id === "filmscribe");
+  assert.ok(j, "filmscribe must be in the registry so its beats are accepted");
+  assert.equal(parseBeat({ jobId: "filmscribe", state: "start", progress: 50, message: "transcribing 50%" }, shipped).ok, true);
+  const v = jobView(j!, shipped, [], NOW);
+  assert.notEqual(v.state, "due");
 });

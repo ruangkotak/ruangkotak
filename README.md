@@ -99,26 +99,18 @@ is a 404 to anyone without a key.
 
   | Job | Desk | Schedule | Checks |
   | --- | --- | --- | --- |
-  | `station-map-obs` | Site Reliability | every 5m | ruangkotak.com answers 200 within 5s; also keeps the Laptop tile green |
-  | `sync-watchdog` | Platform Engineer | every 15m | `git fetch` works; reports ahead/behind and changed files |
-  | `backup-freshness-guard` | Backup & Recovery | every 6h | fails if unpushed commits or uncommitted edits are older than 24h |
-  | `credential-registry` | Security Officer | 03:00 daily | fails if a tracked file holds an env file, a known token shape, or one of your local secret values |
   | `vault-conflict-scan` | Librarian | every 30m | fails if sync left conflict copies in your notes vault (only with `--vault`) |
   | `ig-velocity-6h` | Performance Analyst | every 6h | plays per hour on the newest reels vs the last scrape; fails if no reels come back (needs `--apify-token`) |
   | `ig-comment-dm` | Funnel Operator | every 15m | comments with a trigger word on reels from the last 7 days go into a DM checklist (needs `--apify-token` and `--ig-keywords "AUDIT,KOTAK"`) |
   | `reminder-check` | Digest Editor | 08:00, 20:00 | reads `TASKS.md` (repo root or vault, or `--tasks <file>`); writes `<vault>/Station/Digest.md`; overdue tasks and waits over 7 days go to *Needs you* |
   | `brief-sweep` | Dispatcher | 07:00 Mon–Sat | new monthly applications from the site go into `<vault>/Station/brief-queue.md`; the **Brief** gate counts unticked ones (24h window) |
   | `board-completeness` | CMO Reviewer | 09:00 | reads `content/<date>/*.md` and their `**Status:**` line; the **Review** gate counts drafts dated today or later; a draft publishing within a day that isn't approved goes to *Needs you* |
-  | `<client>-final-check` (`final-check`) | CDO Reviewer | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
+  | `<client>-final-check` (`final-check`) | Final Reviewer (CMO) | 18:00 weekdays | counts unticked lines in `<vault>/Station/final-queue-<client>.md` for the **Final** gate, which the client also sees; add `- [ ] Reel 3 v2` lines by hand |
   | `needs-me-sync` | Router | every 5m | carries out the Done presses from Needs me: ticks the matching lines in the checklist files and re-reads a final-review file at once; presses wait on Station while the laptop is off |
   | `route-asks` | Router | every 15m | routes each new line in `<vault>/Station/Asks.md` to a desk by `#tag` (`#editor`, `#cdo` …) or keyword, and appends `→ Desk`; asks with no desk go to *Needs you* |
   | `draft-review` | Router | every 5m | carries out Approve and Reject from Needs me: rewrites the draft's `**Status:**` line (or ticks an agent draft in `drafts-queue.md`), and sends the drafts still waiting so they can be read on the board |
   | `agent-work` | Router | every 15m | only with `--agents on`: hands routed asks to the desk's agent and lists each draft in `<vault>/Station/drafts-queue.md`; the **Drafts** gate counts them (see *Agents that draft the work*) |
   | `invoice-chase` | Billing Clerk | every 15m | `<vault>/Station/invoices.md`; the **Invoice** gate counts unpaid invoices; past-due ones go to *Needs you*; a ticked `job <reference>` line marks that talent job received on the board |
-  | `cost-watch` | Cost Analyst | Monday 09:00 | `<vault>/Station/costs.md`: monthly run-rate, renewals within 7 days (→ *Needs you*), and this cycle's real Apify usage when `APIFY_TOKEN` is set (above 80% → *Needs you*) |
-  | `books-summary` | Controller | Monday 09:30 | writes `<vault>/Station/Finance.md`: paid this month and last, invoiced, outstanding, costs, paid minus costs |
-  | `kpi-weekly` | Payroll & KPI | Monday 10:00 | adds this week's row to `<vault>/Station/KPI.md`: the site funnel's last 7 days plus revenue paid this month |
-  | `payroll-check` | Payroll & KPI | 10:30 weekdays | `<vault>/Station/payroll.md`: unpaid payouts and their total; payouts due within 3 days or late go to *Needs you*; paid payroll is netted in `Finance.md` |
 
   **Ledgers:** `invoices.md` lines look like
   `- [ ] INV-012 · client-demo · RM 3,500 · sent 2026-11-01 · due 2026-11-20`

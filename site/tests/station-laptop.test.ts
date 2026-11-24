@@ -3,9 +3,6 @@ import { test } from "node:test";
 import { askLine, cleanAsk, DRAFT_FILE, type Registry } from "../lib/station.ts";
 import { addAsks } from "../scripts/station/jobs/route-asks.mts";
 import { parseEnvFile } from "../scripts/station/client.mts";
-import { verdict } from "../scripts/station/jobs/backup-freshness-guard.mts";
-import { findSecrets } from "../scripts/station/jobs/credential-registry.mts";
-import { describe } from "../scripts/station/jobs/sync-watchdog.mts";
 import { isConflict } from "../scripts/station/jobs/vault-conflict-scan.mts";
 import { compact, type ReelSnapshot } from "../scripts/station/apify.mts";
 import { fill, keywordsOf, matches, MESSAGE_TEMPLATE, messageFrom, planSends, queueLine, readQueue, withoutErrorItems, type Comment } from "../scripts/station/jobs/ig-comment-dm.mts";
@@ -21,10 +18,6 @@ import { deskFor, route, type DeskRef } from "../scripts/station/jobs/route-asks
 import { markNewLines, markerOf } from "../scripts/station/queue.mts";
 import { formatMoney, parseCosts, parseInvoices, parseMoney, total, withoutComments, INVOICES_TEMPLATE, COSTS_TEMPLATE } from "../scripts/station/ledger.mts";
 import { chase, jobSync } from "../scripts/station/jobs/invoice-chase.mts";
-import { costReport } from "../scripts/station/jobs/cost-watch.mts";
-import { books } from "../scripts/station/jobs/books-summary.mts";
-import { upsertRow, weekTotals } from "../scripts/station/jobs/kpi-weekly.mts";
-import { payrollCheck } from "../scripts/station/jobs/payroll-check.mts";
 import { PAYROLL_TEMPLATE } from "../scripts/station/ledger.mts";
 import { readFileSync } from "node:fs";
 import { digest, mytDay, parseDay, parseTasks } from "../scripts/station/jobs/reminder-check.mts";
@@ -36,42 +29,6 @@ test("env files are read with quotes stripped and junk ignored", () => {
   assert.deepEqual(parseEnvFile(`# comment\nSTATION_KEY=abc\nSTATION_URL="https://x.test"\n bad line\nEMPTY=\n`), {
     STATION_KEY: "abc", STATION_URL: "https://x.test", EMPTY: "",
   });
-});
-
-test("backup guard passes when everything is pushed", () => {
-  assert.deepEqual(verdict([], [], NOW), { ok: true, message: "everything is on GitHub" });
-});
-
-test("backup guard reports fresh local work without failing", () => {
-  const r = verdict([hoursAgo(2)], [hoursAgo(1), hoursAgo(3)], NOW);
-  assert.equal(r.ok, true);
-  assert.equal(r.message, "1 unpushed commit (oldest 2h), 2 uncommitted files (oldest 3h)");
-});
-
-test("backup guard fails once local-only work is over a day old", () => {
-  assert.equal(verdict([hoursAgo(30)], [], NOW).ok, false);
-  assert.match(verdict([], [hoursAgo(25)], NOW).message, /older than 24h, push it/);
-});
-
-test("sync watchdog describes the branch state in one line", () => {
-  assert.equal(describe("main", 0, 0, 0), "main · in sync · clean");
-  assert.equal(describe("main", 2, 1, 1), "main · 2 ahead, 1 behind · 1 changed file");
-});
-
-test("secret scan names the file and kind, never the value", () => {
-  const known = new Map([["fake-station-key-for-tests-0001", "STATION_KEY"]]);
-  const hits = findSecrets("site/lib/x.ts", `const k = "fake-station-key-for-tests-0001"; // ghp_${"a".repeat(36)}`, known);
-  assert.deepEqual(hits, ["site/lib/x.ts: GitHub token", "site/lib/x.ts: value of STATION_KEY"]);
-  assert.ok(hits.every((h) => !h.includes("fake-station-key")));
-});
-
-test("secret scan flags tracked env files but allows .env.example", () => {
-  assert.deepEqual(findSecrets("site/.env.local", "", new Map()), ["site/.env.local: env file is tracked"]);
-  assert.deepEqual(findSecrets("site/.env.example", "UPSTASH_REDIS_REST_TOKEN=", new Map()), []);
-});
-
-test("secret scan stays quiet on ordinary code", () => {
-  assert.deepEqual(findSecrets("site/lib/store.ts", 'headers: { authorization: `Bearer ${TOKEN}` }', new Map()), []);
 });
 
 test("vault scan catches sync conflict copies, not ordinary note names", () => {
@@ -244,22 +201,22 @@ const DESKS: DeskRef[] = JSON.parse(readFileSync(new URL("../data/station/regist
 
 test("asks go to a desk by #tag first, then by the first keyword", () => {
   const name = (t: string) => deskFor(t, DESKS)?.name ?? null;
-  assert.equal(name("- [ ] cut the hook for reel 14"), "Editor");
-  assert.equal(name("- [ ] fix captions on reel 3"), "Caption Editor");
+  assert.equal(name("- [ ] cut the hook for reel 14"), "Scriptwriter");
+  assert.equal(name("- [ ] fix captions on reel 3"), "Scriptwriter");
   assert.equal(name("- [ ] send the invoice to client-demo"), "Billing Clerk");
-  assert.equal(name("- [ ] reel thumbnail please #designer"), "Designer");
-  assert.equal(name("- [ ] new idea #cdo"), "Art Director");
+  assert.equal(name("- [ ] reel thumbnail please #card-writer"), "Card Writer");
+  assert.equal(name("- [ ] new idea #cmo"), "Strategist");
   assert.equal(name("- [ ] chase payment #billing-clerk"), "Billing Clerk");
   assert.equal(name("- [ ] call mum"), null);
 });
 
 test("routing marks new asks, retries unrouted ones only when they now match, and never rewrites for nothing", () => {
   const t0 = "2026-11-08T01:00:00.000Z";
-  const r1 = route("# Asks\n\n- [ ] cut reel 14\n- [ ] call mum\n- [x] done thing\n", DESKS, t0);
-  assert.deepEqual(r1.routed.map((d) => d.name), ["Editor"]);
+  const r1 = route("# Asks\n\n- [ ] schedule the post\n- [ ] call mum\n- [x] done thing\n", DESKS, t0);
+  assert.deepEqual(r1.routed.map((d) => d.name), ["Publisher"]);
   assert.equal(r1.open, 2);
   assert.equal(r1.unrouted, 1);
-  assert.match(r1.text, /- \[ \] cut reel 14 · → Editor <!-- rk:id=\S+ at=2026-11-08T01:00:00\.000Z desk=editor -->/);
+  assert.match(r1.text, /- \[ \] schedule the post · → Publisher <!-- rk:id=\S+ at=2026-11-08T01:00:00\.000Z desk=publisher -->/);
   assert.match(r1.text, /- \[ \] call mum · → \? \(add a #desk\) <!-- rk:id=\S+ at=\S+ desk=none -->/);
   const r2 = route(r1.text, DESKS, "2026-11-08T01:15:00.000Z");
   assert.equal(r2.changed, false, "an unrouted ask that still matches nothing is left alone");
@@ -311,35 +268,6 @@ test("invoice chase counts unpaid, totals them, and sends past-due ones to Needs
   assert.ok(!JSON.stringify(r).includes("Brand"), "client names stay in the file");
 });
 
-test("cost watch gives the monthly run-rate, this week's renewals and Apify usage", () => {
-  const { costs, unreadable } = parseCosts(COSTS, "2026-11-08");
-  const r = costReport(costs, unreadable, "2026-11-08", { used: 41.2, max: 49 });
-  assert.equal(r.message, "3 costs · RM 60 + $49/mo · 1 renewal this week · Apify this cycle $41.20 of $49 · 1 line without an amount and /mo or /yr");
-  assert.equal(r.attention, "1 renewal this week ($49); Apify at 84% of its monthly limit");
-  assert.equal(costReport([], 0, "2026-11-08", null).message, "no costs listed yet");
-  assert.match(costReport([], 0, "2026-11-08", "error").message, /Apify usage unreadable/);
-});
-
-test("the books summary splits this month from last and nets out a month of costs", () => {
-  const { invoices } = parseInvoices(INVOICES, "2026-11-08");
-  const { costs } = parseCosts(COSTS, "2026-11-08");
-  const { result, note } = books(invoices, costs, "2026-11-08", "2026-11-09 09:30");
-  assert.equal(result.message, "Nov: RM 5,000 paid · RM 3,500 invoiced · RM 5,500 outstanding · costs RM 60 + $49/mo");
-  assert.match(note, /\| Paid \| RM 5,000 \| RM 1,000 \|/);
-  assert.match(note, /\| Paid minus a month of costs \| RM 4,940 \+ −\$49 \| RM 940 \+ −\$49 \|/);
-});
-
-test("the KPI note gets one row per week, replaced if the job runs twice that day", () => {
-  const w = weekTotals([{ day: "a", home_view: 10, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 }, { day: "b", home_view: 5 }]);
-  assert.deepEqual(w, { home_view: 15, preview_started: 4, preview_completed: 3, report_viewed: 2, apply_submitted: 1 });
-  const one = upsertRow("", "| 2026-11-09 | 15 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
-  assert.match(one, /Payroll: see Finance\.md/);
-  const again = upsertRow(one, "| 2026-11-09 | 16 | 4 | 3 | 2 | 1 | RM 5,000 |", "2026-11-09");
-  assert.equal(again.split("\n").filter((l) => l.startsWith("| 2026-11-09")).length, 1);
-  const next = upsertRow(again, "| 2026-11-16 | 20 | 5 | 4 | 3 | 2 | RM 7,000 |", "2026-11-16");
-  assert.deepEqual(next.split("\n").filter((l) => /^\| 2026/.test(l)).map((l) => l.slice(2, 12)), ["2026-11-09", "2026-11-16"]);
-});
-
 // ---------- payroll ----------
 
 const PAYROLL = `# Payroll
@@ -349,27 +277,6 @@ const PAYROLL = `# Payroll
 - [x] Faiz (shoot, freelance) · RM 600 · due 2026-11-02 · paid 2026-11-01
 - [x] Aina (editor) · RM 2,500 · for Oct 2026 · paid 2026-10-31
 `;
-
-test("payroll check: unpaid totals, due-soon and late payouts go to Needs you, never a name", () => {
-  const { invoices, unreadable } = parseInvoices(PAYROLL, "2026-11-08");
-  const r = payrollCheck(invoices, unreadable, "2026-11-08");
-  assert.equal(r.message, "3 payouts unpaid · RM 3,700 · 1 due within 3 days · 1 late · paid this month RM 600");
-  assert.equal(r.attention, "1 payout late (RM 800); 1 payout due within 3 days (RM 2,500)");
-  for (const name of ["Aina", "Faiz", "Mei", "editor"]) assert.ok(!JSON.stringify(r).includes(name), name);
-  assert.equal(payrollCheck([], 0, "2026-11-08").attention, undefined);
-  assert.deepEqual(parseInvoices(withoutComments(PAYROLL_TEMPLATE), "2026-11-08"), { invoices: [], unreadable: 0 });
-});
-
-test("the books summary nets out payroll when there is any, and stays as before when there is none", () => {
-  const { invoices } = parseInvoices(INVOICES, "2026-11-08");
-  const { costs } = parseCosts(COSTS, "2026-11-08");
-  const { invoices: payroll } = parseInvoices(PAYROLL, "2026-11-08");
-  const { result, note } = books(invoices, costs, "2026-11-08", "x", payroll);
-  assert.match(result.message, / · payroll RM 600$/);
-  assert.match(note, /\| Payroll paid \| RM 600 \| RM 2,500 \|/);
-  assert.match(note, /\| Paid minus costs and payroll \| RM 4,340 \+ −\$49 \| −\$49 \+ −RM 1,560 \|/);
-  assert.doesNotMatch(books(invoices, costs, "2026-11-08", "x").note, /Payroll/);
-});
 
 // ---------- DM sending ----------
 
