@@ -969,3 +969,11 @@ test("parseBeat takes progress only on a start beat, 0-100", () => {
   assert.equal(parseBeat({ jobId: "j", state: "ok", progress: 40 }, reg).ok, false);
   assert.equal(parseBeat({ jobId: "j", state: "start", progress: 140 }, reg).ok, false);
 });
+
+test("filmscribe is a registered job that reports its own progress and is never due on a timer", () => {
+  const j = shipped.jobs.find((x) => x.id === "filmscribe");
+  assert.ok(j, "filmscribe must be in the registry so its beats are accepted");
+  assert.equal(parseBeat({ jobId: "filmscribe", state: "start", progress: 50, message: "transcribing 50%" }, shipped).ok, true);
+  const v = jobView(j!, shipped, [], NOW);
+  assert.notEqual(v.state, "due");
+});

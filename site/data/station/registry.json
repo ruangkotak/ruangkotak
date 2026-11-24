@@ -71,6 +71,7 @@
     { "id": "draft-review", "desk": "router", "schedule": "every 5m", "account": "internal" },
     { "id": "agent-work", "desk": "router", "schedule": "every 15m", "account": "internal" },
     { "id": "production-write", "desk": "scriptwriter", "schedule": "every 5m", "account": "internal" },
+    { "id": "filmscribe", "desk": "scriptwriter", "schedule": "0 0 1 1 *", "account": "internal" },
     { "id": "invoice-chase", "desk": "billing-clerk", "schedule": "every 15m", "account": "internal" }
   ]
 }
